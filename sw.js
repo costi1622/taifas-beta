@@ -2,7 +2,7 @@
    Reguli învățate: NU cache.addAll pe shell (all-or-nothing);
    NU intercepta manifestul (se servește din rețea, ca să nu rămână blocat);
    cross-origin și API-urile trec direct la rețea. */
-const CACHE = 'taifas-v5';               // ↑ incrementează la fiecare versiune
+const CACHE = 'taifas-v6';               // ↑ incrementează la fiecare versiune
 const SHELL = ['./', './index.html', './icon-192.png', './icon-512.png', './icon-512-maskable.png', './icon-180.png'];
 
 self.addEventListener('install', e => {
