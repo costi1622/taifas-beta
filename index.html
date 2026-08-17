@@ -1,0 +1,871 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta http-equiv="Content-Security-Policy" content="
+  default-src 'self';
+  script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://js.puter.com https://esm.run https://cdn.jsdelivr.net https://*.jsdelivr.net;
+  worker-src 'self' blob:;
+  child-src blob:;
+  connect-src 'self' https://api.anthropic.com https://*.puter.com https://js.puter.com https://esm.run https://cdn.jsdelivr.net https://*.jsdelivr.net https://huggingface.co https://*.huggingface.co https://raw.githubusercontent.com https://image.pollinations.ai https://gen.pollinations.ai https://api.groq.com https://openrouter.ai https://generativelanguage.googleapis.com;
+  img-src 'self' data: blob: https://image.pollinations.ai https://gen.pollinations.ai;
+  style-src 'self' 'unsafe-inline';
+  font-src 'self' data:;
+  base-uri 'self'; form-action 'self'; object-src 'none';
+">
+<meta name="theme-color" content="#17141c">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<title>Taifas</title>
+<script src="https://js.puter.com/v2/"></script>
+<style>
+  :root{--bg:#17141c;--surface:#221d29;--surface2:#2c2634;--line:#3a3244;--ink:#ece7f0;
+    --muted:#9c92aa;--rose:#a64d79;--rose-ink:#f0c9dc;--bubble:18px;--safe-b:env(safe-area-inset-bottom,0px)}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;height:100%}
+  body{background:var(--bg);color:var(--ink);font-family:-apple-system,"Segoe UI",Roboto,system-ui,sans-serif;
+    font-size:16px;line-height:1.45;display:flex;flex-direction:column;height:100dvh;overflow:hidden}
+  button{font:inherit;color:inherit;cursor:pointer;border:none;background:none}
+  input,textarea,select{font:inherit;color:var(--ink);background:var(--surface2);border:1px solid var(--line);border-radius:12px;padding:11px 12px;width:100%}
+  textarea{resize:vertical;min-height:84px}
+  label{display:block;font-size:13px;color:var(--muted);margin:14px 0 6px}
+  .hint{font-size:12.5px;color:var(--muted);margin-top:6px}
+  header{display:flex;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid var(--line);
+    background:var(--surface);padding-top:calc(14px + env(safe-area-inset-top,0px))}
+  header .title{font-weight:650;letter-spacing:.3px;font-size:17px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .iconbtn{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;font-size:20px;color:var(--muted)}
+  .iconbtn:active{background:var(--surface2)}.back{font-size:22px}
+  main{flex:1;overflow:hidden;position:relative}
+  .view{position:absolute;inset:0;display:none;flex-direction:column;overflow:hidden}
+  .view.on{display:flex}.scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}.pad{padding:16px}
+  .row{display:flex;align-items:center;gap:13px;padding:13px 16px;border-bottom:1px solid var(--line)}
+  .row:active{background:var(--surface)}.row .meta{flex:1;min-width:0}.row .nm{font-weight:600}
+  .row .sub{font-size:13px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .empty{padding:48px 24px;text-align:center;color:var(--muted)}
+  .empty b{color:var(--ink);display:block;font-size:18px;margin-bottom:6px;font-weight:600}
+  .av{flex:0 0 auto;width:46px;height:46px;border-radius:50%;display:grid;place-items:center;font-weight:650;
+    font-size:18px;color:#fff;position:relative;overflow:hidden;
+    box-shadow:0 0 0 2px var(--bg),0 0 0 4px var(--ac,var(--rose)),0 0 14px -2px var(--ac,var(--rose))}
+  .av img{width:100%;height:100%;object-fit:cover;border-radius:50%}
+  .av.sm{width:34px;height:34px;font-size:14px;box-shadow:0 0 0 2px var(--bg),0 0 0 3px var(--ac,var(--rose))}
+  .av.big{width:88px;height:88px;font-size:32px}
+  .av.talking{animation:pulse 1.1s ease-in-out infinite}
+  @keyframes pulse{0%,100%{box-shadow:0 0 0 2px var(--bg),0 0 0 4px var(--ac),0 0 8px -2px var(--ac)}
+    50%{box-shadow:0 0 0 2px var(--bg),0 0 0 4px var(--ac),0 0 22px 2px var(--ac)}}
+  .fab{position:absolute;right:18px;bottom:calc(18px + var(--safe-b));background:var(--rose);color:#fff;width:56px;height:56px;
+    border-radius:18px;font-size:28px;display:grid;place-items:center;box-shadow:0 8px 24px -6px var(--rose)}
+  .fab:active{transform:scale(.94)}.fab.two{bottom:calc(84px + var(--safe-b))}
+  .msgs{flex:1;overflow-y:auto;padding:16px 14px 8px;display:flex;flex-direction:column;gap:12px}
+  .m{display:flex;gap:9px;max-width:88%}
+  .m .body{background:var(--surface2);border:1px solid var(--line);padding:9px 13px;border-radius:var(--bubble);
+    border-top-left-radius:6px;white-space:pre-wrap;word-break:break-word}
+  .m .who{font-size:12px;color:var(--ac,var(--muted));margin:0 0 3px 2px;font-weight:600}
+  .m.me{align-self:flex-end;flex-direction:row-reverse}
+  .m.me .body{background:var(--rose);border-color:transparent;color:#fff;border-radius:var(--bubble);border-top-right-radius:6px}
+  .m .col{display:flex;flex-direction:column;min-width:0}
+  .m.err .body{background:#3a2230;border-color:#7a3b52;color:#f4c6d5}
+  .scene{margin-top:7px;border-radius:14px;overflow:hidden;border:1px solid var(--line);
+    background:linear-gradient(100deg,var(--surface2) 30%,#332b3d 50%,var(--surface2) 70%);background-size:200% 100%;
+    animation:shimmer 1.4s linear infinite;min-height:150px}
+  .scene img{display:block;width:100%;height:auto;border-radius:14px}
+  .scene.done{animation:none;background:none}
+  .scene.failed{animation:none;background:var(--surface2);min-height:0;padding:10px 13px;font-size:13px;color:var(--muted)}
+  @keyframes shimmer{to{background-position:-200% 0}}
+  .typing{display:inline-flex;gap:4px;padding:4px 2px}
+  .typing i{width:7px;height:7px;border-radius:50%;background:var(--muted);animation:bob 1s infinite}
+  .typing i:nth-child(2){animation-delay:.15s}.typing i:nth-child(3){animation-delay:.3s}
+  @keyframes bob{0%,60%,100%{opacity:.3;transform:translateY(0)}30%{opacity:1;transform:translateY(-4px)}}
+  .composer{display:flex;gap:8px;align-items:flex-end;padding:10px 12px calc(10px + var(--safe-b));
+    border-top:1px solid var(--line);background:var(--surface)}
+  .composer textarea{min-height:44px;max-height:130px;padding:11px 12px;border-radius:22px}
+  .send,.mic{flex:0 0 auto;width:46px;height:46px;border-radius:50%;display:grid;place-items:center;font-size:20px}
+  .send{background:var(--rose);color:#fff}
+  .mic{background:var(--surface2);border:1px solid var(--line);color:var(--muted)}
+  .mic.rec{background:#7a3b52;color:#fff;animation:pulse2 1s infinite}@keyframes pulse2{50%{opacity:.6}}
+  .grpbar{display:flex;gap:8px;padding:8px 12px;overflow-x:auto;border-top:1px solid var(--line);background:var(--surface)}
+  .contbtn{flex:0 0 auto;background:var(--surface2);border:1px solid var(--line);color:var(--muted);padding:7px 14px;border-radius:20px;font-size:14px}
+  .colors{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px}
+  .colors button{width:34px;height:34px;border-radius:50%;box-shadow:0 0 0 2px var(--bg)}
+  .colors button.sel{box-shadow:0 0 0 2px var(--bg),0 0 0 4px var(--ink)}
+  .pickrow{display:flex;align-items:center;gap:13px;padding:12px 4px;border-bottom:1px solid var(--line)}
+  .pickrow .meta{flex:1}
+  .chk{width:26px;height:26px;border-radius:8px;border:2px solid var(--line);display:grid;place-items:center;color:#fff;font-size:15px}
+  .chk.on{background:var(--rose);border-color:var(--rose)}
+  .btn{display:block;width:100%;text-align:center;background:var(--rose);color:#fff;padding:14px;border-radius:14px;font-weight:600;margin-top:22px}
+  .btn.ghost{background:transparent;border:1px solid var(--line);color:var(--ink);margin-top:10px}
+  .btn.danger{background:transparent;border:1px solid #7a3b52;color:#f0a9bf;margin-top:12px}
+  .switch{display:flex;align-items:center;justify-content:space-between;margin:16px 0 4px}
+  .switch b{font-weight:500;font-size:15px}
+  .tog{width:50px;height:30px;border-radius:16px;background:var(--surface2);border:1px solid var(--line);position:relative;flex:0 0 auto}
+  .tog::after{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:var(--muted);transition:.15s}
+  .tog.on{background:var(--rose);border-color:var(--rose)}.tog.on::after{left:23px;background:#fff}
+  .sec{border:1px solid var(--line);border-radius:12px;padding:2px 14px 14px;margin-top:8px}
+  a{color:var(--rose-ink)}
+
+  /* --- elemente noi --- */
+  .sheetveil{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:50;display:none;align-items:flex-end}
+  .sheet{background:var(--surface);border-radius:20px 20px 0 0;padding:18px 16px calc(18px + var(--safe-b));
+    width:100%;max-height:82vh;overflow-y:auto;border-top:1px solid var(--line)}
+  .sheet h3{font-size:17px}
+  .memrow{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--line);font-size:14px}
+  .memrow span{flex:1}
+  .sumcard{background:var(--surface2);border:1px dashed var(--line);border-radius:12px;padding:9px 13px;
+    font-size:13px;color:var(--muted);text-align:center;margin-bottom:4px}
+  .searchbar{display:none;gap:8px;padding:8px 12px;border-bottom:1px solid var(--line);background:var(--surface)}
+  #toast{display:none;position:fixed;left:50%;transform:translateX(-50%);bottom:calc(24px + var(--safe-b));
+    background:var(--surface2);border:1px solid var(--line);color:var(--ink);padding:10px 18px;border-radius:22px;font-size:14px;z-index:60}
+  #sumBadge{display:none;position:fixed;left:50%;transform:translateX(-50%);top:calc(72px + env(safe-area-inset-top,0px));
+    background:var(--surface2);border:1px solid var(--line);color:var(--muted);padding:6px 14px;border-radius:20px;font-size:12.5px;z-index:45}
+  #savefail{display:none;align-items:center;gap:10px;padding:10px 16px;background:#7a3b52;color:#fff;font-size:13.5px}
+  .m{cursor:pointer}
+</style>
+</head>
+<body>
+<header>
+  <button class="iconbtn back" id="backBtn" style="display:none" onclick="goHome()">‹</button>
+  <div class="title" id="topTitle">Taifas</div>
+  <button class="iconbtn" id="searchBtn" style="display:none" onclick="toggleChatSearch()">🔍</button>
+  <button class="iconbtn" id="settingsBtn" onclick="openSettings()">⚙</button>
+</header>
+<div id="updbar" style="display:none;align-items:center;gap:10px;padding:10px 16px;background:var(--rose);color:#fff;font-size:14px">
+  <span style="flex:1">A apărut o versiune nouă.</span>
+  <button onclick="location.reload()" style="background:#fff;color:var(--rose);padding:6px 14px;border-radius:10px;font-weight:600">Reîncarcă</button>
+</div>
+<div id="savefail">
+  <span style="flex:1">Nu am putut salva pe telefon. Fă un backup acum.</span>
+  <button onclick="backupNow()" style="background:#fff;color:#7a3b52;padding:6px 12px;border-radius:10px;font-weight:600">Backup</button>
+</div>
+<main>
+  <section class="view on" id="vHome">
+    <div class="scroll" id="homeList"></div>
+    <button class="fab two" title="Chat de grup" onclick="startGroup()">☰</button>
+    <button class="fab" title="Personaj nou" onclick="editChar(null)">+</button>
+  </section>
+
+  <section class="view" id="vChat">
+    <div class="searchbar" id="chatSearchBar"><input id="chatSearch" placeholder="Caută în această conversație…"></div>
+    <div class="msgs" id="msgs"></div>
+    <div class="grpbar" id="grpBar" style="display:none">
+      <button class="contbtn" onclick="continueGroup()">↻ Lasă-i să continue</button>
+    </div>
+    <div class="composer">
+      <button class="mic" id="micBtn" title="Dictare" onclick="toggleMic()">🎙</button>
+      <textarea id="inp" rows="1" placeholder="Scrie un mesaj…" oninput="growInp(this)"></textarea>
+      <button class="send" id="sendBtn" title="Trimite" onclick="sendMsg()">➤</button>
+      <button class="send" id="stopBtn" style="display:none;background:#7a3b52" title="Oprește" onclick="stopGen()">■</button>
+    </div>
+  </section>
+
+  <section class="view" id="vEdit">
+    <div class="scroll pad">
+      <div style="display:flex;justify-content:center;margin-bottom:6px" id="edAvWrap"></div>
+      <button class="btn ghost" style="margin-top:8px" onclick="genAvatar()">Generează avatar</button>
+      <label>Nume</label>
+      <input id="edName" placeholder="ex. Mara, Profesorul, Copilotul…" oninput="edPreview()">
+      <label>Emoji avatar (dacă nu generezi imagine)</label>
+      <input id="edEmoji" maxlength="4" placeholder="lasă gol pentru inițiale" oninput="edPreview()">
+      <label>Culoare (inelul din jur)</label>
+      <div class="colors" id="edColors"></div>
+      <label>Personalitate (instrucțiunile personajului)</label>
+      <textarea id="edPersona" placeholder="Cine e, cum vorbește, ce ton are."></textarea>
+      <label>Aspect fizic (pentru imagini)</label>
+      <textarea id="edLook" placeholder="Cum arată; în engleză iese cel mai bine." style="min-height:64px"></textarea>
+      <p class="hint">Se adaugă la fiecare imagine ca look-ul să rămână la fel.</p>
+      <label>Stil artistic (opțional, altfel cel global)</label>
+      <input id="edStyle" placeholder="ex. soft anime portrait / cinematic photo">
+      <label>Mesaj de întâmpinare (opțional)</label>
+      <input id="edGreet" placeholder="Ce spune la o conversație nouă">
+      <label>Voce (citire cu voce tare)</label>
+      <select id="edVoice"></select>
+      <label>Ce reține despre mine</label>
+      <div id="edMemList"></div>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <input id="edMemNew" placeholder="adaugă un fapt" onkeydown="if(event.key==='Enter'){event.preventDefault();addMem()}">
+        <button class="iconbtn" style="background:var(--surface2);border:1px solid var(--line)" onclick="addMem()">+</button>
+      </div>
+      <p class="hint">Se adaugă în instrucțiunile lui. Se completează singur când conversația e rezumată.</p>
+      <button class="btn" onclick="saveChar()">Salvează</button>
+      <button class="btn danger" id="edDelete" style="display:none" onclick="deleteChar()">Șterge personajul</button>
+    </div>
+  </section>
+
+  <section class="view" id="vGroup">
+    <div class="scroll pad">
+      <p class="hint" style="margin-top:0">Alege cine e în conversație. Răspund pe rând.</p>
+      <div id="grpPick"></div>
+      <button class="btn" onclick="openGroup()">Începe conversația</button>
+    </div>
+  </section>
+
+  <section class="view" id="vSettings">
+    <div class="scroll pad">
+      <label>Sursă de text</label>
+      <select id="stProv" onchange="provUI()">
+        <option value="anthropic">Claude — cheia mea (plătit)</option>
+        <option value="puter">Puter.js — gratis, fără cheie</option>
+        <option value="openai">OpenAI-compatibil — cheie proprie</option>
+        <option value="local">Local în browser — WebLLM</option>
+      </select>
+
+      <div class="sec" id="secAnthropic">
+        <label>Cheie API Anthropic</label>
+        <input id="stKey" type="password" placeholder="sk-ant-…" autocomplete="off">
+        <label>Model</label>
+        <input id="stModel" placeholder="claude-sonnet-5">
+        <p class="hint">Cheia stă doar pe telefon. O iei din console.anthropic.com (necesită credit).</p>
+      </div>
+
+      <div class="sec" id="secPuter">
+        <label>Model</label>
+        <input id="stPuterModel" placeholder="claude-sonnet-5">
+        <p class="hint">Gratis prin modelul „user pays" al Puter. Fără cheie. La prima folosire poate cere o autentificare Puter. Poți pune și openai/gpt-5.5, google/gemini-…, etc.</p>
+      </div>
+
+      <div class="sec" id="secOpenAI">
+        <label>Adresă API (base URL)</label>
+        <input id="stOaiBase" placeholder="https://api.groq.com/openai/v1">
+        <label>Cheie</label>
+        <input id="stOaiKey" type="password" placeholder="cheia gratuită a furnizorului" autocomplete="off">
+        <label>Model</label>
+        <input id="stOaiModel" placeholder="ex. llama-3.3-70b-versatile">
+        <p class="hint">Orice furnizor compatibil OpenAI (Groq, OpenRouter, Gemini-compat, server local). Atenție: unii blochează apelul direct din browser (CORS) — OpenRouter și serverele locale merg sigur.</p>
+      </div>
+
+      <div class="sec" id="secLocal">
+        <label>Model local</label>
+        <select id="stLocalModel">
+          <option value="Llama-3.2-1B-Instruct-q4f16_1-MLC">Llama 3.2 1B (cel mai ușor)</option>
+          <option value="Qwen2.5-1.5B-Instruct-q4f16_1-MLC">Qwen2.5 1.5B</option>
+          <option value="Llama-3.2-3B-Instruct-q4f16_1-MLC">Llama 3.2 3B (mai bun, mai greu)</option>
+          <option value="Phi-3.5-mini-instruct-q4f16_1-MLC">Phi 3.5 mini</option>
+        </select>
+        <p class="hint">Rulează pe telefon, gratis și privat. Prima dată descarcă modelul (sute de MB–GB), apoi rămâne în cache. Cere WebGPU (Chrome/Android, Safari 26+).</p>
+      </div>
+
+      <label>Lungime maximă răspuns (tokeni)</label>
+      <input id="stMax" type="number" min="128" max="8192" step="128">
+      <label>Instrucțiuni globale (se adaugă la orice personaj)</label>
+      <textarea id="stGlobal" placeholder="ex. Răspunde în română, natural."></textarea>
+      <label>Limbă pentru dictare</label>
+      <input id="stLang" placeholder="ro-RO">
+
+      <div class="switch"><b>Imagini în conversație</b><div class="tog" id="stImgTog" onclick="this.classList.toggle('on')"></div></div>
+      <p class="hint">Imaginile vin gratis de la Pollinations.ai. Modelele mici locale poate nu respectă mereu formatul de scenă.</p>
+      <label>Stil artistic global</label>
+      <input id="stStyle" placeholder="ex. cinematic photo, soft light">
+      <label>Model de imagine</label>
+      <select id="stImgModel"><option value="flux">flux (echilibrat)</option><option value="turbo">turbo (rapid)</option></select>
+      <label>Token Pollinations (opțional)</label>
+      <input id="stPoll" type="password" placeholder="lasă gol – merge și fără" autocomplete="off">
+
+      <div class="switch"><b>Rezumă automat conversațiile lungi</b><div class="tog" id="stSumTog" onclick="this.classList.toggle('on')"></div></div>
+      <p class="hint">Când firul crește, partea veche e comprimată într-un rezumat, iar faptele despre tine trec în memoria personajului. Ține costul și viteza sub control.</p>
+      <label>Rezumă după câte mesaje</label>
+      <input id="stSumEvery" type="number" min="10" max="400" step="10">
+      <label>Câte mesaje recente se păstrează întregi</label>
+      <input id="stSumKeep" type="number" min="4" max="100" step="2">
+
+      <button class="btn ghost" onclick="dataSheet()">Datele mele · backup și restaurare</button>
+      <button class="btn" onclick="saveSettings()">Salvează</button>
+      <p class="hint" style="margin-top:20px">Personajele și conversațiile stau doar pe acest telefon.</p>
+    </div>
+  </section>
+</main>
+
+<div class="sheetveil" id="sheetVeil"><div class="sheet" id="sheetBody"></div></div>
+<div id="toast"></div>
+<div id="sumBadge">Se rezumă conversația…</div>
+<input type="file" id="fileIn" accept="application/json,.json" style="display:none" onchange="onFile(event)">
+
+<script>
+/* ---------- storage ---------- */
+const _mem={};
+const store={get(k){try{return localStorage.getItem(k)}catch(e){return k in _mem?_mem[k]:null}},
+  set(k,v){try{localStorage.setItem(k,v)}catch(e){_mem[k]=v}},
+  del(k){try{localStorage.removeItem(k)}catch(e){delete _mem[k]}}};
+const load=(k,d)=>{const r=store.get(k);if(r==null)return d;try{return JSON.parse(r)}catch(e){return d}};
+function save(k,v){
+  try{localStorage.setItem(k,JSON.stringify(v));return true}
+  catch(e){_mem[k]=JSON.stringify(v);saveFailed();return false}
+}
+let saveWarned=false;
+function saveFailed(){
+  if(saveWarned)return;saveWarned=true;
+  const b=document.getElementById('savefail');if(b)b.style.display='flex';
+}
+
+/* ---------- state ---------- */
+let S=load('taifas_settings',null)||{};
+S=Object.assign({provider:'',key:'',model:'claude-sonnet-5',puterModel:'claude-sonnet-5',
+  oaiBase:'https://api.groq.com/openai/v1',oaiKey:'',oaiModel:'',
+  localModel:'Llama-3.2-1B-Instruct-q4f16_1-MLC',max:1024,global:'Răspunde în română, natural.',
+  lang:'ro-RO',imgOn:true,imgStyle:'cinematic photo, soft natural light, detailed',imgModel:'flux',poll:'',
+  autoSum:true,sumEvery:40,sumKeep:16},S);
+if(!S.provider) S.provider = S.key ? 'anthropic' : 'puter';
+let chars=load('taifas_chars',[]), convos=load('taifas_convos',{});
+let cur=null,editId=null,edColor='#a64d79',edSeed=0,edAvatarUrl='',edMemory=[],groupSel=[],busy=false;
+let abortCtl=null,stopFlag=false,actMsgId=null,chatQuery='';
+const PALETTE=['#a64d79','#5b8def','#37b3a0','#d98a3d','#8b6fd6','#d95f6e','#4fae5a','#c9a24b'];
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+const byId=id=>chars.find(c=>c.id===id);
+const esc=s=>(s||'').replace(/[&<>]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]));
+const seedFrom=s=>{let h=0;for(const ch of (s||'x'))h=(h*31+ch.charCodeAt(0))>>>0;return h%1000000};
+const norm=s=>(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+function matches(hay,q){const H=norm(hay);return norm(q).split(/\s+/).filter(Boolean).every(w=>H.includes(w))}
+function saveChars(){save('taifas_chars',chars)}
+function saveConvos(){save('taifas_convos',convos)}
+
+/* migrare: id pe mesajele vechi */
+let migrated=false;
+Object.values(convos).forEach(cv=>cv.msgs.forEach(m=>{if(!m.id){m.id=uid();migrated=true}}));
+if(migrated)saveConvos();
+
+/* ---------- images ---------- */
+function imgUrl(prompt,seed,w,h){
+  let u='https://image.pollinations.ai/prompt/'+encodeURIComponent(prompt)+'?width='+w+'&height='+h+'&seed='+seed+'&model='+(S.imgModel||'flux')+'&nologo=true';
+  if(S.poll)u+='&token='+encodeURIComponent(S.poll);return u;
+}
+function scenePrompt(c,scene){return [(c.style||S.imgStyle||'').trim(),(c.look||'').trim(),scene.trim()].filter(Boolean).join('. ')}
+
+/* ---------- avatar ---------- */
+function initials(n){return (n||'?').trim().split(/\s+/).slice(0,2).map(w=>w[0]||'').join('').toUpperCase()||'?'}
+function avatar(c,cls=''){
+  const inner=c.avatarUrl?`<img src="${c.avatarUrl}" alt="">`:(c.emoji?`<span>${esc(c.emoji)}</span>`:`<span>${esc(initials(c.name))}</span>`);
+  return `<div class="av ${cls}" style="--ac:${c.color};background:${c.color}">${inner}</div>`;
+}
+
+/* ---------- sheets ---------- */
+function openSheet(html){
+  const v=document.getElementById('sheetVeil');
+  document.getElementById('sheetBody').innerHTML=html;v.style.display='flex';
+}
+function closeSheet(){document.getElementById('sheetVeil').style.display='none'}
+
+/* ---------- nav ---------- */
+const views=['vHome','vChat','vEdit','vGroup','vSettings'];
+function show(v,title,back){
+  views.forEach(id=>document.getElementById(id).classList.toggle('on',id===v));
+  document.getElementById('topTitle').textContent=title;
+  document.getElementById('backBtn').style.display=back?'grid':'none';
+  document.getElementById('settingsBtn').style.display=v==='vHome'?'grid':'none';
+  document.getElementById('searchBtn').style.display=v==='vChat'?'grid':'none';
+  window.speechSynthesis&&speechSynthesis.cancel();
+}
+function goHome(){cur=null;chatQuery='';renderHome();show('vHome','Taifas',false)}
+
+/* ---------- home ---------- */
+let homeQuery='';
+function renderHome(){
+  const el=document.getElementById('homeList');
+  if(!chars.length){el.innerHTML=`<div class="empty"><b>Niciun personaj încă</b>Apasă + și creează primul tău companion.</div>`;return}
+  let h=`<div style="padding:12px 16px 4px"><input id="homeSearch" placeholder="Caută în conversații…" value="${esc(homeQuery)}" oninput="homeQuery=this.value;renderHome();document.getElementById('homeSearch').focus()"></div>`;
+  if(homeQuery.trim()){
+    const q=homeQuery.trim();let hits=[];
+    Object.entries(convos).forEach(([cid,cv])=>cv.msgs.forEach(m=>{
+      if(matches(m.text,q))hits.push({cid,m,cv})}));
+    h+=`<div class="hint" style="padding:6px 16px">${hits.length} rezultate</div>`;
+    hits.slice(0,120).forEach(({cid,m,cv})=>{
+      const c=m.role==='user'?{name:'Eu',color:'#a64d79'}:(byId(m.charId)||{name:m.name,color:'#888'});
+      const title=cv.members.map(x=>byId(x)?.name).filter(Boolean).join(', ');
+      h+=`<div class="row" onclick="openConvoAt('${cid}','${m.id}')">${avatar(c,'sm')}
+        <div class="meta"><div class="nm" style="font-size:14px">${esc(c.name)} · <span style="color:var(--muted);font-weight:400">${esc(title)}</span></div>
+        <div class="sub">${esc(m.text.slice(0,90))}</div></div></div>`;
+    });
+    el.innerHTML=h;return;
+  }
+  chars.forEach(c=>{const cv=convos[c.id];const last=cv&&cv.msgs.length?cv.msgs[cv.msgs.length-1].text:'—';
+    h+=`<div class="row" onclick="openChat('${c.id}')">${avatar(c,'')}
+      <div class="meta"><div class="nm">${esc(c.name)}</div><div class="sub">${esc(last)}</div></div>
+      <button class="iconbtn" onclick="event.stopPropagation();editChar('${c.id}')">✎</button></div>`});
+  // conversatii de grup existente
+  const groups=Object.entries(convos).filter(([k])=>k.startsWith('grp_'));
+  if(groups.length){
+    h+=`<div class="hint" style="padding:14px 16px 4px">Conversații de grup</div>`;
+    groups.forEach(([k,cv])=>{
+      const names=cv.members.map(x=>byId(x)?.name).filter(Boolean).join(', ');
+      if(!names)return;
+      const last=cv.msgs.length?cv.msgs[cv.msgs.length-1].text:'—';
+      h+=`<div class="row" onclick="openConvo('${k}')"><div class="av sm" style="--ac:var(--rose);background:var(--surface2)"><span>☰</span></div>
+        <div class="meta"><div class="nm">${esc(names)}</div><div class="sub">${esc(last)}</div></div></div>`;
+    });
+  }
+  el.innerHTML=h;
+}
+function openConvo(id){
+  if(!convos[id])return;cur=id;chatQuery='';
+  const isG=convos[id].members.length>1;
+  document.getElementById('grpBar').style.display=isG?'flex':'none';
+  renderMsgs();show('vChat',convos[id].members.map(x=>byId(x)?.name).filter(Boolean).join(', '),true);
+}
+function openConvoAt(cid,mid){
+  homeQuery='';openConvo(cid);
+  setTimeout(()=>{const e=document.querySelector(`[data-mid="${mid}"]`);
+    if(e){e.scrollIntoView({block:'center'});e.style.outline='2px solid var(--rose)';setTimeout(()=>e.style.outline='',1600)}},60);
+}
+
+/* ---------- character editor ---------- */
+function editChar(id){
+  editId=id;
+  const c=id?byId(id):{name:'',emoji:'',color:PALETTE[0],persona:'',look:'',style:'',greet:'',voice:'',seed:0,avatarUrl:'',memory:[]};
+  edColor=c.color;edSeed=c.seed||seedFrom(uid());edAvatarUrl=c.avatarUrl||'';edMemory=(c.memory||[]).slice();
+  edName.value=c.name;edEmoji.value=c.emoji||'';edPersona.value=c.persona;
+  edLook.value=c.look||'';edStyle.value=c.style||'';edGreet.value=c.greet||'';
+  edDelete.style.display=id?'block':'none';
+  edColors.innerHTML=PALETTE.map(p=>`<button style="background:${p}" class="${p===edColor?'sel':''}" data-c="${p}" onclick="pickColor('${p}')"></button>`).join('');
+  fillVoices(c.voice);edPreview();renderMemory();
+  show('vEdit',id?'Editează personaj':'Personaj nou',true);
+}
+function renderMemory(){
+  const el=document.getElementById('edMemList');
+  el.innerHTML=edMemory.length?edMemory.map((f,i)=>
+    `<div class="memrow"><span>${esc(f)}</span><button class="iconbtn" style="width:32px;height:32px;font-size:16px" onclick="delMem(${i})">✕</button></div>`).join('')
+    :`<p class="hint" style="margin:4px 0">Nimic încă. Personajul va reține aici ce afli despre tine.</p>`;
+}
+function delMem(i){edMemory.splice(i,1);renderMemory()}
+function addMem(){
+  const v=document.getElementById('edMemNew').value.trim();if(!v)return;
+  edMemory.push(v);document.getElementById('edMemNew').value='';renderMemory();
+}
+function pickColor(p){edColor=p;document.querySelectorAll('#edColors button').forEach(b=>b.classList.toggle('sel',b.dataset.c===p));edPreview()}
+function edPreview(){edAvWrap.innerHTML=avatar({name:edName.value,emoji:edEmoji.value,color:edColor,avatarUrl:edAvatarUrl},'big')}
+function genAvatar(){
+  const name=edName.value.trim(),look=edLook.value.trim();
+  if(!name&&!look){alert('Scrie măcar numele sau aspectul fizic.');return}
+  const style=(edStyle.value.trim()||S.imgStyle||'portrait');
+  const prompt=[style,'portrait of '+(look||name),'head and shoulders, centered, plain background'].filter(Boolean).join('. ');
+  edSeed=seedFrom(name+look);edAvatarUrl=imgUrl(prompt,edSeed,384,384);edPreview();
+}
+function fillVoices(sel){
+  const vs=window.speechSynthesis?speechSynthesis.getVoices():[];
+  edVoice.innerHTML='<option value="">Voce implicită</option>'+vs.map(v=>`<option value="${esc(v.voiceURI)}" ${v.voiceURI===sel?'selected':''}>${esc(v.name)} (${v.lang})</option>`).join('');
+}
+if(window.speechSynthesis)speechSynthesis.onvoiceschanged=()=>{if(document.getElementById('vEdit').classList.contains('on'))fillVoices(byId(editId)?.voice)};
+function saveChar(){
+  const name=edName.value.trim();if(!name){alert('Dă-i un nume.');return}
+  const data={name,emoji:edEmoji.value.trim(),color:edColor,persona:edPersona.value.trim(),
+    look:edLook.value.trim(),style:edStyle.value.trim(),greet:edGreet.value.trim(),
+    voice:edVoice.value,seed:edSeed,avatarUrl:edAvatarUrl,memory:edMemory.slice()};
+  if(editId)Object.assign(byId(editId),data);else{data.id=uid();chars.push(data)}
+  saveChars();goHome();
+}
+function deleteChar(){
+  if(!confirm('Ștergi personajul și conversația lui?'))return;
+  chars=chars.filter(c=>c.id!==editId);delete convos[editId];
+  saveChars();saveConvos();goHome();
+}
+
+/* ---------- convos ---------- */
+function ensureConvo(id,members){
+  if(!convos[id]){convos[id]={members,msgs:[],summary:''};
+    const first=members.length===1?byId(members[0]):null;
+    if(first&&first.greet)convos[id].msgs.push({id:uid(),role:'char',charId:first.id,name:first.name,text:first.greet});
+    saveConvos()}
+  if(convos[id].summary===undefined)convos[id].summary='';
+  return convos[id];
+}
+function openChat(charId){const c=byId(charId);ensureConvo(charId,[charId]);cur=charId;chatQuery='';
+  document.getElementById('grpBar').style.display='none';renderMsgs();show('vChat',c.name,true)}
+function startGroup(){
+  if(chars.length<2){alert('Ai nevoie de cel puțin 2 personaje.');return}
+  groupSel=[];grpPick.innerHTML=chars.map(c=>`<div class="pickrow" onclick="toggleSel('${c.id}',this)">${avatar(c,'sm')}
+    <div class="meta"><div class="nm">${esc(c.name)}</div></div><div class="chk"></div></div>`).join('');
+  show('vGroup','Chat de grup',true);
+}
+function toggleSel(id,row){const i=groupSel.indexOf(id);const chk=row.querySelector('.chk');
+  if(i<0){groupSel.push(id);chk.classList.add('on');chk.textContent='✓'}else{groupSel.splice(i,1);chk.classList.remove('on');chk.textContent=''}}
+function openGroup(){
+  if(groupSel.length<2){alert('Alege cel puțin 2.');return}
+  const id='grp_'+groupSel.slice().sort().join('_');ensureConvo(id,groupSel.slice());
+  convos[id].members=groupSel.slice();saveConvos();cur=id;chatQuery='';
+  document.getElementById('grpBar').style.display='flex';renderMsgs();show('vChat',groupSel.map(x=>byId(x).name).join(', '),true);
+}
+
+/* ---------- cautare in conversatie ---------- */
+function toggleChatSearch(){
+  const bar=document.getElementById('chatSearchBar');
+  const on=bar.style.display!=='flex';
+  bar.style.display=on?'flex':'none';
+  if(on){document.getElementById('chatSearch').focus()}else{chatQuery='';document.getElementById('chatSearch').value='';renderMsgs()}
+}
+
+/* ---------- render ---------- */
+function renderMsgs(){
+  const cv=convos[cur];const isGroup=cv.members.length>1;
+  let list=cv.msgs;
+  if(chatQuery.trim())list=list.filter(m=>matches(m.text,chatQuery));
+  let h='';
+  if(cv.summary)h+=`<div class="sumcard" onclick="showSummary()">📎 Rezumatul conversației mai vechi · atinge pentru a vedea</div>`;
+  if(chatQuery.trim())h+=`<div class="hint" style="text-align:center">${list.length} rezultate</div>`;
+  h+=list.map(m=>{
+    if(m.role==='user')return `<div class="m me" data-mid="${m.id}" onclick="msgActions('${m.id}')"><div class="col"><div class="body">${esc(m.text)}</div></div></div>`;
+    const c=byId(m.charId)||{name:m.name,color:'#888'};
+    const who=isGroup?`<div class="who" style="--ac:${c.color}">${esc(c.name)}</div>`:'';
+    const scene=m.img?`<div class="scene"><img src="${m.img}" alt="" loading="lazy" onload="this.parentNode.classList.add('done')" onerror="this.parentNode.classList.add('failed');this.remove();this.parentNode.textContent='Imaginea nu s-a putut genera.'"></div>`:'';
+    return `<div class="m ${m.err?'err':''}" data-mid="${m.id}" style="--ac:${c.color}" onclick="msgActions('${m.id}')">${avatar(c,'sm')}<div class="col">${who}<div class="body">${esc(m.text)}</div>${scene}</div></div>`;
+  }).join('');
+  document.getElementById('msgs').innerHTML=h;
+  if(!chatQuery.trim())scrollMsgs();
+}
+function pushMsg(m){if(!m.id)m.id=uid();convos[cur].msgs.push(m);saveConvos();renderMsgs();maybeSummarize()}
+function scrollMsgs(){const el=document.getElementById('msgs');el.scrollTop=el.scrollHeight}
+function showSummary(){
+  openSheet(`<h3 style="margin:4px 0 10px">Rezumatul conversației</h3>
+    <p style="white-space:pre-wrap">${esc(convos[cur].summary)}</p>
+    <button class="btn ghost" onclick="clearSummary()">Șterge rezumatul</button>
+    <button class="btn" onclick="closeSheet()">Închide</button>`);
+}
+function clearSummary(){convos[cur].summary='';saveConvos();closeSheet();renderMsgs()}
+
+/* ---------- actiuni pe mesaj ---------- */
+function msgActions(id){
+  actMsgId=id;const cv=convos[cur];const i=cv.msgs.findIndex(m=>m.id===id);if(i<0)return;
+  const m=cv.msgs[i];const isLast=i===cv.msgs.length-1;
+  openSheet(`<h3 style="margin:4px 0 12px">Mesaj</h3>
+    <button class="btn ghost" style="margin-top:0" onclick="editMsg()">Editează textul</button>
+    ${m.role==='char'?`<button class="btn ghost" onclick="regenMsg()">Regenerează răspunsul</button>`:''}
+    ${m.role==='char'&&m.img?`<button class="btn ghost" onclick="regenImg()">Generează altă imagine</button>`:''}
+    <button class="btn ghost" onclick="copyMsg()">Copiază</button>
+    <button class="btn danger" onclick="delMsg()">Șterge mesajul</button>
+    ${isLast?'':`<button class="btn danger" onclick="delFrom()">Șterge de aici încolo</button>`}
+    <button class="btn" onclick="closeSheet()">Închide</button>`);
+}
+function curMsg(){return convos[cur].msgs.find(m=>m.id===actMsgId)}
+function editMsg(){
+  const m=curMsg();if(!m)return;
+  openSheet(`<h3 style="margin:4px 0 10px">Editează</h3>
+    <textarea id="editBox" style="min-height:140px">${esc(m.text)}</textarea>
+    <button class="btn" onclick="applyEdit()">Salvează</button>
+    <button class="btn ghost" onclick="closeSheet()">Renunță</button>`);
+  document.getElementById('editBox').focus();
+}
+function applyEdit(){
+  const m=curMsg();if(m){m.text=document.getElementById('editBox').value;saveConvos()}
+  closeSheet();renderMsgs();
+}
+function copyMsg(){const m=curMsg();if(m&&navigator.clipboard)navigator.clipboard.writeText(m.text).catch(()=>{});closeSheet()}
+function delMsg(){
+  const cv=convos[cur];cv.msgs=cv.msgs.filter(m=>m.id!==actMsgId);saveConvos();closeSheet();renderMsgs();
+}
+function delFrom(){
+  if(!confirm('Ștergi acest mesaj și tot ce urmează?'))return;
+  const cv=convos[cur];const i=cv.msgs.findIndex(m=>m.id===actMsgId);
+  if(i>=0){cv.msgs=cv.msgs.slice(0,i);saveConvos()}closeSheet();renderMsgs();
+}
+async function regenMsg(){
+  const cv=convos[cur];const i=cv.msgs.findIndex(m=>m.id===actMsgId);if(i<0)return;
+  const m=cv.msgs[i];const speaker=byId(m.charId);if(!speaker){closeSheet();return}
+  cv.msgs=cv.msgs.slice(0,i);saveConvos();closeSheet();renderMsgs();
+  busy=true;setBusyUI(true);await oneTurn(speaker);busy=false;setBusyUI(false);
+}
+function regenImg(){
+  const m=curMsg();if(!m)return;const c=byId(m.charId);
+  const prev=new URL(m.img);const p=decodeURIComponent(prev.pathname.replace('/prompt/',''));
+  m.img=imgUrl(p,Math.floor(Math.random()*1000000),768,512);saveConvos();closeSheet();renderMsgs();
+}
+
+/* ---------- system prompt ---------- */
+function buildTurns(cv,speakerId){
+  const out=[];
+  cv.msgs.forEach(m=>{if(m.err)return;
+    if(m.role==='char'&&m.charId===speakerId)out.push({role:'assistant',content:m.text});
+    else{const p=m.role==='user'?'':((byId(m.charId)?.name||m.name)+': ');out.push({role:'user',content:p+m.text})}});
+  const merged=[];out.forEach(m=>{const l=merged[merged.length-1];if(l&&l.role===m.role)l.content+='\n'+m.content;else merged.push({...m})});
+  if(merged.length&&merged[0].role==='assistant')merged.unshift({role:'user',content:'(începe)'});
+  return merged;
+}
+function composeSystem(speaker){
+  const cv=convos[cur];const others=cv.members.filter(x=>x!==speaker.id).map(x=>byId(x)?.name).filter(Boolean);
+  let sys=speaker.persona||('Ești '+speaker.name+'.');
+  if(speaker.memory&&speaker.memory.length)
+    sys+='\n\nCe știi despre utilizator din discuțiile anterioare:\n- '+speaker.memory.join('\n- ');
+  if(cv.summary)sys+='\n\nRezumatul părții mai vechi a conversației:\n'+cv.summary;
+  if(others.length)sys+='\n\nEști într-o conversație de grup cu: '+others.join(', ')+', și utilizatorul. Vorbește doar ca '+speaker.name+'. Nu scrie replicile celorlalți.';
+  if(S.global)sys+='\n\n'+S.global;
+  if(S.imgOn)sys+='\n\nCând apare un moment vizual clar, adaugă pe ULTIMA linie exact formatul: [[SCENE: descriere vizuală scurtă în ENGLEZĂ]]. Doar ce se vede, nu stilul. Rar, doar când contează. Nu pomeni imaginea în text.';
+  return sys;
+}
+
+/* ---------- providers (streaming + stop) ---------- */
+let llmEngine=null,llmModel=null;
+function stopGen(){stopFlag=true;if(abortCtl)try{abortCtl.abort()}catch(e){}}
+async function readSSE(res,onEvent){
+  const reader=res.body.getReader(),dec=new TextDecoder();let buf='';
+  while(true){
+    if(stopFlag){try{reader.cancel()}catch(e){}break}
+    const {done,value}=await reader.read();if(done)break;
+    buf+=dec.decode(value,{stream:true});let i;
+    while((i=buf.indexOf('\n'))>=0){const line=buf.slice(0,i).trim();buf=buf.slice(i+1);
+      if(!line.startsWith('data:'))continue;const data=line.slice(5).trim();
+      if(data==='[DONE]')continue;try{onEvent(JSON.parse(data))}catch(e){}}}
+}
+async function genAnthropic(sys,turns,ui){
+  if(!S.key)throw new Error('Adaugă cheia API Anthropic din setări (⚙).');
+  abortCtl=new AbortController();
+  const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',signal:abortCtl.signal,
+    headers:{'x-api-key':S.key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true','content-type':'application/json'},
+    body:JSON.stringify({model:S.model||'claude-sonnet-5',max_tokens:+S.max||1024,system:sys,messages:turns,stream:true})});
+  if(!res.ok){let t='';try{const j=await res.json();t=j.error?.message||''}catch(e){}throw new Error((res.status===401?'Cheie respinsă. ':'')+(t||('Eroare '+res.status)))}
+  let full='';await readSSE(res,j=>{if(j.type==='content_block_delta'&&j.delta?.text){full+=j.delta.text;ui.delta(j.delta.text)}});
+  return full.trim();
+}
+async function genPuter(sys,turns,ui){
+  if(!window.puter)throw new Error('Puter.js nu s-a încărcat (verifică conexiunea).');
+  const resp=await puter.ai.chat([{role:'system',content:sys},...turns],{model:S.puterModel||'claude-sonnet-5',stream:true});
+  let full='';for await(const part of resp){if(stopFlag)break;
+    const t=part?.text ?? part?.message?.content?.[0]?.text ?? '';if(t){full+=t;ui.delta(t)}}
+  return full.trim();
+}
+async function genOpenAI(sys,turns,ui){
+  if(!S.oaiBase)throw new Error('Completează adresa API din setări.');
+  abortCtl=new AbortController();
+  const res=await fetch(S.oaiBase.replace(/\/$/,'')+'/chat/completions',{method:'POST',signal:abortCtl.signal,
+    headers:{'content-type':'application/json',...(S.oaiKey?{'authorization':'Bearer '+S.oaiKey}:{})},
+    body:JSON.stringify({model:S.oaiModel,max_tokens:+S.max||1024,stream:true,messages:[{role:'system',content:sys},...turns]})});
+  if(!res.ok){let t='';try{const j=await res.json();t=j.error?.message||''}catch(e){}throw new Error(t||('Eroare '+res.status+' (poate CORS blocat de furnizor).'))}
+  let full='';await readSSE(res,j=>{const t=j.choices?.[0]?.delta?.content||'';if(t){full+=t;ui.delta(t)}});
+  return full.trim();
+}
+async function genLocal(sys,turns,ui){
+  if(!navigator.gpu)throw new Error('Browserul nu are WebGPU (pe iOS cere Safari 26+).');
+  if(!llmEngine||llmModel!==S.localModel){
+    ui.status('Se pregătește modelul local…');
+    const webllm=await import('https://esm.run/@mlc-ai/web-llm');
+    llmEngine=await webllm.CreateMLCEngine(S.localModel,{initProgressCallback:p=>ui.status('Model local: '+Math.round((p.progress||0)*100)+'%')});
+    llmModel=S.localModel;
+  }
+  const chunks=await llmEngine.chat.completions.create({messages:[{role:'system',content:sys},...turns],max_tokens:+S.max||1024,stream:true});
+  let full='';for await(const ch of chunks){if(stopFlag){try{await llmEngine.interruptGenerate()}catch(e){}break}
+    const t=ch.choices?.[0]?.delta?.content||'';if(t){full+=t;ui.delta(t)}}
+  return full.trim();
+}
+async function runProvider(sys,turns,ui){
+  if(S.provider==='puter')return genPuter(sys,turns,ui);
+  if(S.provider==='openai')return genOpenAI(sys,turns,ui);
+  if(S.provider==='local')return genLocal(sys,turns,ui);
+  return genAnthropic(sys,turns,ui);
+}
+function generateText(speaker,ui){return runProvider(composeSystem(speaker),buildTurns(convos[cur],speaker.id),ui)}
+/* apel simplu, fara streaming vizibil - pentru rezumat/memorie */
+async function askPlain(sys,userText){
+  const sink={delta:()=>{},status:()=>{}};
+  return runProvider(sys,[{role:'user',content:userText}],sink);
+}
+
+/* ---------- rezumat + memorie de lunga durata ---------- */
+let summarizing=false;
+async function maybeSummarize(){
+  if(!S.autoSum||summarizing||busy)return;
+  const cv=convos[cur];if(!cv)return;
+  const every=+S.sumEvery||40,keep=+S.sumKeep||16;
+  if(cv.msgs.length < every)return;
+  await doSummarize(keep,true);
+}
+async function doSummarize(keep,silent){
+  const cv=convos[cur];if(!cv||cv.msgs.length<=keep)return;
+  summarizing=true;
+  const badge=document.getElementById('sumBadge');if(badge)badge.style.display='block';
+  try{
+    const old=cv.msgs.slice(0,cv.msgs.length-keep);
+    const transcript=old.map(m=>(m.role==='user'?'Utilizator':(byId(m.charId)?.name||m.name))+': '+m.text).join('\n');
+    const sys='Ești un asistent care comprimă conversații. Răspunzi DOAR cu JSON valid, fără explicații și fără blocuri de cod.';
+    const q='Rezumă conversația de mai jos păstrând firul, deciziile, tonul și detaliile relevante. '+
+      'Extrage separat fapte durabile despre UTILIZATOR (preferințe, context de viață, nume, ocupație) — doar ce a spus el explicit.\n'+
+      'Format exact: {"rezumat":"...","fapte":["...","..."]}\n\n'+
+      (cv.summary?('Rezumat anterior:\n'+cv.summary+'\n\n'):'')+'Conversație:\n'+transcript;
+    let raw=await askPlain(sys,q);
+    raw=raw.replace(/```json|```/g,'').trim();
+    const j=JSON.parse(raw.slice(raw.indexOf('{'),raw.lastIndexOf('}')+1));
+    if(j.rezumat)cv.summary=String(j.rezumat);
+    if(Array.isArray(j.fapte)&&j.fapte.length){
+      cv.members.forEach(cid=>{const c=byId(cid);if(!c)return;
+        c.memory=c.memory||[];
+        j.fapte.map(String).forEach(f=>{if(f.trim()&&!c.memory.some(x=>norm(x)===norm(f)))c.memory.push(f.trim())});
+        if(c.memory.length>40)c.memory=c.memory.slice(-40);
+      });
+      saveChars();
+    }
+    cv.msgs=cv.msgs.slice(-keep);
+    saveConvos();renderMsgs();
+  }catch(e){
+    if(!silent)alert('Rezumatul nu a reușit: '+e.message);
+  }finally{
+    summarizing=false;const b=document.getElementById('sumBadge');if(b)b.style.display='none';
+  }
+}
+function summarizeNow(){
+  if(!cur)return;closeSheet();
+  doSummarize(+S.sumKeep||16,false);
+}
+
+/* ---------- bula live ---------- */
+const DOTS='<span class="typing"><i></i><i></i><i></i></span>';
+function setBusyUI(on){
+  document.getElementById('sendBtn').style.display=on?'none':'grid';
+  document.getElementById('stopBtn').style.display=on?'grid':'none';
+}
+function startLive(c){
+  const el=document.getElementById('msgs');const isGroup=convos[cur].members.length>1;
+  const d=document.createElement('div');d.className='m';d.id='live';d.style.setProperty('--ac',c.color);
+  d.innerHTML=avatar(c,'sm talking')+`<div class="col">${isGroup?`<div class="who" style="--ac:${c.color}">${esc(c.name)}</div>`:''}<div class="body">${DOTS}</div></div>`;
+  el.appendChild(d);scrollMsgs();return d.querySelector('.body');
+}
+function endLive(){const t=document.getElementById('live');t&&t.remove()}
+const visibleText=s=>s.replace(/\[\[SCENE:[\s\S]*$/i,'').trim();
+function speak(c,text){if(!window.speechSynthesis||!text)return;const u=new SpeechSynthesisUtterance(text);
+  if(c.voice){const v=speechSynthesis.getVoices().find(x=>x.voiceURI===c.voice);if(v)u.voice=v}speechSynthesis.cancel();speechSynthesis.speak(u)}
+async function oneTurn(speaker){
+  const body=startLive(speaker);let accum='';
+  const ui={status:t=>{body.textContent=t},
+    delta:ch=>{accum+=ch;const v=visibleText(accum);body.textContent=v||'';if(!v)body.innerHTML=DOTS;scrollMsgs()}};
+  try{
+    let text=await generateText(speaker,ui);endLive();
+    if(stopFlag&&!text.trim())return;
+    let img='';const mm=text.match(/\[\[SCENE:([\s\S]*?)\]\]/i);
+    if(mm){img=imgUrl(scenePrompt(speaker,mm[1]),speaker.seed||0,768,512);text=text.replace(mm[0],'').trim()}
+    pushMsg({role:'char',charId:speaker.id,name:speaker.name,text:text||'…',img});
+    if(!stopFlag)speak(speaker,text);
+  }catch(e){
+    endLive();
+    if(e.name==='AbortError'||stopFlag){if(accum.trim())pushMsg({role:'char',charId:speaker.id,name:speaker.name,text:visibleText(accum)});return}
+    pushMsg({role:'char',charId:speaker.id,name:speaker.name,text:e.message,err:true});
+  }finally{abortCtl=null}
+}
+async function sendMsg(){
+  if(busy)return;const t=inp.value.trim();if(!t)return;inp.value='';growInp(inp);
+  pushMsg({role:'user',text:t});
+  busy=true;stopFlag=false;setBusyUI(true);
+  for(const id of convos[cur].members){if(stopFlag)break;const c=byId(id);if(c)await oneTurn(c)}
+  busy=false;stopFlag=false;setBusyUI(false);maybeSummarize();
+}
+async function continueGroup(){
+  if(busy)return;busy=true;stopFlag=false;setBusyUI(true);
+  for(const id of convos[cur].members){if(stopFlag)break;const c=byId(id);if(c)await oneTurn(c)}
+  busy=false;stopFlag=false;setBusyUI(false);
+}
+
+/* ---------- backup / restore ---------- */
+function stamp(){const d=new Date(),p=n=>String(n).padStart(2,'0');
+  return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+'_'+p(d.getHours())+p(d.getMinutes())}
+function buildBackup(){
+  const set={...S};delete set.key;delete set.oaiKey;delete set.poll;  // cheile NU pleaca in backup
+  return JSON.stringify({app:'Taifas',v:1,at:new Date().toISOString(),settings:set,chars,convos},null,1);
+}
+async function backupNow(){
+  const text=buildBackup(),name='Taifas_'+stamp()+'.json';
+  const blob=new Blob([text],{type:'application/json'});
+  const file=new File([blob],name,{type:'application/json'});
+  try{
+    if(navigator.canShare&&navigator.canShare({files:[file]})){await navigator.share({files:[file],title:name});toast('Backup trimis');return}
+  }catch(e){if(e.name==='AbortError'){toast('Backup anulat');return}}
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+  toast('Backup descărcat: '+name);
+}
+function pickRestore(){document.getElementById('fileIn').click()}
+function onFile(ev){
+  const f=ev.target.files&&ev.target.files[0];if(!f)return;
+  const r=new FileReader();
+  r.onload=()=>{
+    let d;try{d=JSON.parse(r.result)}catch(e){alert('Fișierul nu e un backup valid.');return}
+    if(!d||!d.chars||!d.convos){alert('Fișierul nu pare un backup Taifas.');return}
+    const nC=d.chars.length,nM=Object.values(d.convos).reduce((a,c)=>a+(c.msgs?c.msgs.length:0),0);
+    if(!confirm('Restaurezi '+nC+' personaje și '+nM+' mesaje?\nCe ai acum va fi înlocuit (se păstrează o copie pentru anulare).'))return;
+    save('taifas_prev',{chars,convos});           // plasa de siguranta
+    chars=d.chars;convos=d.convos;
+    if(d.settings){const keys={key:S.key,oaiKey:S.oaiKey,poll:S.poll};S=Object.assign({},S,d.settings,keys);save('taifas_settings',S)}
+    saveChars();saveConvos();
+    closeSheet();goHome();
+    setTimeout(()=>{if(confirm('Restaurare gata. Dacă nu era backupul potrivit, apasă OK ca să anulezi.'))undoRestore()},400);
+  };
+  r.readAsText(f);ev.target.value='';
+}
+function undoRestore(){
+  const p=load('taifas_prev',null);if(!p){alert('Nu există o copie de dinainte.');return}
+  chars=p.chars;convos=p.convos;saveChars();saveConvos();store.del('taifas_prev');goHome();toast('Restaurare anulată');
+}
+function toast(t){
+  const el=document.getElementById('toast');el.textContent=t;el.style.display='block';
+  clearTimeout(toast._t);toast._t=setTimeout(()=>el.style.display='none',2600);
+}
+function dataSheet(){
+  const nC=chars.length,nM=Object.values(convos).reduce((a,c)=>a+c.msgs.length,0);
+  const hasPrev=!!load('taifas_prev',null);
+  openSheet(`<h3 style="margin:4px 0 10px">Datele mele</h3>
+    <p class="hint" style="margin:0 0 4px">${nC} personaje · ${nM} mesaje, toate pe acest telefon.</p>
+    <button class="btn" onclick="backupNow()">Salvează backup</button>
+    <button class="btn ghost" onclick="pickRestore()">Restaurează dintr-un backup</button>
+    ${hasPrev?`<button class="btn ghost" onclick="undoRestore()">Anulează ultima restaurare</button>`:''}
+    <button class="btn ghost" onclick="summarizeNow()">Rezumă conversația curentă acum</button>
+    <p class="hint">Cheile API nu se salvează în backup, ca să poți trimite fișierul fără grijă.</p>
+    <button class="btn" onclick="closeSheet()">Închide</button>`);
+}
+
+/* ---------- voice input ---------- */
+let rec=null;
+function toggleMic(){
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){alert('Dictarea nu e suportată aici (pe iOS Safari deseori lipsește).');return}
+  const btn=document.getElementById('micBtn');if(rec){rec.stop();return}
+  rec=new SR();rec.lang=S.lang||'ro-RO';rec.interimResults=false;
+  rec.onresult=e=>{inp.value=(inp.value?inp.value+' ':'')+e.results[0][0].transcript;growInp(inp)};
+  rec.onend=()=>{rec=null;btn.classList.remove('rec')};rec.onerror=()=>{rec=null;btn.classList.remove('rec')};
+  btn.classList.add('rec');rec.start();
+}
+function growInp(el){el.style.height='auto';el.style.height=Math.min(el.scrollHeight,130)+'px'}
+
+/* ---------- settings ---------- */
+function provUI(){
+  const p=stProv.value;
+  secAnthropic.style.display=p==='anthropic'?'block':'none';
+  secPuter.style.display=p==='puter'?'block':'none';
+  secOpenAI.style.display=p==='openai'?'block':'none';
+  secLocal.style.display=p==='local'?'block':'none';
+}
+function openSettings(){
+  stProv.value=S.provider;stKey.value=S.key||'';stModel.value=S.model||'claude-sonnet-5';
+  stPuterModel.value=S.puterModel||'claude-sonnet-5';
+  stOaiBase.value=S.oaiBase||'';stOaiKey.value=S.oaiKey||'';stOaiModel.value=S.oaiModel||'';
+  stLocalModel.value=S.localModel||'Llama-3.2-1B-Instruct-q4f16_1-MLC';
+  stMax.value=S.max||1024;stGlobal.value=S.global||'';stLang.value=S.lang||'ro-RO';
+  stImgTog.classList.toggle('on',!!S.imgOn);stStyle.value=S.imgStyle||'';stImgModel.value=S.imgModel||'flux';stPoll.value=S.poll||'';
+  stSumTog.classList.toggle('on',!!S.autoSum);stSumEvery.value=S.sumEvery||40;stSumKeep.value=S.sumKeep||16;
+  provUI();show('vSettings','Setări',true);
+}
+function saveSettings(){
+  S=Object.assign(S,{provider:stProv.value,key:stKey.value.trim(),model:stModel.value.trim()||'claude-sonnet-5',
+    puterModel:stPuterModel.value.trim()||'claude-sonnet-5',
+    oaiBase:stOaiBase.value.trim(),oaiKey:stOaiKey.value.trim(),oaiModel:stOaiModel.value.trim(),
+    localModel:stLocalModel.value,max:+stMax.value||1024,global:stGlobal.value.trim(),lang:stLang.value.trim()||'ro-RO',
+    imgOn:stImgTog.classList.contains('on'),imgStyle:stStyle.value.trim(),imgModel:stImgModel.value,poll:stPoll.value.trim(),
+    autoSum:stSumTog.classList.contains('on'),sumEvery:Math.max(10,+stSumEvery.value||40),sumKeep:Math.max(4,+stSumKeep.value||16)});
+  save('taifas_settings',S);goHome();
+}
+
+/* ---------- init ---------- */
+document.getElementById('inp').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMsg()}});
+document.getElementById('chatSearch').addEventListener('input',e=>{chatQuery=e.target.value;renderMsgs()});
+document.getElementById('sheetVeil').addEventListener('click',e=>{if(e.target.id==='sheetVeil')closeSheet()});
+
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('sw.js').then(reg=>{
+    reg.update();
+    reg.addEventListener('updatefound',()=>{
+      const nw=reg.installing;
+      nw&&nw.addEventListener('statechange',()=>{
+        if(nw.state==='installed'&&navigator.serviceWorker.controller)
+          document.getElementById('updbar').style.display='flex';
+      });
+    });
+  }).catch(()=>{});
+  let reloaded=false;
+  navigator.serviceWorker.addEventListener('controllerchange',()=>{if(!reloaded){reloaded=true;location.reload()}});
+}
+if(navigator.storage&&navigator.storage.persist)navigator.storage.persist().catch(()=>{});
+
+renderHome();
+</script>
+</body>
+</html>
