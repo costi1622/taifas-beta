@@ -500,6 +500,16 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
 .vmsg .dur{font-size:.72rem;color:var(--tx2);flex:none;min-width:30px;text-align:right}
 .vtr{display:block;margin-top:6px;font-size:.78rem;color:var(--tx3);text-decoration:underline;text-underline-offset:2px}
 .vtxt{margin-top:6px;font-size:.88rem;color:var(--tx2)}
+/* 4.1: voce umană */
+.vtxt .vtag{color:var(--tx3);font-style:italic}
+.vmsg .vplay.load{font-size:0}
+.vmsg .vplay.load::after{content:'';width:14px;height:14px;border:2px solid #fff;border-right-color:transparent;border-radius:50%;animation:sp .8s linear infinite}
+.vlist{display:flex;flex-direction:column;gap:6px;max-height:55vh;overflow:auto;padding:0 16px 16px}
+.vrow{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:14px;background:var(--bg2);border:1px solid transparent}
+.vrow.on{border-color:var(--acc)}
+.vrow b{font-weight:600}.vrow small{color:var(--tx3);font-size:.75rem}
+.vrow .vp{width:34px;height:34px;border-radius:50%;background:var(--grad);color:#fff;flex:none}
+.pfVoice{display:flex;align-items:center;gap:8px}.pfVoice span{flex:1;color:var(--tx2);font-size:.9rem}
 .jentry{padding:10px 0;border-bottom:1px solid var(--line)}
 .jentry:last-child{border-bottom:0}
 .jentry b{display:block;font-size:.78rem;color:var(--acc);margin-bottom:4px;text-transform:capitalize}
@@ -744,6 +754,8 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
         <input id="stWkBase" type="url" placeholder="https://taifas-imagini.….workers.dev/v1">
         <label for="stWkTok">Parolă (TOKEN)</label>
         <input id="stWkTok" type="password" autocomplete="off">
+        <label>Planul tău Cloudflare Workers</label>
+        <div class="seg" id="stCfPlan"><button data-v="free">Gratuit</button><button data-v="paid">Paid · $5/lună</button></div>
         <div class="neur" id="stNeur"></div>
         <details style="margin-top:12px"><summary>Reglaje Worker</summary>
           <label for="stWkModel">Model</label>
@@ -793,10 +805,24 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
       <div class="seg" id="stSugg"><button data-v="off">Doar la 💡</button><button data-v="auto">După fiecare mesaj</button></div>
       <label>Personajul îți scrie primul după 8 ore de pauză</label>
       <div class="seg" id="stPro"><button data-v="off">Nu</button><button data-v="on">Da</button></div>
-      <label>Citire cu voce (vocea telefonului, fără *acțiuni*)</label>
+      <label>Citire cu voce a mesajelor scrise (la 🔊 sau automat)</label>
       <div class="seg" id="stVoice"><button data-v="off">Oprit</button><button data-v="tap">La 🔊</button><button data-v="auto">Automat</button></div>
       <label>Mesaje vocale de la personaj</label>
       <div class="seg" id="stVmsg"><button data-v="off">Niciodată</button><button data-v="rar">Rar</button><button data-v="des">Des</button></div>
+      <label>Vocea personajelor</label>
+      <div class="seg" id="stTts"><button data-v="tel">Telefon · gratuit</button><button data-v="el">ElevenLabs</button><button data-v="fal">fal.ai</button></div>
+      <div id="ttsEl" hidden>
+        <label>Cheie ElevenLabs (elevenlabs.io → Developers → API Keys)</label>
+        <input id="stElKey" type="password" autocomplete="off" placeholder="sk_…">
+        <label>Model</label>
+        <div class="seg" id="stElModel"><button data-v="eleven_v3">v3 · cea mai umană</button><button data-v="eleven_v4_turbo">v4 Turbo · mai ieftin</button></div>
+      </div>
+      <div id="ttsFal" hidden>
+        <label>Cheie fal.ai (aceeași ca la poze)</label>
+        <input id="stTtsFalKey" type="password" autocomplete="off" placeholder="cheia fal">
+      </div>
+      <p class="hint" id="ttsHint"></p>
+      <div class="btns"><button class="btn sm" id="stTtsTest">🔊 Ascultă un test</button></div>
       <label>Jurnalul personajului (o intrare pe zi, automat)</label>
       <div class="seg" id="stJrn"><button data-v="off">Oprit</button><button data-v="on">Pornit</button></div>
     </div>
@@ -833,7 +859,7 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
 
 <script>
 'use strict';
-const APP_VER = '4.0';
+const APP_VER = '4.2';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -871,7 +897,7 @@ const DEF = {
   userName:'', userAbout:'', len:'mediu', font:16,
   imgProv:'none', gemKey:'', gemModel:'gemini-2.5-flash-image',
   wkBase:'', wkTok:'', wkModel:'eco', wkSize:'768x1024',
-  sugg:'off', pro:'on', voice:'tap', theme:'dark', vmsg:'rar', jrn:'on', aux:'on', ctxN:'30',
+  sugg:'off', pro:'on', voice:'tap', tts:'tel', cfPlan:'free', elKey:'', elModel:'eleven_v3', theme:'dark', vmsg:'rar', jrn:'on', aux:'on', ctxN:'30',
   falKey:'', falModel:'fal-ai/flux-pulid', falSize:'576x768', spont:'rar', imgAlt:'fal', sv:34, imgCost:'', pIn:'', pOut:''
 };
 let S = {...DEF};
@@ -1419,30 +1445,233 @@ function updateJump(){
   $('#jumpDown').hidden = !far;
   $('#jumpN').hidden = !jumpCount; $('#jumpN').textContent = jumpCount > 9 ? '9+' : jumpCount;
 }
-// mesaj vocal: undă stabilă (din id), durată estimată (~2,6 cuvinte/s)
-function voiceDur(t){ return Math.max(2, Math.round(String(t).split(/\s+/).length / 2.6)); }
-function voiceHTML(m){
-  let h = 0; for(const ch of m.id) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
-  const bars = Array.from({length:28}, (_, k) => { h = (h * 1103515245 + 12345) >>> 0; const v = 25 + (h % 70); return `<i style="height:${Math.round(v * (k < 3 || k > 24 ? .6 : 1))}%"></i>`; }).join('');
-  const d = voiceDur(m.text);
-  return `<div class="vmsg" data-vm="${esc(m.id)}"><button class="vplay" data-vplay aria-label="Ascultă">▶</button><div class="wave">${bars}</div><span class="dur">0:${String(d).padStart(2, '0')}</span></div>
-    <button class="vtr" data-vtr>Transcriere</button><div class="vtxt" hidden>${esc(m.text)}</div>`;
+/* ───────── 4.1: voce umană ─────────
+   motor: tel (vocea telefonului) · el (ElevenLabs direct) · fal (ElevenLabs v3 prin fal.ai)
+   înregistrarea se face o singură dată, se păstrează în IndexedDB (aud:<id>:<alt>) și se reascultă gratuit */
+const TTS_PRICE = {eleven_v3:.08, eleven_v4_turbo:.04, eleven_multilingual_v2:.08, fal:.10};   // $ la 1000 de caractere
+// vocile de bază ElevenLabs (merg și prin fal.ai după nume); lista completă din contul tău se încarcă la „Schimbă”
+const EL_BASE = [
+  ['EXAVITQu4vr4xnSDxMaL', 'Sarah', 'f', 'tânără, caldă'], ['FGY2WhTYpPnrIDTdsKH5', 'Laura', 'f', 'tânără, vioaie'],
+  ['XB0fDUnXU5powFXDhCwa', 'Charlotte', 'f', 'catifelată'], ['Xb7hH8MSUJpSbSDYk0k2', 'Alice', 'f', 'clară, sigură'],
+  ['XrExE9yKIg1WjnnlVkGX', 'Matilda', 'f', 'prietenoasă'], ['cgSgspJ2msm6clMCkdW9', 'Jessica', 'f', 'jucăușă'],
+  ['pFZP5JQG7iQjIQuC4Bku', 'Lily', 'f', 'blândă'], ['9BWtsMINqrJLrRacOk9x', 'Aria', 'f', 'matură, expresivă'],
+  ['SAz9YHcvj6GT2YYXdXww', 'River', 'n', 'neutră, relaxată'],
+  ['CwhRBWXzGAHq8TQ4Fs17', 'Roger', 'm', 'relaxat'], ['IKne3meq5aSn9XLyUdCD', 'Charlie', 'm', 'tânăr, natural'],
+  ['JBFqnCBsd6RMkjVDRZzb', 'George', 'm', 'cald, matur'], ['N2lVS1w4EtoT3dr4eOWO', 'Callum', 'm', 'răgușit'],
+  ['TX3LPaxmHKxFdv7VOQHJ', 'Liam', 'm', 'tânăr, energic'], ['bIHbv24MWmeRgasZH58o', 'Will', 'm', 'prietenos'],
+  ['cjVigY5qzO86Huf0OWal', 'Eric', 'm', 'calm'], ['iP95p4xoKVk53GoZ742B', 'Chris', 'm', 'degajat'],
+  ['nPczCjzI2devNBz1zQrb', 'Brian', 'm', 'grav'], ['onwK4e9ZLuTAKqWW03F9', 'Daniel', 'm', 'autoritar'], ['pqHfZKP75CvOlQylNhV4', 'Bill', 'm', 'bătrân, sfătos']
+].map(([id, name, g, d]) => ({id, name, g, d}));
+// etichetele din text: scrise în română de personaj, traduse pentru modelul de voce
+const VTAGS = {'râde':'laughs', 'rade':'laughs', 'chicotește':'giggles', 'chicoteste':'giggles', 'oftează':'sighs', 'ofteaza':'sighs', 'șoptește':'whispers', 'soptește':'whispers', 'soapta':'whispers'};
+const VTAG_RE = /\[([^\]\n]{2,24})\]/g;
+function ttsText(t, neural){
+  return String(t || '').replace(/\*[^*]*\*/g, ' ').replace(VTAG_RE, (all, w) => { const k = VTAGS[w.trim().toLowerCase()]; return neural && k ? ' [' + k + '] ' : ' '; })
+    .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, '').replace(/\s{2,}/g, ' ').trim();
 }
-let vPlaying = null;
-function playVoice(m, el){
-  if(!('speechSynthesis' in window)){ toast('Telefonul nu are voce pentru citire.'); return; }
-  const bars = [...el.querySelectorAll('.wave i')], btn = el.querySelector('.vplay');
-  const stopUI = () => { bars.forEach(b => b.classList.remove('on')); btn.textContent = '▶'; clearInterval(el._t); vPlaying = null; };
-  if(vPlaying === el){ speechSynthesis.cancel(); stopUI(); return; }
-  if(vPlaying){ speechSynthesis.cancel(); vPlaying._stop && vPlaying._stop(); }
+const vtagHTML = t => esc(t).replace(VTAG_RE, (all, w) => VTAGS[w.trim().toLowerCase()] ? `<span class="vtag">(${esc(w.trim())})</span>` : all);
+function genderOf(c){
+  const t = ((c.look || '') + ' ' + (c.aspect || '')).toLowerCase();
+  if(/\b(woman|girl|female|lady)\b|femeie|fată|tânără|doamnă/.test(t)) return 'f';
+  if(/\b(man|boy|male|guy)\b|bărbat|barbat|băiat|baiat|domn/.test(t)) return 'm';
+  return '';
+}
+function hashPick(list, seed){ let h = 0; for(const ch of String(seed)) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return list[h % list.length]; }
+function defaultVoice(c){
+  const g = genderOf(c), pool = EL_BASE.filter(v => g ? v.g === g : v.g !== 'n');
+  return hashPick(pool.length ? pool : EL_BASE, c.id);
+}
+function voiceOf(c){ return c.voice && c.voice.id ? c.voice : defaultVoice(c); }
+function voiceLabel(c){
+  if(S.tts === 'tel') return 'Vocea telefonului' + (c.vPitch && c.vPitch !== 1 ? (c.vPitch < 1 ? ' · mai gravă' : ' · mai subțire') : '');
+  const v = voiceOf(c); return v.name + (c.voice ? '' : ' (aleasă automat)') + ' · ' + (S.tts === 'el' ? 'ElevenLabs' : 'fal.ai');
+}
+const ttsKey = m => 'aud:' + m.id + ':' + (m.alt || 0);
+
+async function ttsBlob(c, text, signal){
+  const v = voiceOf(c);
+  if(S.tts === 'el'){
+    if(!S.elKey.trim()) throw new Error('lipsește cheia ElevenLabs (Setări → Răspunsuri și voce).');
+    const call = async (model, vs) => {
+      let r;
+      try{ r = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(v.id)}?output_format=mp3_44100_64`, {method:'POST', signal,
+        headers:{'xi-api-key':S.elKey.trim(), 'content-type':'application/json', accept:'audio/mpeg'},
+        body:JSON.stringify(vs ? {text, model_id:model, voice_settings:vs} : {text, model_id:model})}); }
+      catch(e){ if(e.name === 'AbortError') throw e; throw new Error('nu pot ajunge la ElevenLabs (internet?).'); }
+      if(r.ok) return {blob:await r.blob(), model};
+      const j = await r.json().catch(() => ({})), msg = JSON.stringify(j.detail || j).slice(0, 160);
+      if(r.status === 401) throw new Error(/quota|credits/i.test(msg) ? 'ai terminat caracterele lunii pe ElevenLabs.' : 'cheia ElevenLabs nu e bună.');
+      if(/quota|credits/i.test(msg)) throw new Error('ai terminat caracterele lunii pe ElevenLabs.');
+      if(r.status === 404 && /voice/i.test(msg)) throw new Error('vocea aleasă nu mai există. Alege alta din profilul personajului.');
+      const e = new Error('ElevenLabs ' + r.status + ': ' + msg); e.st = r.status; throw e;
+    };
+    const model = S.elModel || 'eleven_v3';
+    try{ return await call(model, {stability:.5, similarity_boost:.75}); }
+    catch(e){
+      if(!e.st) throw e;
+      try{ return await call(model); }                                    // setări de voce nepermise de model
+      catch(e2){ if(!e2.st || model === 'eleven_multilingual_v2') throw e2; return await call('eleven_multilingual_v2', {stability:.45, similarity_boost:.75, style:.3}); }
+    }
+  }
+  if(S.tts === 'fal'){
+    if(!S.falKey.trim()) throw new Error('lipsește cheia fal.ai (Setări → Răspunsuri și voce).');
+    let r;
+    try{ r = await fetch('https://fal.run/fal-ai/elevenlabs/tts/eleven-v3', {method:'POST', signal, headers:{'content-type':'application/json', authorization:'Key ' + S.falKey.trim()},
+      body:JSON.stringify({text, voice:v.name, stability:.5})}); }
+    catch(e){ if(e.name === 'AbortError') throw e; throw new Error('nu pot ajunge la fal.ai (internet?).'); }
+    const j = await r.json().catch(() => ({}));
+    if(!r.ok) throw new Error(r.status === 401 || r.status === 403 ? 'cheia fal.ai nu e bună.' : 'fal.ai ' + r.status + ': ' + JSON.stringify(j.detail || j).slice(0, 160));
+    const url = j.audio && j.audio.url; if(!url) throw new Error('fal.ai n-a trimis sunetul.');
+    return {blob:await (await fetch(url, {signal})).blob(), model:'fal'};
+  }
+  throw new Error('vocea telefonului nu înregistrează.');
+}
+// durata reală și unda reală, din sunet
+async function analyzeAudio(blob){
+  try{
+    const AC = window.AudioContext || window.webkitAudioContext, ac = new AC();
+    const buf = await ac.decodeAudioData(await blob.arrayBuffer()); try{ ac.close(); }catch(e){}
+    const d = buf.getChannelData(0), n = 28, step = Math.max(1, Math.floor(d.length / n)), pk = [];
+    for(let i = 0; i < n; i++){ let s = 0, c = 0; for(let j = i * step; j < (i + 1) * step && j < d.length; j += 32){ s += d[j] * d[j]; c++; } pk.push(Math.sqrt(s / Math.max(1, c))); }
+    const mx = Math.max(...pk) || 1;
+    return {d:Math.max(1, Math.round(buf.duration)), w:pk.map(p => Math.round(12 + 88 * p / mx))};
+  }catch(e){ return null; }
+}
+async function recordVoice(c, m, signal){
+  const text = ttsText(m.text, true); if(!text) return null;
+  const {blob, model} = await ttsBlob(c, text, signal);
+  await DB.set(ttsKey(m), blob);
+  const a = await analyzeAudio(blob);
+  m.vmeta = m.vmeta || {}; m.vmeta[m.alt || 0] = a || {d:voiceDur(m.text)};
+  addUsage(c.id, text.length / 1000 * (TTS_PRICE[model] || .1), 'voc');
+  return blob;
+}
+
+// mesaj vocal: undă reală dacă există înregistrare, altfel stabilă (din id)
+function voiceDur(t){ return Math.max(2, Math.round(String(t).split(/\s+/).length / 2.6)); }
+const fmtDur = d => Math.floor(d / 60) + ':' + String(Math.round(d % 60)).padStart(2, '0');
+function voiceHTML(m){
+  const meta = m.vmeta && m.vmeta[m.alt || 0];
+  let h = 0; for(const ch of m.id) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  const bars = Array.from({length:28}, (_, k) => {
+    let v; if(meta && meta.w) v = meta.w[k]; else { h = (h * 1103515245 + 12345) >>> 0; v = Math.round((25 + (h % 70)) * (k < 3 || k > 24 ? .6 : 1)); }
+    return `<i style="height:${v}%"></i>`; }).join('');
+  const d = meta ? meta.d : voiceDur(m.text);
+  return `<div class="vmsg" data-vm="${esc(m.id)}"><button class="vplay" data-vplay aria-label="Ascultă">▶</button><div class="wave">${bars}</div><span class="dur">${fmtDur(d)}</span></div>
+    <button class="vtr" data-vtr>Transcriere</button><div class="vtxt" hidden>${vtagHTML(m.text)}</div>`;
+}
+let vPlaying = null, vAudio = null;
+function stopAllVoice(){ try{ speechSynthesis.cancel(); }catch(e){} if(vAudio){ vAudio.pause(); vAudio = null; } if(vPlaying && vPlaying._stop) vPlaying._stop(); vPlaying = null; }
+function phoneVoice(){
+  const vs = (window.speechSynthesis ? speechSynthesis.getVoices() : []).filter(x => /^ro/i.test(x.lang));
+  return vs.find(x => /natural|neural|online|enhanced|premium/i.test(x.name)) || vs.find(x => /google/i.test(x.name)) || vs[0] || null;
+}
+function speakPhone(c, text, onEnd){
+  if(!('speechSynthesis' in window)){ toast('Telefonul nu are voce pentru citire.'); onEnd && onEnd(); return null; }
+  speechSynthesis.cancel();
+  // propoziție cu propoziție: pauzele dintre ele sună mai omenește decât un singur bloc
+  const parts = ttsText(text, false).match(/[^.!?…]+[.!?…]*/g) || [];
+  const g = c ? genderOf(c) : '', base = c && c.vPitch ? c.vPitch : (g === 'm' ? .9 : g === 'f' ? 1.06 : 1), v = phoneVoice();
+  parts.forEach((p, k) => {
+    const u = new SpeechSynthesisUtterance(p.trim()); u.lang = 'ro-RO'; if(v) u.voice = v;
+    u.pitch = base * (1 + (k % 2 ? .02 : -.02)); u.rate = /\?\s*$/.test(p) ? 1.02 : .97;
+    if(k === parts.length - 1){ u.onend = u.onerror = () => onEnd && onEnd(); }
+    speechSynthesis.speak(u);
+  });
+  if(!parts.length) onEnd && onEnd();
+}
+async function audioFor(c, m, btn){
+  let blob = await DB.get(ttsKey(m)).catch(() => null);
+  if(blob) return blob;
+  if(btn) btn.classList.add('load');
+  try{ blob = await recordVoice(c, m); await saveChat(); }
+  finally{ if(btn) btn.classList.remove('load'); }
+  return blob;
+}
+async function playVoice(m, el){
+  const bars = [...el.querySelectorAll('.wave i')], btn = el.querySelector('.vplay'), dl = el.querySelector('.dur');
+  if(vPlaying === el){ stopAllVoice(); return; }
+  stopAllVoice();
+  const meta = m.vmeta && m.vmeta[m.alt || 0], total = meta ? meta.d : voiceDur(m.text);
+  const stopUI = () => { bars.forEach(b => b.classList.remove('on')); btn.textContent = '▶'; clearInterval(el._t); dl.textContent = fmtDur(total); if(vPlaying === el) vPlaying = null; };
   vPlaying = el; el._stop = stopUI;
-  const u = new SpeechSynthesisUtterance(m.text);
-  u.lang = 'ro-RO'; const v = speechSynthesis.getVoices().find(x => /^ro/i.test(x.lang)); if(v) u.voice = v;
-  const t0 = Date.now(), dur = voiceDur(m.text) * 1000;
+  const prog = f => { const k = Math.min(bars.length, Math.round(f * bars.length)); bars.forEach((b, i) => b.classList.toggle('on', i < k)); };
+  if(S.tts !== 'tel'){
+    let blob = null;
+    try{ blob = await audioFor(cur, m, btn); }catch(e){ toast('Vocea: ' + e.message + ' Folosesc vocea telefonului.', 4000); }
+    if(vPlaying !== el) return;
+    if(blob){
+      const a = vAudio = new Audio(URL.createObjectURL(blob));
+      btn.textContent = '❚❚';
+      el._t = setInterval(() => { if(a.duration){ prog(a.currentTime / a.duration); dl.textContent = fmtDur(a.currentTime); } }, 80);
+      a.onended = () => { URL.revokeObjectURL(a.src); stopUI(); if(vAudio === a) vAudio = null; };
+      a.play().catch(() => { stopUI(); toast('Nu pot porni sunetul.'); });
+      if(meta == null) renderMsgs();
+      return;
+    }
+  }
+  const t0 = Date.now(), dur = total * 1000;
   btn.textContent = '❚❚';
-  el._t = setInterval(() => { const k = Math.min(bars.length, Math.round((Date.now() - t0) / dur * bars.length)); bars.forEach((b, i) => b.classList.toggle('on', i < k)); }, 80);
-  u.onend = u.onerror = stopUI;
-  speechSynthesis.cancel(); speechSynthesis.speak(u);
+  el._t = setInterval(() => prog((Date.now() - t0) / dur), 80);
+  speakPhone(cur, m.text, stopUI);
+}
+// 🔊 pe un mesaj scris: același motor de voce (cu ElevenLabs/fal se înregistrează o dată și se păstrează)
+async function say(t, m){
+  stopAllVoice();
+  if(S.tts !== 'tel' && m && cur){
+    try{ const b = await audioFor(cur, m); const a = vAudio = new Audio(URL.createObjectURL(b)); a.onended = () => URL.revokeObjectURL(a.src); await a.play(); return; }
+    catch(e){ toast('Vocea: ' + e.message, 3500); }
+  }
+  speakPhone(cur, t);
+}
+const SAMPLE = c => `Bună! Sunt ${c.name}. [râde] Deci... așa sună vocea mea. Îți place?`;
+async function voiceSample(c, btn, v){
+  stopAllVoice();
+  if(S.tts === 'tel'){ speakPhone(c, SAMPLE(c)); return; }
+  const keep = c.voice; if(v) c.voice = v;
+  const old = btn ? btn.innerHTML : '';
+  if(btn){ btn.disabled = true; btn.innerHTML = '<span class="spin"></span>'; }
+  try{
+    const {blob, model} = await ttsBlob(c, ttsText(SAMPLE(c), true));
+    addUsage(null, SAMPLE(c).length / 1000 * (TTS_PRICE[model] || .1), 'voc');
+    const a = vAudio = new Audio(URL.createObjectURL(blob)); await a.play();
+  }catch(e){ toast('Vocea: ' + e.message, 4500); }
+  finally{ c.voice = keep; if(btn){ btn.disabled = false; btn.innerHTML = old; } }
+}
+let elVoices = null;
+async function loadElVoices(){
+  if(elVoices) return elVoices;
+  try{
+    const r = await fetch('https://api.elevenlabs.io/v1/voices', {headers:{'xi-api-key':S.elKey.trim()}});
+    if(!r.ok) throw 0;
+    const j = await r.json();
+    const gmap = {female:'f', male:'m', neutral:'n'};
+    elVoices = (j.voices || []).map(v => ({id:v.voice_id, name:v.name.split(/\s[-–]\s/)[0], g:gmap[(v.labels || {}).gender] || 'n',
+      d:[{young:'tânără', middle_aged:'matură', old:'în vârstă'}[(v.labels || {}).age] || '', (v.labels || {}).descriptive || (v.labels || {}).description, v.category === 'premade' ? '' : 'din contul tău'].filter(Boolean).join(', ').replace(/_/g, ' '), prev:v.preview_url}));
+    if(!elVoices.length) elVoices = null;
+  }catch(e){ elVoices = null; }
+  return elVoices || EL_BASE;
+}
+async function pickVoice(c, done){
+  if(S.tts === 'tel'){
+    sheet([['🔉', 'Mai gravă', async () => { c.vPitch = .85; await saveChars(); done(); }], ['🔊', 'Normală', async () => { c.vPitch = 0; await saveChars(); done(); }], ['🎵', 'Mai subțire', async () => { c.vPitch = 1.18; await saveChars(); done(); }],
+      ['⚙️', 'Vreau voce umană (ElevenLabs)', () => { openSettings(); openSetPanel('chat'); }]]);
+    return;
+  }
+  openSheet(`<h4>🎙️ Vocea lui ${esc(c.name)}</h4><div class="vlist" id="vList"><p class="hint" style="padding:8px"><span class="spin"></span> Încarc vocile…</p></div>`);
+  let list = S.tts === 'el' ? await loadElVoices() : EL_BASE;
+  const g = genderOf(c), cv = voiceOf(c);
+  list = [...list].sort((a, b) => (b.g === g) - (a.g === g));
+  const box = $('#vList'); if(!box) return;
+  box.innerHTML = list.map((v, k) => `<div class="vrow${v.id === cv.id ? ' on' : ''}" data-k="${k}"><button class="vp" data-vp="${k}" aria-label="Ascultă">▶</button><div style="flex:1"><b>${esc(v.name)}</b><br><small>${esc({f:'feminină', m:'masculină', n:'neutră'}[v.g] || '')}${v.d ? ' · ' + esc(v.d) : ''}</small></div><button class="btn sm" data-vs="${k}">${v.id === cv.id ? '✓' : 'Alege'}</button></div>`).join('')
+    + `<p class="hint" style="padding:4px 6px">▶ ascultă o mostră${S.tts === 'el' ? ' (gratuită, în engleză)' : ' (în română, costă ~1 ban)'}. Vocile tale din ElevenLabs apar și ele aici.</p>`;
+  box.onclick = async e => {
+    const p = e.target.closest('[data-vp]'), sel = e.target.closest('[data-vs]');
+    if(p){ const v = list[+p.dataset.vp]; stopAllVoice();
+      if(v.prev){ vAudio = new Audio(v.prev); vAudio.play().catch(() => toast('Nu pot porni mostra.')); }
+      else voiceSample(c, p, v); }
+    if(sel){ const v = list[+sel.dataset.vs]; c.voice = {id:v.id, name:v.name}; await saveChars(); closeSheet(); toast('🎙️ ' + c.name + ' vorbește acum cu vocea ' + v.name + '.'); done(); }
+  };
 }
 const seenMap = new WeakMap();
 function heroHTML(){
@@ -1501,10 +1730,10 @@ function setBusyUI(on){
   if(on && live && cur && live.ch === chat && live.typing !== false){
     tb.hidden = false;
     $('#tbAv').innerHTML = avatarHTML(cur); hydrate(tb);
-    $('#tbTxt').textContent = cur.name + (live.photo ? ' îți face o poză…' : ' scrie…');
+    $('#tbTxt').textContent = cur.name + (live.photo ? ' îți face o poză…' : live.rec ? ' înregistrează un mesaj vocal…' : ' scrie…');
   } else tb.hidden = true;
   const t = $('#chTag');
-  if(on && live && cur && live.ch === chat && live.typing !== false){ t.textContent = live.photo ? 'îți face o poză…' : 'scrie…'; t.classList.add('typing'); }
+  if(on && live && cur && live.ch === chat && live.typing !== false){ t.textContent = live.photo ? 'îți face o poză…' : live.rec ? 'înregistrează audio…' : 'scrie…'; t.classList.add('typing'); }
   else if(cur && chat){ t.innerHTML = statusLine(); t.classList.remove('typing'); }
 }
 
@@ -1531,7 +1760,7 @@ function systemFor(c, ch){
 - Nu folosi liniuțe lungi (— sau –); folosește virgula sau punctul.
 - Variază formulările; nu repeta aceleași gesturi și expresii de la un mesaj la altul.
 - Ții cont de momentul zilei și de pauzele dintre mesaje, notate între paranteze în mesajele lui ${u}; nu le menționa ca note.
-${S.vmsg !== 'off' ? `- Uneori, când e firesc (cam o dată la ${S.vmsg === 'des' ? '4' : '10'} mesaje), poți trimite un mesaj vocal: începe răspunsul cu [vocal] și scrie doar ce spui cu voce tare, fără *acțiuni*, ca vorbit, 1-3 propoziții.\n` : ''}- Dacă un mesaj al lui ${u} te amuză sau te emoționează, poți începe răspunsul cu o reacție scrisă exact așa: [❤️] [😂] [😮] [😢] [👍] [🔥] sau [🥰]. Cel mult o dată la câteva mesaje, nu de fiecare dată.
+${S.vmsg !== 'off' ? `- Uneori, când e firesc (cam o dată la ${S.vmsg === 'des' ? '4' : '10'} mesaje), sau oricând ${u} îți cere, poți trimite un mesaj vocal: începe răspunsul cu [vocal] și scrie exact ce spui cu voce tare, ca o persoană care vorbește liber la telefon: propoziții scurte, ezitări firești (păi, adică, mă rog, știi?), reluări, fără *acțiuni* și fără emoji. Unde e firesc, rar, poți pune [râde], [chicotește], [oftează], [șoptește] sau ... pentru o pauză scurtă. 1-4 propoziții.\n` : ''}- Dacă un mesaj al lui ${u} te amuză sau te emoționează, poți începe răspunsul cu o reacție scrisă exact așa: [❤️] [😂] [😮] [😢] [👍] [🔥] sau [🥰]. Cel mult o dată la câteva mesaje, nu de fiecare dată.
 ${canAutoPhoto(c)
   ? '- Poți trimite poze. Când vrei să-i trimiți una, încheie mesajul cu acțiunea *îți trimite o poză*; aplicația o atașează singură. Nu promite poze în alt fel.'
   : '- Nu poți trimite poze în această conversație. Nu spune că trimiți, că faci sau că ai trimis o poză.'}`
@@ -1659,7 +1888,7 @@ async function reply(target, opts = {}){
   const fresh = um && !um.seen && !opts.pro && !opts.cont;
   busy = new AbortController(); live = {c, ch, typing:!fresh}; setBusyUI(true); renderMsgs(true);
   let showAt = 0, showT = null;
-  const draw = () => { if(Date.now() >= showAt){ delete m.hold; if(chat === ch) liveUpdate(m); } };
+  const draw = () => { if(m.rec) return; if(Date.now() >= showAt){ delete m.hold; if(chat === ch) liveUpdate(m); } };
   if(fresh){
     m.hold = true;
     const seenIn = 350 + Math.random() * 500;
@@ -1683,7 +1912,10 @@ async function reply(target, opts = {}){
       lastU.text = nowNote() + ' ' + lastU.text + (ar ? '\n\n' + ar : '');
     }
     const full = await stream(systemFor(c, ch), ctx, {max:LEN[S.len].max, signal:busy.signal, cid:c.id,
-      onText: t => { m.text = t; draw(); }});
+      onText: t => { m.text = t;
+        // mesaj vocal: textul nu apare pe ecran cât timp „înregistrează”
+        if(!m.rec && S.vmsg !== 'off' && /^\s*(?:\[[^\]v][^\]]*\]\s*)?\[v/i.test(t)){ m.rec = m.hold = true; if(live){ live.rec = true; if(chat === ch) setBusyUI(true); } if(chat === ch) renderMsgs(); }
+        draw(); }});
     m.text = faraLiniute(full.trim());
     let rm = m.text.match(AI_REACT);
     if(rm) m.text = m.text.replace(AI_REACT, '').trim();
@@ -1691,6 +1923,10 @@ async function reply(target, opts = {}){
       m.text = m.text.replace(AI_VOICE, '').trim();
       if(S.vmsg !== 'off'){ m.voice = true; m.text = m.text.replace(/\*[^*]*\*/g, ' ').replace(/\s{2,}/g, ' ').trim(); }
     } else delete m.voice;
+    if(m.voice && m.text && S.tts !== 'tel'){
+      if(live){ live.rec = true; if(chat === ch) setBusyUI(true); }
+      try{ await recordVoice(c, m, busy.signal); }catch(e){ if(e.name === 'AbortError') throw e; toast('Vocea: ' + e.message, 4500); }
+    }
     if(!rm){ rm = m.text.match(AI_REACT); if(rm) m.text = m.text.replace(AI_REACT, '').trim(); }
     if(rm && um && !target) um.react = rm[1] === '❤' ? '❤️' : rm[1];
     if(!m.text) throw new Error('Răspuns gol. Încearcă din nou.');
@@ -1700,7 +1936,7 @@ async function reply(target, opts = {}){
     if(e.name === 'AbortError' && m.text) m.text = faraLiniute(stripReact(m.text).trim());
     else { m.err = e.name === 'AbortError' ? 'Oprit.' : (e.message || 'Eroare'); m.text = ''; }
   }
-  clearTimeout(showT); delete m.hold;
+  clearTimeout(showT); delete m.hold; delete m.rec;
   if(um) um.seen = true;
   m.alts[m.alt] = m.text; delete m.pending; m.ts = Date.now();
   busy = null; live = null;
@@ -1723,7 +1959,7 @@ async function reply(target, opts = {}){
         setTimeout(() => { if(chat === ch && !busy) askPhoto(true); }, 1500);
       }
     }
-    if(chat === ch && S.voice === 'auto') say(m.text);
+    if(chat === ch && S.voice === 'auto' && !m.voice) say(m.text, m);
     if(chat === ch && S.sugg === 'auto') suggest();
   }
 }
@@ -1830,6 +2066,7 @@ function priceFor(model){
 function imgPrice(){
   const v = parseFloat(String(S.imgCost).replace(',', '.'));
   if(!isNaN(v)) return v;
+  if(S.imgProv === 'worker' && S.cfPlan === 'paid'){ const n = neurPerPhoto() || 5000; return neurToday >= 10000 ? n * NEUR_USD : 0; }
   return {gemini:.04, fal:.035, worker:0}[S.imgProv] || 0;
 }
 let usageQ = Promise.resolve();
@@ -1838,7 +2075,7 @@ function addUsage(cid, usd, kind, tok){
     const u = await DB.get('usage') || {months:{}, chars:{}};
     const mo = new Date().toISOString().slice(0, 7);
     const M = u.months[mo] = u.months[mo] || {txt:0, img:0, n:0};
-    if(kind === 'img'){ M.img += usd; M.n++; } else M.txt += usd;
+    if(kind === 'img'){ M.img += usd; M.n++; } else if(kind === 'voc'){ M.voc = (M.voc || 0) + usd; M.vn = (M.vn || 0) + 1; } else M.txt += usd;
     if(tok){ for(const k of ['inp', 'cw', 'cr', 'out', 'saved']) M[k] = (M[k] || 0) + (tok[k] || 0); M.calls = (M.calls || 0) + 1; }
     if(cid) u.chars[cid] = (u.chars[cid] || 0) + usd;
     await DB.set('usage', u);
@@ -1859,11 +2096,12 @@ async function renderCost(){
   const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - 1);
   const M = u.months[mo] || {txt:0, img:0, n:0}, P = u.months[d.toISOString().slice(0, 7)];
   const top = Object.entries(u.chars).map(([id, v]) => [charById(id), v]).filter(x => x[0]).sort((a, b) => b[1] - a[1]).slice(0, 6);
-  $('#stCostMini').textContent = 'Luna aceasta: ' + usd(M.txt + M.img);
+  const tot = X => X.txt + X.img + (X.voc || 0);
+  $('#stCostMini').textContent = 'Luna aceasta: ' + usd(tot(M));
   const totIn = (M.inp || 0) + (M.cw || 0) + (M.cr || 0), pc = totIn ? Math.round((M.cr || 0) / totIn * 100) : 0;
-  $('#stCost').innerHTML = `<b>${usd(M.txt + M.img)}</b>luna aceasta · text ${usd(M.txt)} · poze ${usd(M.img)} (${M.n})
+  $('#stCost').innerHTML = `<b>${usd(tot(M))}</b>luna aceasta · text ${usd(M.txt)} · poze ${usd(M.img)} (${M.n})${M.voc ? ` · voce ${usd(M.voc)} (${M.vn})` : ''}
     ${totIn ? `<div class="row2"><span>Context citit din cache</span><span>${pc}%</span></div><div class="row2"><span>Economisit prin cache</span><span style="color:var(--ok)">${usd(M.saved || 0)}</span></div><div class="row2"><span>Cost mediu pe mesaj</span><span>${usd(M.txt / Math.max(1, M.calls || 1))}</span></div>` : ''}
-    ${P ? `<div class="row2"><span>Luna trecută</span><span>${usd(P.txt + P.img)}</span></div>` : ''}
+    ${P ? `<div class="row2"><span>Luna trecută</span><span>${usd(tot(P))}</span></div>` : ''}
     ${top.map(([c, v]) => `<div class="row2"><span>${esc(c.name)}</span><span>${usd(v)}</span></div>`).join('')}`;
 }
 
@@ -2004,19 +2242,6 @@ async function jumpTo(cid, tid, mid){
   el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash');
 }
 
-/* voce */
-function say(t){
-  if(!('speechSynthesis' in window) || !t) return;
-  speechSynthesis.cancel();
-  const clean = String(t).replace(/\*[^*]*\*/g, ' ').replace(/\s+/g, ' ').trim();
-  if(!clean) return;
-  const u = new SpeechSynthesisUtterance(clean);
-  u.lang = 'ro-RO';
-  const v = speechSynthesis.getVoices().find(x => /^ro/i.test(x.lang));
-  if(v) u.voice = v;
-  speechSynthesis.speak(u);
-}
-
 /* profilul personajului */
 let profId = null;
 async function charProfile(id, push = true){
@@ -2047,6 +2272,7 @@ async function charProfile(id, push = true){
     </div>
     ${c.persona ? `<div class="pfSec"><h3>Despre</h3><p class="clamp" id="pfAbout">${esc(c.persona)}</p><button class="more" id="pfMore" hidden>Mai mult</button></div>` : ''}
     ${c.aspect ? `<div class="pfSec"><h3>Cum arată</h3><p>${esc(c.aspect)}</p></div>` : ''}
+    <div class="pfSec"><h3>🎙️ Vocea</h3><div class="pfVoice"><span id="pfVName">${esc(voiceLabel(c))}</span><button class="btn sm" id="pfVPlay">▶ Ascultă</button><button class="btn sm" id="pfVPick">Schimbă</button></div></div>
     <div class="pfSec"><h3><span>📔 Jurnal</span></h3><div id="pfJrn"></div>
       <div class="btns jbtn"><button class="btn sm" id="pfJrnToday">✍️ Scrie despre azi</button>${(c.journal || []).length > 3 ? '<button class="btn sm" id="pfJrnAll">Vezi tot</button>' : ''}</div></div>
     <div class="pfSec"><h3><span>🧠 Ce știe despre ${esc(u)} · ${(c.facts || []).length}</span></h3>
@@ -2083,6 +2309,8 @@ async function charProfile(id, push = true){
     const n = await extractFacts(c, ch); drawFacts(); toast(n ? n + ' lucruri noi reținute.' : 'Nimic nou de reținut.');
     b.disabled = false; b.textContent = '🔄';
   };
+  $('#pfVPlay').onclick = () => voiceSample(c, $('#pfVPlay'));
+  $('#pfVPick').onclick = () => pickVoice(c, () => { $('#pfVName').textContent = voiceLabel(c); });
   $('#pfFav').onclick = async () => { c.fav = !c.fav; await saveChars(); $('#pfFav').textContent = c.fav ? '★' : '☆'; toast(c.fav ? '⭐ Adăugat la favorite' : 'Scos de la favorite'); };
   $('#pfEdit').onclick = $('#pfEditTop').onclick = () => openEditor(id);
   $('#pfChat').onclick = () => { if(fromChat) history.back(); else openChat(id); };
@@ -2151,7 +2379,7 @@ function msgSheet(i){
   if(!m.err) opts.push(['↩️', 'Răspunde la mesaj', () => setReply(i)]);
   if(!m.err) opts.push(['❤️', m.react ? 'Schimbă reacția' : 'Reacționează', () => setTimeout(() => reactPicker(i), 50)]);
   if(m.text) opts.push(['📋', 'Copiază', () => { navigator.clipboard?.writeText(m.text); toast('Copiat'); }]);
-  if(m.text && !me) opts.push(['🔊', 'Citește cu voce', () => say(m.text)]);
+  if(m.text && !me) opts.push(['🔊', 'Citește cu voce', () => say(m.text, m)]);
   if(m.text && !busy) opts.push(['✏️', me ? 'Editează și retrimite' : 'Editează', () => editMsg(i)]);
   if(m.img) opts.push(['💾', 'Salvează poza în telefon', () => saveImage(m.img)]);
   if(m.img && canShareFiles()) opts.push(['↗️', 'Trimite poza în altă aplicație', () => shareImage(m.img)]);
@@ -2544,8 +2772,8 @@ async function deleteChar(){
 const aiReady = () => S.prov === 'anthropic' ? !!S.key.trim() : !!(S.oaBase && S.oaModel);
 const FIELDS = {stKey:'key', stModel:'model', stOaBase:'oaBase', stOaKey:'oaKey', stOaModel:'oaModel', stUser:'userName', stAbout:'userAbout',
   stGemKey:'gemKey', stGemModel:'gemModel', stWkBase:'wkBase', stWkTok:'wkTok', stWkModel:'wkModel', stWkSize:'wkSize',
-  stFalKey:'falKey', stFalModel:'falModel', stFalSize:'falSize', stImgCost:'imgCost', stPin:'pIn', stPout:'pOut'};
-const SEGS = {stAux:'aux', stCtx:'ctxN', stVmsg:'vmsg', stJrn:'jrn', stTheme:'theme', stProv:'prov', stLen:'len', stFont:'font', stImg:'imgProv', stImgAlt:'imgProv', stSugg:'sugg', stPro:'pro', stVoice:'voice', stSpont:'spont'};
+  stFalKey:'falKey', stFalModel:'falModel', stFalSize:'falSize', stImgCost:'imgCost', stPin:'pIn', stPout:'pOut', stElKey:'elKey', stTtsFalKey:'falKey'};
+const SEGS = {stCfPlan:'cfPlan', stTts:'tts', stElModel:'elModel', stAux:'aux', stCtx:'ctxN', stVmsg:'vmsg', stJrn:'jrn', stTheme:'theme', stProv:'prov', stLen:'len', stFont:'font', stImg:'imgProv', stImgAlt:'imgProv', stSugg:'sugg', stPro:'pro', stVoice:'voice', stSpont:'spont'};
 let setPanel = null, setPanelPushed = false;
 function openSettings(){
   for(const [id, k] of Object.entries(FIELDS)) $('#' + id).value = S[k] ?? '';
@@ -2587,9 +2815,9 @@ function renderSetSummary(){
     ? (S.key ? `<span class="ok">✓</span> Claude · ${esc(S.model || DEF.model)}` : '<span class="bad">lipsește cheia</span>')
     : (aiReady() ? `<span class="ok">✓</span> ${esc(S.oaModel)}` : '<span class="bad">necompletat</span>');
   $('#sum_me').textContent = nm ? nm + (S.userAbout.trim() ? ' · ' + S.userAbout.trim() : '') : 'Cum să-ți spună personajele';
-  const ip = {none:'Oprite', worker:'Worker Cloudflare · ' + (S.wkModel || 'eco'), fal:'fal.ai', gemini:'Gemini'}[S.imgProv] || '';
+  const ip = {none:'Oprite', worker:'Worker Cloudflare · ' + (S.wkModel || 'eco') + (S.cfPlan === 'paid' ? ' · Paid' : ''), fal:'fal.ai', gemini:'Gemini'}[S.imgProv] || '';
   $('#sum_img').textContent = ip;
-  $('#sum_chat').textContent = {scurt:'Răspunsuri scurte', mediu:'Răspunsuri medii', lung:'Răspunsuri lungi'}[S.len] + ' · voce ' + {off:'oprită', tap:'la 🔊', auto:'automată'}[S.voice];
+  $('#sum_chat').textContent = {scurt:'Răspunsuri scurte', mediu:'Răspunsuri medii', lung:'Răspunsuri lungi'}[S.len] + ' · voce ' + {off:'oprită', tap:'la 🔊', auto:'automată'}[S.voice] + ' · ' + ({tel:'telefon', el:'ElevenLabs', fal:'fal.ai'}[S.tts] || 'telefon');
   $('#sum_look').textContent = {auto:'Temă automată', dark:'Temă întunecată', light:'Temă luminoasă'}[S.theme] + ' · text ' + {15:'mic', 16:'normal', 18:'mare'}[S.font];
 }
 function syncSegs(){
@@ -2602,6 +2830,10 @@ function syncSegs(){
   $('#stAltWrap').hidden = !alt;
   $('#stImgTestWrap').hidden = S.imgProv === 'none';
   drawWkEst();
+  $('#ttsEl').hidden = S.tts !== 'el'; $('#ttsFal').hidden = S.tts !== 'fal';
+  $('#ttsHint').textContent = {tel:'Vocea sintetică a telefonului. Gratuită, dar sună robotic. Pentru voce umană alege ElevenLabs.',
+    el:'Voce umană, cu râs, oftat și șoaptă. Planul gratuit ElevenLabs are ~10 minute de audio pe lună. Vocea fiecărui personaj se alege din profilul lui.',
+    fal:'Același model ElevenLabs v3, plătit din contul fal.ai (~$0,10 la 1000 de caractere, cam 2-3 bani pe mesaj vocal). Vocea se alege din profilul personajului.'}[S.tts] || '';
   $('#stGem').hidden = S.imgProv !== 'gemini'; $('#stWk').hidden = S.imgProv !== 'worker'; $('#stFal').hidden = S.imgProv !== 'fal';
   document.documentElement.style.fontSize = (+S.font || 16) + 'px';
   applyTheme();
@@ -2633,8 +2865,13 @@ function neurPerPhoto(model = S.wkModel, size = S.wkSize){
 }
 function drawWkEst(){
   const n = neurPerPhoto(), el = $('#stWkEst'); if(!el) return;
-  el.textContent = n ? `≈ ${Math.round(n).toLocaleString('ro-RO')} neuroni pe poză → cam ${Math.floor(10000 / n)} poze pe zi în cota gratuită.` : 'FLUX.2 dev consumă de zeci de ori mai mult; cota gratuită ajunge doar pentru câteva poze.';
+  const paid = S.cfPlan === 'paid';
+  el.textContent = n ? `≈ ${Math.round(n).toLocaleString('ro-RO')} neuroni pe poză → cam ${Math.floor(10000 / n)} poze pe zi în cota gratuită` + (paid ? `, apoi ~${usd(n * NEUR_USD)} pe poză.` : '.')
+    : 'FLUX.2 dev consumă de zeci de ori mai mult; cota gratuită ajunge doar pentru câteva poze' + (paid ? ', apoi se plătește per poză.' : '.');
 }
+// Workers Paid: peste 10.000 de neuroni/zi, $0,011 la 1.000 de neuroni
+const NEUR_USD = .011 / 1000;
+let neurToday = 0, neurWarned = '';
 // consumul de neuroni Cloudflare de azi, citit prin Worker (GET /v1/usage)
 async function loadNeurons(after){
   const box = $('#stNeur');
@@ -2647,8 +2884,18 @@ async function loadNeurons(after){
     }
     const d = await r.json();
     const lim = d.limit || 10000, pc = Math.min(100, d.neurons / lim * 100);
-    box.className = 'neur' + (pc >= 80 ? ' warn' : '');
+    neurToday = d.neurons;
     const per = neurPerPhoto(), left = per ? Math.max(0, Math.floor((lim - d.neurons) / per)) : null;
+    if(S.cfPlan === 'paid'){
+      const over = Math.max(0, d.neurons - lim), day = new Date().toISOString().slice(0, 10);
+      box.className = 'neur';
+      box.innerHTML = `Azi: <b>${Math.round(d.neurons).toLocaleString('ro-RO')}</b> neuroni · primii ${lim.toLocaleString('ro-RO')} gratuiți`
+        + (over ? ` · peste cotă: <b>${Math.round(over).toLocaleString('ro-RO')}</b> ≈ <b>${usd(over * NEUR_USD)}</b> azi` : left !== null ? ` · <b>~${left}</b> poze gratuite rămase, apoi ~${usd(per * NEUR_USD)}/poză` : '')
+        + `<div class="bar"><i style="width:${pc}%"></i></div>`;
+      if(after && over && neurWarned !== day){ neurWarned = day; toast(`Ai trecut de cota gratuită de azi. Pozele merg în continuare${per ? `, ~${usd(per * NEUR_USD)} fiecare` : ''}.`, 4500); }
+      return;
+    }
+    box.className = 'neur' + (pc >= 80 ? ' warn' : '');
     box.innerHTML = `Azi: <b>${Math.round(d.neurons).toLocaleString('ro-RO')}</b> / ${lim.toLocaleString('ro-RO')} neuroni gratuiți (${Math.round(pc)}%)${left !== null ? ` · <b>~${left}</b> poze rămase` : ''}<div class="bar"><i style="width:${pc}%"></i></div>`;
     if(after && pc >= 80) toast(pc >= 100 ? '⚠️ Cota gratuită Cloudflare de azi s-a terminat. Se resetează la 03:00.' : `⚠️ Ai folosit ${Math.round(pc)}% din neuronii gratuiți de azi.`, 4500);
   }catch(e){ box.className = 'neur'; box.textContent = 'Consum neuroni: ' + e.message; }
@@ -2690,7 +2937,8 @@ async function exportAll(){
   const out = {app:'taifas2', v:APP_VER, date:new Date().toISOString(), data:{}};
   for(const k of await DB.keys()){
     let v = await DB.get(k);
-    if(k === 'settings'){ v = {...v, key:'', oaKey:'', gemKey:'', wkTok:''}; }
+    if(String(k).startsWith('aud:')) continue;   // înregistrările vocale nu intră în backup (se refac la nevoie)
+    if(k === 'settings'){ v = {...v, key:'', oaKey:'', gemKey:'', wkTok:'', elKey:'', falKey:''}; }
     if(v instanceof Blob) v = {__blob:await blobToB64(v), type:v.type};
     out.data[k] = v;
   }
@@ -2701,7 +2949,7 @@ async function importAll(file){
     const j = JSON.parse(await file.text());
     if(j.app !== 'taifas2' || !j.data) throw new Error('Nu e un backup Taifas 2.');
     confirmSheet('Restaurezi backup-ul din ' + (j.date || '').slice(0, 10) + '? Datele actuale se înlocuiesc (cheile tale rămân).', 'Restaurează', async () => {
-      const keep = {key:S.key, oaKey:S.oaKey, gemKey:S.gemKey, wkTok:S.wkTok};
+      const keep = {key:S.key, oaKey:S.oaKey, gemKey:S.gemKey, wkTok:S.wkTok, elKey:S.elKey, falKey:S.falKey};
       await DB.clear();
       for(const [k, v] of Object.entries(j.data)) await DB.set(k, v && v.__blob ? b64ToBlob(v.__blob, v.type) : v);
       const s = await DB.get('settings') || {}; await DB.set('settings', {...s, ...keep});
@@ -2717,6 +2965,7 @@ function bind(){
   $('#btnSettings').onclick = openSettings;
   $$('#nav [data-tab]').forEach(b => b.onclick = () => { homeTab = b.dataset.tab; renderHome(); $('#homeScroll').scrollTop = 0; });
   $('#obStart').onclick = () => openSettings();
+  $('#stTtsTest').onclick = () => voiceSample(chars[0] || {id:'test', name:'Taifas', look:'woman'}, $('#stTtsTest'));
   // lista de conversații: glisare spre stânga = Fixează / Golește
   let rx = 0, ry = 0, rEl = null, rLock = null, rOpen = null;
   const closeRow = () => { if(rOpen){ rOpen.querySelector('.cfront').style.transform = ''; rOpen = null; } };
@@ -2831,7 +3080,7 @@ function bind(){
     const w = e.target.closest('.mw'); if(!w) return;
     const i = +w.dataset.i, m = chat.msgs[i];
     if(e.target.closest('[data-regen]')){ if(!busy) reply(m); return; }
-    if(e.target.closest('[data-say]')){ say(m.text); return; }
+    if(e.target.closest('[data-say]')){ say(m.text, m); return; }
     if(e.target.closest('[data-vplay]')){ playVoice(m, e.target.closest('.bub')); return; }
     if(e.target.closest('[data-vtr]')){ const b = e.target.closest('.bub'); const t = b.querySelector('.vtxt'); t.hidden = !t.hidden; e.target.textContent = t.hidden ? 'Transcriere' : 'Ascunde transcrierea'; return; }
     if(e.target.closest('[data-cont]')){ if(!busy) reply(null, {cont:true}); return; }
@@ -2869,7 +3118,8 @@ function bind(){
     if(v === 'alt') v = (S.imgProv === 'fal' || S.imgProv === 'gemini') ? S.imgProv : (S.imgAlt || 'fal');
     if(k === 'imgProv' && (v === 'fal' || v === 'gemini')) S.imgAlt = v;
     S[k] = v; saveSettings(); syncSegs();
-    if(k === 'imgProv') loadNeurons();
+    if(k === 'imgProv' || k === 'cfPlan') loadNeurons();
+    if(k === 'cfPlan') drawWkEst();
   });
   $('#stTest').onclick = () => { for(const [id, k] of Object.entries(FIELDS)) S[k] = $('#' + id).value.trim(); saveSettings(); testAI(); };
   $('#stExport').onclick = exportAll;
