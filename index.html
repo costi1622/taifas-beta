@@ -255,9 +255,10 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
   </header>
   <div class="scroll"><div class="form">
     <div class="sec">
-      <button type="button" class="photo" id="edPhoto"><span><b>＋</b>Urcă o poză<br>AI-ul o descrie 1:1</span></button>
+      <button type="button" class="photo" id="edPhoto"><span><b>＋</b>Urcă o poză<br>sau generează una mai jos</span></button>
       <input type="file" id="edFile" accept="image/*" hidden>
       <div class="status" id="edStatus"></div>
+      <div class="btns" id="edGenWrap" style="margin-top:0"><button type="button" class="btn sm" id="edGen">🎨 Generează portretul din descriere</button></div>
       <label for="edName">Nume</label>
       <input id="edName" placeholder="ex. Ana" maxlength="40">
       <label for="edTag">Pe scurt</label>
@@ -344,6 +345,8 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
           <div class="hint">Mărimea mică = mai multe poze pe zi în cota gratuită Cloudflare.</div>
         </details>
       </div>
+      <div class="btns" id="stImgTestWrap"><button type="button" class="btn sm" id="stImgTest">🧪 Testează pozele</button></div>
+      <div class="status" id="stImgRes"></div>
       <div id="stAltWrap" hidden>
         <div class="seg" id="stImgAlt" style="margin-top:12px"><button data-v="fal">fal.ai</button><button data-v="gemini">Gemini</button></div>
         <div id="stFal" hidden>
@@ -423,7 +426,7 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
 
 <script>
 'use strict';
-const APP_VER = '2.5';
+const APP_VER = '2.6';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -560,7 +563,8 @@ function provMsgs(msgs){
 }
 async function errText(r){
   let t = r.statusText;
-  try{ const j = await r.json(); t = j.error?.message || j.message || JSON.stringify(j); }catch(e){}
+  try{ const j = await r.clone().json(); t = j.error?.message || j.message || JSON.stringify(j); }
+  catch(e){ try{ const h = new URL(r.url).host; t = (t ? t + ', ' : '') + 'răspuns de la ' + h + (h === location.host ? ' (adresa e greșită: cererea a ajuns la aplicație, nu la serviciu)' : ''); }catch(_){} }
   if(r.status === 401) t = 'Cheie greșită (' + t + ')';
   return `${r.status}: ${t}`;
 }
@@ -650,7 +654,7 @@ Ce am scris deja despre el: ${d.persona || '(nimic, inventează ceva potrivit cu
 ${d.tag ? 'Pe scurt: ' + d.tag : ''}
 
 Păstrează tot ce am scris și dezvoltă natural. Răspunde STRICT cu JSON:
-{"name":"…","tag":"o frază scurtă și atrăgătoare pentru card, max 90 de caractere","persona":"personalitate, trecut, ce-i place, cum se poartă, relația cu interlocutorul; 5-8 propoziții, la persoana a II-a (Ești…, Îți place…)","speech":"stilul de vorbire în câteva cuvinte","greet":"prima replică, 1-3 propoziții, cu o acțiune între *asteriscuri*"}`;
+{"name":"…","aspect":"${d.aspect ? 'lasă gol' : 'înfățișarea unui adult (peste 25 de ani), 4-6 propoziții: vârstă, față, ochi, păr, constituție, stil vestimentar'}","tag":"o frază scurtă și atrăgătoare pentru card, max 90 de caractere","persona":"personalitate, trecut, ce-i place, cum se poartă, relația cu interlocutorul; 5-8 propoziții, la persoana a II-a (Ești…, Îți place…)","speech":"stilul de vorbire în câteva cuvinte","greet":"prima replică, 1-3 propoziții, cu o acțiune între *asteriscuri*"}`;
   const out = await stream('Ești un scriitor de personaje. Scrii în română corectă, cu diacritice, fără liniuțe de dialog.', [{role:'user', text:ask}], {max:1200});
   const j = parseJSON(out);
   for(const k of Object.keys(j)) j[k] = faraLiniute(String(j[k] || '').trim());
@@ -663,6 +667,15 @@ const STIL_TAG = {
   anime:'high quality anime illustration, clean lineart, soft cel shading, detailed eyes, no text',
   illustration:'polished digital illustration, painterly lighting, detailed face, no text',
   '3d':'high quality 3d render, soft global illumination, detailed face, no text'};
+// adresa Worker-ului: adaugă https:// și /v1 dacă lipsesc (fără https://, cererea pleca spre site-ul aplicației → 405)
+function wkUrl(){
+  let u = String(S.wkBase || '').trim().replace(/\s+/g, '');
+  if(!u) return '';
+  if(!/^https?:\/\//i.test(u)) u = 'https://' + u.replace(/^\/+/, '');
+  u = u.replace(/\/+$/, '').replace(/\/images\/(generations|edits)$/, '');
+  if(!/\/v1$/.test(u)) u += '/v1';
+  return u;
+}
 async function genImage(prompt, ref, signal){
   if(S.imgProv === 'gemini'){
     if(!S.gemKey) throw new Error('Lipsește cheia Google în Setări → Poze.');
@@ -685,7 +698,7 @@ async function genImage(prompt, ref, signal){
     fd.append('prompt', prompt); fd.append('model', S.wkModel || 'ancorat'); fd.append('size', S.wkSize || '576x768');
     fd.append('seed', String(Math.floor(Math.random() * 1e9)));
     if(ref) fd.append('image', ref, 'ref.jpg');
-    const r = await fetch(S.wkBase.replace(/\/+$/, '') + '/images/generations', {method:'POST', signal, body:fd,
+    const r = await fetch(wkUrl() + '/images/generations', {method:'POST', signal, body:fd,
       headers: S.wkTok ? {authorization:'Bearer ' + S.wkTok.trim()} : {}});
     if(!r.ok) throw new Error(await errText(r));
     const d = await r.json();
@@ -1297,8 +1310,10 @@ async function renderEdPhoto(){
   if(ed.photoBlob) u = URL.createObjectURL(ed.photoBlob);
   else if(ed.photoKey) u = await imgUrl(ed.photoKey);
   p.classList.toggle('has', !!u);
-  p.innerHTML = u ? `<img src="${u}" alt=""><span class="chg">Schimbă poza</span>` : `<span><b>＋</b>Urcă o poză<br>AI-ul o descrie 1:1</span>`;
+  p.innerHTML = u ? `<img src="${u}" alt=""><span class="chg">Schimbă poza</span>` : `<span><b>＋</b>Urcă o poză<br>sau generează una mai jos</span>`;
   $('#edRedesc').hidden = $('#edCheck').hidden = !u;
+  $('#edGenWrap').hidden = S.imgProv === 'none';
+  $('#edGen').textContent = u ? '🎨 Generează alt portret din descriere' : '🎨 Generează portretul din descriere';
 }
 function setEdStatus(t, cls = ''){ const s = $('#edStatus'); s.className = 'status ' + cls; s.innerHTML = t; }
 async function edPhotoBlob(){ return ed.photoBlob || (ed.photoKey ? await DB.get(ed.photoKey) : null); }
@@ -1340,6 +1355,27 @@ async function runVerify(){
   }catch(e){ setEdStatus('Verificarea a eșuat: ' + esc(e.message), 'err'); }
   btn.disabled = false; btn.textContent = '🔍 Verifică';
 }
+async function runPortrait(){
+  if(S.imgProv === 'none'){ toast('Pornește pozele din Setări.'); return; }
+  let look = $('#edLook').value.trim();
+  const aspect = $('#edAspect').value.trim();
+  if(!look && !aspect){ toast('Scrie întâi ideea și apasă ✨ Completează, ca să aibă un aspect.'); return; }
+  const btn = $('#edGen'); btn.disabled = true;
+  setEdStatus('<span class="spin"></span> Generez portretul…');
+  try{
+    if(!look){
+      look = (await stream('You translate character descriptions into short English image prompts.', [{role:'user', text:'Turn this appearance description into comma-separated English tags for an image generator, max 60 words, face and hair first. Only the tags.\n\n' + aspect}], {max:200})).trim();
+      $('#edLook').value = look;
+    }
+    const stil = $('#edStil').value || 'photo';
+    const prompt = `head and shoulders portrait of an adult, ${look}, looking at the camera, friendly expression, simple softly blurred background. ${STIL_TAG[stil]}`;
+    ed.photoBlob = await genImage(prompt, null);
+    addUsage(ed.id, imgPrice(), 'img');
+    await renderEdPhoto();
+    setEdStatus('✓ Portret generat. Dacă nu-ți place, mai apasă o dată.', 'ok');
+  }catch(e){ setEdStatus('Portretul n-a mers: ' + esc(e.message), 'err'); }
+  btn.disabled = false;
+}
 async function runDraft(){
   if(!aiReady()){ toast('Adaugă cheia în Setări.'); return; }
   const btn = $('#edDraft'); btn.disabled = true; btn.innerHTML = '<span class="spin"></span>';
@@ -1350,6 +1386,7 @@ async function runDraft(){
     if(j.persona) $('#edPersona').value = j.persona;
     if(!$('#edSpeech').value.trim() && j.speech) $('#edSpeech').value = j.speech;
     if(!$('#edGreet').value.trim() && j.greet) $('#edGreet').value = j.greet;
+    if(!$('#edAspect').value.trim() && j.aspect && j.aspect !== 'lasă gol') $('#edAspect').value = j.aspect;
     toast('Gata. Ajustează ce vrei.');
   }catch(e){ toast('Nu a mers: ' + e.message, 4000); }
   btn.disabled = false; btn.textContent = '✨ Completează';
@@ -1412,6 +1449,7 @@ function syncSegs(){
   $$('#stImg button').forEach(b => b.classList.toggle('on', b.dataset.v === (alt ? 'alt' : S.imgProv)));
   $$('#stImgAlt button').forEach(b => b.classList.toggle('on', b.dataset.v === S.imgProv));
   $('#stAltWrap').hidden = !alt;
+  $('#stImgTestWrap').hidden = S.imgProv === 'none';
   $('#stGem').hidden = S.imgProv !== 'gemini'; $('#stWk').hidden = S.imgProv !== 'worker'; $('#stFal').hidden = S.imgProv !== 'fal';
   document.documentElement.style.fontSize = (+S.font || 16) + 'px';
 }
@@ -1421,6 +1459,16 @@ async function testAI(){
     const t = await stream('Răspunzi foarte scurt.', [{role:'user', text:'Spune doar: Merge!'}], {max:20});
     r.className = 'status ok'; r.textContent = '✓ Conectat. Răspuns: ' + t.trim().slice(0, 60);
     $('#stWelcome').hidden = true;
+  }catch(e){ r.className = 'status err'; r.textContent = '✗ ' + e.message; }
+}
+async function testImages(){
+  for(const [id, k] of Object.entries(FIELDS)) S[k] = $('#' + id).value.trim(); saveSettings();
+  if(S.imgProv === 'worker' && S.wkBase) $('#stWkBase').value = S.wkBase = wkUrl(), saveSettings();
+  const r = $('#stImgRes'); r.className = 'status'; r.innerHTML = '<span class="spin"></span> Generez o poză de test…';
+  try{
+    const b = await genImage('a cup of coffee on a wooden table by a window, morning light, photorealistic', null);
+    const u = URL.createObjectURL(b);
+    r.className = 'status ok'; r.innerHTML = `✓ Merge.<br><img src="${u}" style="width:140px;border-radius:12px;margin-top:8px" alt="">`;
   }catch(e){ r.className = 'status err'; r.textContent = '✗ ' + e.message; }
 }
 async function listGemModels(){
@@ -1525,6 +1573,7 @@ function bind(){
   $('#edRedesc').onclick = runDescribe;
   $('#edCheck').onclick = runVerify;
   $('#edDraft').onclick = runDraft;
+  $('#edGen').onclick = runPortrait;
   $('#edSave').onclick = saveEditor;
   $('#edDel').onclick = deleteChar;
   $('#edAcc').addEventListener('click', e => { const b = e.target.closest('[data-a]'); if(!b) return; ed.accent = b.dataset.a; drawLook(); });
@@ -1541,6 +1590,7 @@ function bind(){
   });
   $('#stTest').onclick = () => { for(const [id, k] of Object.entries(FIELDS)) S[k] = $('#' + id).value.trim(); saveSettings(); testAI(); };
   $('#stExport').onclick = exportAll;
+  $('#stImgTest').onclick = testImages;
   $('#stGemList').onclick = () => { S.gemKey = $('#stGemKey').value.trim(); saveSettings(); listGemModels(); };
   $('#stImport').onclick = () => $('#stImpFile').click();
   $('#stImpFile').onchange = e => { if(e.target.files[0]) importAll(e.target.files[0]); e.target.value = ''; };
