@@ -1,12 +1,13 @@
 {
   "name": "Taifas",
   "short_name": "Taifas",
+  "id": "./",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#17141c",
-  "theme_color": "#17141c",
-  "description": "Taifas — companion personal cu personaje AI.",
+  "background_color": "#0e0c12",
+  "theme_color": "#0e0c12",
+  "description": "Taifas — conversații cu personajele tale.",
   "icons": [
     { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
     { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
