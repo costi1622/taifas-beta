@@ -118,7 +118,7 @@ button{cursor:pointer;border:0;background:none}
 label{display:block;font-size:.85rem;color:var(--tx2);margin:12px 0 6px;font-weight:600}
 .sec>label:first-child,.sec>h3+label{margin-top:0}
 .hint{font-size:.78rem;color:var(--tx3);margin-top:5px;line-height:1.4}
-input[type=text],input[type=password],input[type=url],input:not([type]),textarea,select{width:100%;padding:11px 13px;border-radius:12px;border:1px solid var(--line);background:var(--bg);outline:none}
+input[type=text],input[type=password],input[type=url],input[type=datetime-local],input:not([type]),textarea,select{width:100%;padding:11px 13px;border-radius:12px;border:1px solid var(--line);background:var(--bg);outline:none}
 textarea{resize:vertical;min-height:84px;line-height:1.45}
 input:focus,textarea:focus,select:focus{border-color:var(--acc)}
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 18px;border-radius:14px;background:var(--card);border:1px solid var(--line);font-weight:600}
@@ -886,7 +886,7 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
 
 <script>
 'use strict';
-const APP_VER = '4.9';
+const APP_VER = '5.0';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -1376,7 +1376,7 @@ async function openChat(id, push = true, tid, dir){
   setBusyUI(!!(busy && live && live.ch === chat));
   $('#sugg').innerHTML = '';
   clearReply(); jumpCount = 0;
-  maybeProactive();
+  if((cur.sched || []).some(x => x.at <= Date.now())) runDueSched(); else maybeProactive();
   { const jc = cur; setTimeout(() => maybeJournal(jc), 2500); }
 }
 function tagLine(c){
@@ -1410,8 +1410,77 @@ function editScene(){
   $('#shClr').onclick = () => done('');
 }
 const PRO_H = 8;
+/* ⏰ mesaje programate: personajul promite că îți scrie la o oră; când o deschizi după ora aceea, mesajul e acolo, cu ora promisă */
+function parseSched(raw){
+  const [when, ...rest] = String(raw).split('|'), note = rest.join('|').trim();
+  const w = when.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const tm = w.match(/(\d{1,2})[:.](\d{2})/); if(!tm) return null;
+  const hh = +tm[1], mi = +tm[2]; if(hh > 23 || mi > 59) return null;
+  const d = new Date(); d.setSeconds(0, 0);
+  const iso = w.match(/(\d{4})-(\d{2})-(\d{2})/);
+  if(iso) d.setFullYear(+iso[1], +iso[2] - 1, +iso[3]);
+  else if(/poimaine/.test(w)) d.setDate(d.getDate() + 2);
+  else if(/maine/.test(w)) d.setDate(d.getDate() + 1);
+  d.setHours(hh, mi, 0, 0);
+  if(!iso && !/maine|azi/.test(w) && d.getTime() < Date.now()) d.setDate(d.getDate() + 1);   // doar ora: următoarea apariție
+  const at = d.getTime();
+  if(at < Date.now() - 60e3 || at > Date.now() + 14 * 864e5) return null;
+  return {at, note: note.slice(0, 160)};
+}
+function addSched(c, ch, sc){
+  c.sched = (c.sched || []).filter(x => Math.abs(x.at - sc.at) > 5 * 60e3 || x.tid !== (ch.tid || 'main'));
+  c.sched.push({id:uid(), tid:ch.tid || 'main', at:sc.at, note:sc.note, made:Date.now()});
+  c.sched.sort((a, b) => a.at - b.at);
+  saveChars();
+  toast(`⏰ ${c.name} îți scrie ${whenText(sc.at)}`, 3500);
+}
+function whenText(at){
+  const d = new Date(at), t = d.toLocaleTimeString('ro-RO', {hour:'2-digit', minute:'2-digit'});
+  const k = dayKey(at), today = dayKey(Date.now()), tm = dayKey(Date.now() + 864e5);
+  return (k === today ? 'azi' : k === tm ? 'mâine' : d.toLocaleDateString('ro-RO', {weekday:'long', day:'numeric', month:'short'})) + ' la ' + t;
+}
+let schedRun = false;
+async function runDueSched(){
+  if(schedRun || busy || !aiReady()) return;
+  schedRun = true;
+  try{
+    for(const c of [...chars]){
+      const due = (c.sched || []).filter(x => x.at <= Date.now());
+      for(const x of due){
+        if(busy) return;
+        c.sched = c.sched.filter(y => y !== x); await saveChars();
+        if(Date.now() - x.at > 3 * 864e5) continue;                       // prea vechi: renunțăm
+        if(!threadsOf(c).some(t => t.id === x.tid)) continue;
+        const open = cur === c && chat && (chat.tid || 'main') === x.tid;
+        const ch = open ? chat : await loadChat(c, x.tid);
+        const u = S.userName.trim() || 'utilizatorul';
+        const hm = new Date(x.at).toLocaleTimeString('ro-RO', {hour:'2-digit', minute:'2-digit'});
+        await reply(null, {c, ch, pro:true, sched:true, at:x.at, note:`(Notă de regie, nu o menționa ca atare: acum e ora ${hm}, momentul la care i-ai promis lui ${u} că îi scrii${x.note ? ' („' + x.note + '”)' : ''}. Scrie-i acum mesajul promis, firesc, ca și cum îl trimiți exact la ora asta, din ce faci tu în acest moment.)`});
+        if(!$('#vHome').hidden) renderHome();
+      }
+    }
+  } finally { schedRun = false; }
+}
+function schedSheet(){
+  const c = cur, list = (c.sched || []).filter(x => x.tid === (chat.tid || 'main'));
+  const d = new Date(Date.now() + 864e5); d.setHours(7, 25, 0, 0);
+  const def = new Date(d.getTime() - d.getTimezoneOffset() * 60e3).toISOString().slice(0, 16);
+  openSheet(`<h4>⏰ Mesaje programate de la ${esc(c.name)}</h4><div class="pad">
+    ${list.length ? `<ul class="facts">${list.map(x => `<li><span><b>${esc(whenText(x.at))}</b>${x.note ? ' · ' + esc(x.note) : ''}</span><button data-sx="${x.id}" aria-label="Anulează">✕</button></li>`).join('')}</ul>` : `<p style="color:var(--tx3)">Nimic programat. Când ${esc(c.name)} îți promite că îți scrie la o oră, apare aici singur.</p>`}
+    <label style="margin-top:14px">Programează tu un mesaj</label>
+    <input id="scAt" type="datetime-local" value="${def}">
+    <input id="scNote" placeholder="Despre ce (opțional), ex: să-mi ureze bună dimineața" style="margin-top:8px">
+    <div class="btns" style="margin-top:10px"><button class="btn pri" id="scAdd">Programează</button></div></div>`);
+  $$('.sheet [data-sx]').forEach(b => b.onclick = async () => { c.sched = (c.sched || []).filter(x => x.id !== b.dataset.sx); await saveChars(); closeSheet(); toast('Anulat.'); });
+  $('#scAdd').onclick = async () => {
+    const at = new Date($('#scAt').value).getTime();
+    if(!at || at < Date.now()){ toast('Alege o oră din viitor.'); return; }
+    addSched(c, chat, {at, note:$('#scNote').value.trim()}); closeSheet();
+  };
+}
 function maybeProactive(){
   if(S.pro !== 'on' || busy || !aiReady() || !chat.msgs.length) return;
+  if((cur.sched || []).some(x => x.at <= Date.now())) return;
   const last = chat.msgs[chat.msgs.length - 1];
   if(last.err || last.pro) return;
   const h = (Date.now() - (last.ts || Date.now())) / 36e5;
@@ -1501,7 +1570,9 @@ function setReply(i){
 function clearReply(){ replyTo = null; $('#replyBar').hidden = true; }
 // dispoziția: personajul o scrie la finalul răspunsului ca [stare: …]; o păstrăm pe conversație și o ascundem din text
 const MOOD_RE = /\s*\[stare:\s*([^\]\n]{1,40})\]/gi;
-const stripMood = t => String(t || '').replace(MOOD_RE, '').replace(/\s*\[s(t(a(r(e(:[^\]\n]*)?)?)?)?)?$/i, '').trimEnd();
+const SCHED_RE = /\s*\[programez:\s*([^\]\n]{3,160})\]/gi;
+const stripMood = t => String(t || '').replace(MOOD_RE, '').replace(SCHED_RE, '')
+  .replace(/\s*\[s(t(a(r(e(:[^\]\n]*)?)?)?)?)?$/i, '').replace(/\s*\[p(r(o(g(r(a(m(e(z(:[^\]\n]*)?)?)?)?)?)?)?)?)?$/i, '').trimEnd();
 // starea din antet: online / ultima dată + dispoziția (scrisă de personaj sau dedusă din ultimul răspuns)
 const MOODS = [
   [/\b(râde|chicotește|hohot)/i, '😂', 'haz'],
@@ -1595,7 +1666,8 @@ function statusLine(){
   }
   const mood = moodOf();
   const ts = threadsOf(cur), t = ts.length > 1 ? ts.find(x => x.id === (cur.thread || 'main')) : null;
-  return st + (mood ? ' · ' + mood : '') + (t ? ' · 🧵 ' + esc(t.title) : '');
+  const nx = (cur.sched || []).find(x => x.tid === (chat.tid || 'main') && x.at > Date.now());
+  return st + (mood ? ' · ' + mood : '') + (nx ? ' · ⏰ ' + esc(whenText(nx.at)) : '') + (t ? ' · 🧵 ' + esc(t.title) : '');
 }
 // buton „jos" + contor de mesaje noi
 let jumpCount = 0;
@@ -1942,13 +2014,15 @@ function systemFor(c, ch){
 - Nu folosi liniuțe lungi (— sau –); folosește virgula sau punctul.
 - Variază formulările; nu repeta aceleași gesturi și expresii de la un mesaj la altul.
 - Ții cont de momentul zilei și de pauzele dintre mesaje, notate între paranteze în mesajele lui ${u}; nu le menționa ca note.
-${S.vmsg !== 'off' ? `- Uneori, când e firesc (cam o dată la ${S.vmsg === 'des' ? '4' : '10'} mesaje), sau oricând ${u} îți cere, poți trimite un mesaj vocal: începe răspunsul cu [vocal] și scrie exact ce spui cu voce tare, ca o persoană care vorbește liber la telefon: propoziții scurte, ezitări firești (păi, adică, mă rog, știi?), reluări, fără *acțiuni* și fără emoji. Unde e firesc, rar, poți pune [râde], [chicotește], [oftează], [șoptește] sau ... pentru o pauză scurtă. 1-4 propoziții.\n` : ''}${ch ? `- La finalul fiecărui răspuns, pe un rând separat, notează-ți starea de acum exact așa: [stare: un emoji și 1-3 cuvinte], de exemplu [stare: 😊 bine dispusă]. Starea evoluează firesc din ce se întâmplă și din pauze, fără salturi bruște fără motiv.\n` : ''}- Dacă un mesaj al lui ${u} te amuză sau te emoționează, poți începe răspunsul cu o reacție scrisă exact așa: [❤️] [😂] [😮] [😢] [👍] [🔥] sau [🥰]. Cel mult o dată la câteva mesaje, nu de fiecare dată.
+${S.vmsg !== 'off' ? `- Uneori, când e firesc (cam o dată la ${S.vmsg === 'des' ? '4' : '10'} mesaje), sau oricând ${u} îți cere, poți trimite un mesaj vocal: începe răspunsul cu [vocal] și scrie exact ce spui cu voce tare, ca o persoană care vorbește liber la telefon: propoziții scurte, ezitări firești (păi, adică, mă rog, știi?), reluări, fără *acțiuni* și fără emoji. Unde e firesc, rar, poți pune [râde], [chicotește], [oftează], [șoptește] sau ... pentru o pauză scurtă. 1-4 propoziții.\n` : ''}${ch ? `- Dacă îi promiți lui ${u} că îi scrii tu la un anumit moment (de exemplu „îți scriu mâine la 7:25”, „te caut diseară la 9”), sau el îți cere asta și accepți, adaugă la final, pe un rând separat: [programez: ZIUA HH:MM | despre ce îi scrii], unde ZIUA e azi, mâine, poimâine sau AAAA-LL-ZZ. La ora aceea aplicația îți dă ocazia să-i scrii. Nu programa nimic fără o promisiune clară.\n` : ''}${ch ? `- La finalul fiecărui răspuns, pe un rând separat, notează-ți starea de acum exact așa: [stare: un emoji și 1-3 cuvinte], de exemplu [stare: 😊 bine dispusă]. Starea evoluează firesc din ce se întâmplă și din pauze, fără salturi bruște fără motiv.\n` : ''}- Dacă un mesaj al lui ${u} te amuză sau te emoționează, poți începe răspunsul cu o reacție scrisă exact așa: [❤️] [😂] [😮] [😢] [👍] [🔥] sau [🥰]. Cel mult o dată la câteva mesaje, nu de fiecare dată.
 ${canAutoPhoto(c)
   ? '- Poți trimite poze. Când vrei să-i trimiți una, încheie mesajul cu acțiunea *îți trimite o poză*; aplicația o atașează singură. Nu promite poze în alt fel.'
   : '- Nu poți trimite poze în această conversație. Nu spune că trimiți, că faci sau că ai trimis o poză.'}`
   ].filter(Boolean).join('\n\n');
 }
-function contextUpTo(idx){
+const openChatObj = () => chat;
+function contextUpTo(idx, chx){
+  const chat = chx || openChatObj();
   // fereastra pornește din 20 în 20 de mesaje (nu se mută la fiecare răspuns), ca începutul conversației să rămână identic și să fie citit din cache
   const span = +S.ctxN || 30, raw = idx - span;
   let from = Math.max(chat.sumUpTo || 0, raw <= 0 ? 0 : Math.floor(raw / 20) * 20);
@@ -2055,7 +2129,7 @@ async function send(){
   await reply();
 }
 async function reply(target, opts = {}){
-  const c = cur, ch = chat;
+  const c = opts.c || cur, ch = opts.ch || chat;
   let m = target;
   if(suggAbort){ suggAbort.abort(); suggAbort = null; }
   $('#sugg').innerHTML = '';
@@ -2063,6 +2137,7 @@ async function reply(target, opts = {}){
   else {
     m = {id:uid(), role:'ai', text:'', alts:[''], alt:0, ts:Date.now()};
     if(opts.pro){ m.pro = true; m.note = opts.note; }
+    if(opts.sched) m.sched = true;
     if(opts.cont){ m.cont = true; m.note = `(Nu ți-am răspuns încă. Continuă tu firesc cu un mesaj nou, ca într-un chat: adaugă ceva, schimbă subiectul sau întreabă-mă ceva. Nu repeta ce ai spus deja.)`; }
     ch.msgs.push(m);
   }
@@ -2071,7 +2146,7 @@ async function reply(target, opts = {}){
   // ritm realist: mesajul tău e „văzut”, apoi apare „scrie…”, apoi textul (cererea pleacă imediat, doar afișarea așteaptă)
   const um = target ? null : [...ch.msgs.slice(0, idx)].reverse().find(x => x.role === 'user');
   const fresh = um && !um.seen && !opts.pro && !opts.cont;
-  busy = new AbortController(); live = {c, ch, typing:!fresh}; setBusyUI(true); renderMsgs(true);
+  busy = new AbortController(); live = {c, ch, typing:!fresh}; setBusyUI(true); if(chat === ch) renderMsgs(true);
   let showAt = 0, showT = null;
   const draw = () => { if(m.rec) return; if(Date.now() >= showAt){ delete m.hold; if(chat === ch) liveUpdate(m); } };
   if(fresh){
@@ -2085,7 +2160,7 @@ async function reply(target, opts = {}){
     showT = setTimeout(() => { if(m.pending && m.text) draw(); }, seenIn + 660);
   }
   try{
-    const ctx = await attachUserImages(contextUpTo(idx));
+    const ctx = await attachUserImages(contextUpTo(idx, ch));
     if(m.note) ctx.push({role:'user', text:m.note});
     // ora și ziua merg doar în ultimul mesaj al tău (nu în promptul de sistem, ca să rămână în cache)
     const lastU = [...ctx].reverse().find(x => x.role === 'user');
@@ -2104,6 +2179,7 @@ async function reply(target, opts = {}){
         if(!m.rec && S.vmsg !== 'off' && /^\s*(?:\[[^\]v][^\]]*\]\s*)?\[v/i.test(t)){ m.rec = m.hold = true; if(live){ live.rec = true; if(chat === ch) setBusyUI(true); } if(chat === ch) renderMsgs(); }
         draw(); }});
     m.text = faraLiniute(full.trim());
+    if(!opts.sched) for(const x of full.matchAll(SCHED_RE)){ const sc = parseSched(x[1]); if(sc) addSched(c, ch, sc); }
     { let mo = null; m.text.replace(MOOD_RE, (a, x) => { mo = x.trim(); return ''; });
       if(mo){ ch.mood = {t:mo, ts:Date.now()}; m.mood = mo; } m.text = stripMood(m.text).trim(); }
     delete m.cut;
@@ -2139,7 +2215,7 @@ async function reply(target, opts = {}){
   }
   clearTimeout(showT); delete m.hold; delete m.rec;
   if(um) um.seen = true;
-  m.alts[m.alt] = m.text; delete m.pending; m.ts = Date.now();
+  m.alts[m.alt] = m.text; delete m.pending; m.ts = (opts.at && !m.err) ? opts.at : Date.now();   // mesajul programat poartă ora promisă
   if(!m.err){ m.am = m.am || {}; m.am[m.alt] = {voice:!!m.voice, cut:m.cut || ''}; }
   busy = null; live = null;
   if(!m.err && !(chat === ch && !$('#vChat').hidden)) c.unread = (c.unread || 0) + 1;
@@ -2693,6 +2769,7 @@ function chatMenu(){
   sheet([
     ['🎬', chat.scene ? 'Scena: ' + chat.scene.slice(0, 32) + (chat.scene.length > 32 ? '…' : '') : 'Setează scena', editScene],
     ['🧵', n > 1 ? `Conversații (${n})` : 'Conversații', threadsSheet],
+    ['⏰', (() => { const k = (cur.sched || []).filter(x => x.tid === (chat.tid || 'main')).length; return k ? `Mesaje programate (${k})` : 'Mesaje programate'; })(), schedSheet],
     ['👤', 'Profil, memorie și editare', () => charProfile(cur.id)],
     ['⋯', 'Mai mult', moreMenu],
   ]);
@@ -3490,6 +3567,9 @@ async function init(){
   else if(!aiReady()) openSettings();
   setTimeout(() => { const sp = $('#splash'); sp.classList.add('out'); setTimeout(() => sp.remove(), 450); }, 650);
   navigator.storage?.persist?.().catch(() => {});
+  setTimeout(runDueSched, 1500);
+  setInterval(runDueSched, 30e3);
+  document.addEventListener('visibilitychange', () => { if(!document.hidden) setTimeout(runDueSched, 800); });
   if('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
 }
 init();
