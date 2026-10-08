@@ -576,10 +576,10 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
         <div class="neur" id="stNeur"></div>
         <details style="margin-top:12px"><summary>Reglaje Worker</summary>
           <label for="stWkModel">Model</label>
-          <select id="stWkModel"><option value="ancorat">ancorat: FLUX.2 klein (ține fața)</option><option value="ancorat+">ancorat+: FLUX.2 dev (mai bun, mai scump)</option></select>
+          <select id="stWkModel"><option value="eco">eco: FLUX.2 klein 4B (ține fața, cel mai ieftin)</option><option value="ancorat">ancorat: FLUX.2 klein 9B (puțin mai fin, de ~13 ori mai scump)</option><option value="ancorat+">ancorat+: FLUX.2 dev (cel mai bun, foarte scump)</option></select>
           <label for="stWkSize">Mărime</label>
-          <select id="stWkSize"><option>480x640</option><option>576x768</option><option>768x1024</option></select>
-          <div class="hint">Mărimea mică = mai multe poze pe zi în cota gratuită Cloudflare.</div>
+          <select id="stWkSize"><option value="512x768">512×768 (rapid, cel mai ieftin)</option><option value="768x1024">768×1024 (recomandat)</option><option value="1024x1536">1024×1536 (detaliat)</option></select>
+          <div class="hint" id="stWkEst"></div>
         </details>
       </div>
       <div class="btns" id="stImgTestWrap"><button type="button" class="btn sm" id="stImgTest">🧪 Testează pozele</button></div>
@@ -666,7 +666,7 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
 
 <script>
 'use strict';
-const APP_VER = '3.3';
+const APP_VER = '3.4';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -703,9 +703,9 @@ const DEF = {
   oaBase:'https://openrouter.ai/api/v1', oaKey:'', oaModel:'',
   userName:'', userAbout:'', len:'mediu', font:16,
   imgProv:'none', gemKey:'', gemModel:'gemini-2.5-flash-image',
-  wkBase:'', wkTok:'', wkModel:'ancorat', wkSize:'576x768',
+  wkBase:'', wkTok:'', wkModel:'eco', wkSize:'768x1024',
   sugg:'off', pro:'on', voice:'tap', theme:'dark',
-  falKey:'', falModel:'fal-ai/flux-pulid', falSize:'576x768', spont:'rar', imgAlt:'fal', sv:30, imgCost:'', pIn:'', pOut:''
+  falKey:'', falModel:'fal-ai/flux-pulid', falSize:'576x768', spont:'rar', imgAlt:'fal', sv:34, imgCost:'', pIn:'', pOut:''
 };
 let S = {...DEF};
 let chars = [];            // [{id,name,tag,photo,aspect,look,stil,persona,speech,greet,created,lastAt,last}]
@@ -952,7 +952,8 @@ async function genImage(prompt, ref, signal){
     const fd = new FormData();
     fd.append('prompt', prompt); fd.append('model', S.wkModel || 'ancorat'); fd.append('size', S.wkSize || '576x768');
     fd.append('seed', String(Math.floor(Math.random() * 1e9)));
-    if(ref) fd.append('image', ref, 'ref.jpg');
+    // poza de referință micșorată la 512 px: o singură bucată de intrare → cost minim
+    if(ref) fd.append('image', await toJpeg(ref, 512, .9), 'ref.jpg');
     const r = await fetch(wkUrl() + '/images/generations', {method:'POST', signal, body:fd,
       headers: S.wkTok ? {authorization:'Bearer ' + S.wkTok.trim()} : {}});
     if(!r.ok) throw new Error(await errText(r));
@@ -1719,7 +1720,8 @@ async function askPhoto(spont){
       {max:160, signal:busy.signal, cid:c.id});
     const prompt = [c.look || '', scene.trim(), STIL_TAG[c.stil || 'photo']].filter(Boolean).join('. ');
     const ref = c.photo ? await DB.get(c.photo) : null;
-    const blob = await genImage(prompt, ref, busy.signal);
+    let blob = await genImage(prompt, ref, busy.signal);
+    try{ if(blob.type === 'image/png') blob = await toJpeg(blob, 2048, .92); }catch(e){}   // PNG → JPEG: de ~5 ori mai puțin spațiu
     m.img = await saveImg(blob); m.prompt = prompt;
     addUsage(c.id, imgPrice(), 'img');
     if(S.imgProv === 'worker') setTimeout(() => loadNeurons(true), 1500);
@@ -2032,6 +2034,7 @@ function syncSegs(){
   $$('#stImgAlt button').forEach(b => b.classList.toggle('on', b.dataset.v === S.imgProv));
   $('#stAltWrap').hidden = !alt;
   $('#stImgTestWrap').hidden = S.imgProv === 'none';
+  drawWkEst();
   $('#stGem').hidden = S.imgProv !== 'gemini'; $('#stWk').hidden = S.imgProv !== 'worker'; $('#stFal').hidden = S.imgProv !== 'fal';
   document.documentElement.style.fontSize = (+S.font || 16) + 'px';
   applyTheme();
@@ -2051,6 +2054,20 @@ async function testAI(){
     $('#stWelcome').hidden = true;
   }catch(e){ r.className = 'status err'; r.textContent = '✗ ' + e.message; }
 }
+// estimare neuroni / poză după prețurile Cloudflare (oct. 2026):
+// klein 4B: 26,05 / bucată 512×512 de ieșire + 5,37 / bucată a pozei de referință (o trimitem la max 512 px = 1 bucată)
+// klein 9B: 1.363,64 pentru primul megapixel (minim) + 181,82 / MP în plus + 181,82 / MP referință
+const tiles = (w, h) => Math.ceil(w / 512) * Math.ceil(h / 512);
+function neurPerPhoto(model = S.wkModel, size = S.wkSize){
+  const [w, h] = String(size || '768x1024').split('x').map(Number), mp = w * h / 1048576, refMp = 512 * 512 / 1048576;
+  if(model === 'eco') return tiles(w, h) * 26.05 + 5.37;
+  if(model === 'ancorat') return 1363.64 + Math.max(0, mp - 1) * 181.82 + refMp * 181.82;
+  return null;                                  // FLUX.2 dev: depinde de pași, mult mai scump
+}
+function drawWkEst(){
+  const n = neurPerPhoto(), el = $('#stWkEst'); if(!el) return;
+  el.textContent = n ? `≈ ${Math.round(n).toLocaleString('ro-RO')} neuroni pe poză → cam ${Math.floor(10000 / n)} poze pe zi în cota gratuită.` : 'FLUX.2 dev consumă de zeci de ori mai mult; cota gratuită ajunge doar pentru câteva poze.';
+}
 // consumul de neuroni Cloudflare de azi, citit prin Worker (GET /v1/usage)
 async function loadNeurons(after){
   const box = $('#stNeur');
@@ -2064,7 +2081,8 @@ async function loadNeurons(after){
     const d = await r.json();
     const lim = d.limit || 10000, pc = Math.min(100, d.neurons / lim * 100);
     box.className = 'neur' + (pc >= 80 ? ' warn' : '');
-    box.innerHTML = `Azi: <b>${Math.round(d.neurons).toLocaleString('ro-RO')}</b> / ${lim.toLocaleString('ro-RO')} neuroni gratuiți (${Math.round(pc)}%)<div class="bar"><i style="width:${pc}%"></i></div>`;
+    const per = neurPerPhoto(), left = per ? Math.max(0, Math.floor((lim - d.neurons) / per)) : null;
+    box.innerHTML = `Azi: <b>${Math.round(d.neurons).toLocaleString('ro-RO')}</b> / ${lim.toLocaleString('ro-RO')} neuroni gratuiți (${Math.round(pc)}%)${left !== null ? ` · <b>~${left}</b> poze rămase` : ''}<div class="bar"><i style="width:${pc}%"></i></div>`;
     if(after && pc >= 80) toast(pc >= 100 ? '⚠️ Cota gratuită Cloudflare de azi s-a terminat. Se resetează la 03:00.' : `⚠️ Ai folosit ${Math.round(pc)}% din neuronii gratuiți de azi.`, 4500);
   }catch(e){ box.className = 'neur'; box.textContent = 'Consum neuroni: ' + e.message; }
 }
@@ -2236,7 +2254,7 @@ function bind(){
   $('#sceneBar').onclick = editScene;
   $('#stCostReset').onclick = () => confirmSheet('Resetezi contorul de consum?', 'Resetează', async () => { await DB.del('usage'); renderCost(); });
   // setări: salvare automată la orice schimbare
-  for(const [id, k] of Object.entries(FIELDS)) $('#' + id).addEventListener('change', e => { S[k] = e.target.value.trim(); saveSettings(); if(k === 'wkBase' || k === 'wkTok') loadNeurons(); });
+  for(const [id, k] of Object.entries(FIELDS)) $('#' + id).addEventListener('change', e => { S[k] = e.target.value.trim(); saveSettings(); if(k === 'wkBase' || k === 'wkTok' || k === 'wkModel' || k === 'wkSize') loadNeurons(); drawWkEst(); });
   for(const [id, k] of Object.entries(SEGS)) $$('#' + id + ' button').forEach(b => b.onclick = () => {
     let v = k === 'font' ? +b.dataset.v : b.dataset.v;
     if(v === 'alt') v = (S.imgProv === 'fal' || S.imgProv === 'gemini') ? S.imgProv : (S.imgAlt || 'fal');
@@ -2260,7 +2278,12 @@ async function init(){
   S = {...DEF, ...(saved || {})};
   if(saved && (S.sv || 0) < 25){ if(S.spont === 'off') S.spont = 'rar'; S.sv = 25; saveSettings(); }
   chars = (await DB.get('chars') || []).filter(c => c && c.id && c.name);
-  if((S.sv || 0) < 30){ chars.forEach(c => { if(!c.bg || c.bg === 'poza') c.bg = 'clar'; }); await saveChars(); S.sv = 30; saveSettings(); }
+  if((S.sv || 0) < 34){
+    if(S.wkModel === 'ancorat') S.wkModel = 'eco';
+    if(['480x640', '576x768'].includes(S.wkSize)) S.wkSize = '768x1024';
+    if((S.sv || 0) >= 30){ S.sv = 34; saveSettings(); }
+  }
+  if((S.sv || 0) < 30){ chars.forEach(c => { if(!c.bg || c.bg === 'poza') c.bg = 'clar'; }); await saveChars(); S.sv = 34; saveSettings(); }
   syncSegs();
   bind();
   history.replaceState(null, '');
