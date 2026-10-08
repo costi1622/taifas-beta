@@ -250,12 +250,33 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
 .day span{background:#1e1a26cc;backdrop-filter:blur(8px);padding:4px 11px;border-radius:99px;border:1px solid #ffffff0d}
 .bub{line-height:1.55;padding:11px 15px;white-space:normal}
 .bub .say{display:block;white-space:pre-wrap;margin:4px 0}
+/* 4.4: text mai aerisit */
+.bub .para{display:block;margin:0}
+.bub .para+.para{margin-top:9px}
+.bub .para .say,.bub .para .act{margin:0}
+.bub .act.inl{display:inline;font-size:.95em}
+.bub .say .q{color:color-mix(in srgb,var(--acc) 55%,var(--tx))}
+.ai .bub .act:not(.inl){padding-left:10px;border-left:2px solid color-mix(in srgb,var(--acc) 45%,transparent)}
+.bub.jumbo{background:none!important;box-shadow:none!important;backdrop-filter:none!important;font-size:2.6rem;line-height:1.15;padding:2px 4px}
+.bub.jumbo .tm{font-size:.62rem}
+.bub .tw{animation:twIn .35s ease-out}
+@keyframes twIn{from{opacity:.15}}
+.under{flex-wrap:wrap}
+.under .rate{font-size:.9rem;padding:4px 7px}
+.under .rate.on{background:color-mix(in srgb,var(--acc) 22%,transparent)}
+.relbox{display:flex;align-items:center;gap:10px}
+.relbox .lv{font-weight:700}
+.relbox small{color:var(--tx3);font-size:.78rem}
+.relbar{height:7px;border-radius:4px;background:color-mix(in srgb,var(--tx) 12%,transparent);overflow:hidden;margin-top:8px}
+.relbar i{display:block;height:100%;background:var(--grad)}
+.fbopts{display:flex;flex-wrap:wrap;gap:8px;padding:0 16px 8px}
+.fbopts button{padding:9px 13px;border-radius:99px;background:var(--bg2);border:1px solid var(--line);font-size:.9rem}
 .bub .act{display:block;white-space:pre-wrap;margin:4px 0;color:#b9abc9;font-style:italic;font-size:.93em;line-height:1.45}
 .me .bub .act{color:#e2cff3}
 .bub>:first-child{margin-top:0}
 .bub .tm{display:block;text-align:right;font-size:.66rem;color:var(--tx3);margin:4px -4px -4px 0;line-height:1}
 .me .bub .tm{color:#ffffff80}
-.bub.typing .say:last-of-type::after,.bub.typing .act:last-of-type::after{content:"▍";color:var(--acc);animation:blink 1s steps(2) infinite;margin-left:1px}
+.bub.typing>.say:last-child::after,.bub.typing>.act:last-child::after,.bub.typing>.para:last-child>:last-child::after{content:"▍";color:var(--acc);animation:blink 1s steps(2) infinite;margin-left:1px}
 @keyframes blink{50%{opacity:0}}
 .mw.anim{animation:pop .3s cubic-bezier(.2,.8,.3,1)}
 @keyframes pop{from{opacity:0;transform:translateY(10px) scale(.98)}}
@@ -864,7 +885,7 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
 
 <script>
 'use strict';
-const APP_VER = '4.3';
+const APP_VER = '4.5';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -980,13 +1001,29 @@ function faraLiniute(t){
     .replace(/ {2,}/g, ' ');
 }
 function fmtMsg(t){
-  const src = String(t || '').replace(/\*\*(.+?)\*\*/g, '\u0001$1\u0002');
-  return src.split(/(\*[^*\n]+\*)/).map(p => {
-    if(/^\*[^*\n]+\*$/.test(p)) return `<span class="act">${esc(p.slice(1, -1).trim())}</span>`;
-    const x = p.replace(/^\s+|\s+$/g, ''); if(!x) return '';
-    return `<span class="say">${esc(x).replace(/\u0001/g, '<b>').replace(/\u0002/g, '</b>')}</span>`;
+  const src = String(t || '').replace(/\*\*(.+?)\*\*/g, '\u0001$1\u0002').replace(/\.\.\./g, '…');
+  const sayHTML = x => esc(x).replace(/\u0001/g, '<b>').replace(/\u0002/g, '</b>')
+    .replace(/(„[^”\n]{1,80}”|«[^»\n]{1,80}»)/g, '<span class="q">$1</span>');
+  const paras = src.split(/\n\s*\n/);
+  return paras.map(pa => {
+    const parts = pa.split(/(\*[^*\n]+\*)/).filter(x => x.trim());
+    const hasSay = parts.some(x => !/^\*[^*\n]+\*$/.test(x));
+    const inner = parts.map(p => {
+      if(/^\*[^*\n]+\*$/.test(p)){
+        const a = p.slice(1, -1).trim();
+        // gest scurt în mijlocul vorbelor: rămâne pe același rând; narațiunea lungă: bloc separat
+        return `<span class="act${hasSay && a.length <= 38 && parts.length > 1 ? ' inl' : ''}">${esc(a)}</span>`;
+      }
+      const x = p.replace(/^\s+|\s+$/g, ''); return x ? `<span class="say">${sayHTML(x)}</span>` : '';
+    });
+    // gesturile scurte se lipesc de vorbele vecine
+    let out = '', line = '';
+    inner.forEach(h => { if(h.includes('act inl') || (line && h.startsWith('<span class="say"'))){ line += (line ? ' ' : '') + h.replace('class="say"', 'class="say" style="display:inline"'); } else { if(line){ out += `<span class="say">${line}</span>`; line = ''; } if(h.startsWith('<span class="say"')) line = h.replace('class="say"', 'class="say" style="display:inline"'); else out += h; } });
+    if(line) out += `<span class="say">${line}</span>`;
+    return paras.length > 1 ? `<span class="para">${out}</span>` : out;
   }).join('');
 }
+const isJumbo = t => { const x = String(t || '').trim(); return x.length <= 12 && /^(\p{Extended_Pictographic}|‍|️|\s)+$/u.test(x); };
 const hhmm = ts => ts ? new Date(ts).toLocaleTimeString('ro-RO', {hour:'2-digit', minute:'2-digit'}) : '';
 function dayLabel(ts){
   const d = new Date(ts), n = new Date(), y = new Date(); y.setDate(n.getDate() - 1);
@@ -1356,16 +1393,17 @@ function msgHTML(m, i, lastAi, anim){
   }
   else if(m.img) inner = `<div class="bub picwrap">${quoteHTML(m)}<img class="pic" data-k="${esc(m.img)}" data-view="${esc(m.img)}" alt="">${m.text ? `<div class="cap">${fmtMsg(m.text)}</div>` : ''}${tm}${reactHTML(m)}</div>`;
   else if(m.voice && !m.pending) inner = `<div class="bub">${voiceHTML(m)}${tm}${reactHTML(m)}</div>`;
-  else inner = `<div class="bub${m.pending ? ' typing' : ''}">${quoteHTML(m)}${fmtMsg(m.text)}${m.pending ? '' : tm}${reactHTML(m)}</div>`;
+  else inner = `<div class="bub${m.pending ? ' typing' : ''}${!m.pending && !m.reply && isJumbo(m.text) ? ' jumbo' : ''}">${quoteHTML(m)}${fmtMsg(m.pending ? typedText(m) : m.text)}${m.pending ? '' : tm}${reactHTML(m)}</div>`;
   let under = '';
   if(!me && i === lastAi && !m.pending && !m.pendingImg){
     const n = m.alts?.length || 1;
     under = `<div class="under">
       ${n > 1 ? `<button data-alt="-1" ${m.alt <= 0 ? 'disabled' : ''}>‹</button><span>${(m.alt || 0) + 1}/${n}</span><button data-alt="1" ${m.alt >= n - 1 ? 'disabled' : ''}>›</button>` : ''}
-      ${m.img || !m.alts ? '' : `<button data-regen>↻ Alt răspuns</button>`}
+      ${m.img || !m.alts ? '' : `<button data-regen>↻ Altul</button>`}
       ${m.err ? '' : `<button data-cont>▶ Continuă</button>`}
       ${m.err ? `<button data-retry>${m.errKind === 'flag' ? '🎲 Încearcă altă scenă' : 'Reîncearcă'}</button>` : ''}
-      ${S.voice !== 'off' && m.text && !m.err ? `<button data-say>🔊</button>` : ''}</div>`;
+      ${S.voice !== 'off' && m.text && !m.err ? `<button data-say>🔊</button>` : ''}
+      ${m.text && !m.err ? `<button class="rate${m.rate === 1 ? ' on' : ''}" data-rate="1" aria-label="Bun">👍</button><button class="rate${m.rate === -1 ? ' on' : ''}" data-rate="-1" aria-label="Nu prea">👎</button>` : ''}</div>`;
   }
   return `<div class="mw${anim ? ' anim' : ''}${m.react ? ' hasreact' : ''}" data-i="${i}"><div class="m ${cls}">${me ? '' : avatarHTML(cur)}${inner}</div>${under}</div>`;
 }
@@ -1412,7 +1450,10 @@ function setReply(i){
   if(navigator.vibrate) try{ navigator.vibrate(8); }catch(_){}
 }
 function clearReply(){ replyTo = null; $('#replyBar').hidden = true; }
-// starea din antet: online / ultima dată + dispoziția dedusă din ultimul răspuns
+// dispoziția: personajul o scrie la finalul răspunsului ca [stare: …]; o păstrăm pe conversație și o ascundem din text
+const MOOD_RE = /\s*\[stare:\s*([^\]\n]{1,40})\]/gi;
+const stripMood = t => String(t || '').replace(MOOD_RE, '').replace(/\s*\[s(t(a(r(e(:[^\]\n]*)?)?)?)?)?$/i, '').trimEnd();
+// starea din antet: online / ultima dată + dispoziția (scrisă de personaj sau dedusă din ultimul răspuns)
 const MOODS = [
   [/\b(râde|chicotește|hohot)/i, '😂', 'haz'],
   [/\b(zâmbe|vesel|bucur|entuziasm|încântat)/i, '😊', 'voie bună'],
@@ -1424,7 +1465,70 @@ const MOODS = [
   [/\b(surprins|tresare|ochii mari|uimit)/i, '😮', 'uimire'],
   [/\b(îmbrățișe|tandru|drag|dor)/i, '🥰', 'tandrețe']
 ];
+/* relația evoluează: puncte din mesaje (max 40/zi), zile în care vorbiți și 👍 */
+const RELS = [
+  [0, 'Abia v-ați cunoscut', 'vă cunoașteți de puțin: prietenos și curios, încă puțin rezervat; pui întrebări ca să-l cunoști'],
+  [40, 'Cunoștințe', 'v-ați mai povestit: mai relaxat, glume ușoare, îți amintești ce ți-a spus'],
+  [150, 'Prieteni', 'vă simțiți bine împreună: familiar, glume doar ale voastre, referințe la ce ați vorbit'],
+  [400, 'Apropiați', 'aveți încredere unul în altul: deschis, îți împărtășești gândurile și grijile'],
+  [900, 'Foarte apropiați', 'vă cunoașteți foarte bine: îi ghicești stările, aveți o istorie comună bogată'],
+  [1800, 'De nedespărțit', 'o legătură veche și profundă: complicitate totală, totul vine de la sine']
+];
+function relOf(c){
+  const p = (c.rel && c.rel.p) || 0; let k = 0;
+  RELS.forEach((r, i) => { if(p >= r[0]) k = i; });
+  const next = RELS[k + 1];
+  return {lv:k + 1, name:RELS[k][1], how:RELS[k][2], p, pc: next ? Math.round((p - RELS[k][0]) / (next[0] - RELS[k][0]) * 100) : 100, next: next ? next[1] : null};
+}
+async function relInit(c){
+  if(c.rel) return;
+  const msgs = (await allChats(c)).flatMap(ch => ch.msgs).filter(m => m.role === 'user' && !m.err);
+  const days = new Set(msgs.map(m => m.ts && dayKey(m.ts)).filter(Boolean));
+  const perDay = {}; msgs.forEach(m => { const d = m.ts ? dayKey(m.ts) : '-'; perDay[d] = (perDay[d] || 0) + 1; });
+  c.rel = {p: Object.values(perDay).reduce((s, n) => s + Math.min(40, n), 0) + days.size * 5, day: dayKey(Date.now()), dp: 0};
+  await saveChars();
+}
+async function relBump(c, n, kind){
+  if(!c.rel) await relInit(c);
+  const before = relOf(c).lv, today = dayKey(Date.now());
+  if(c.rel.day !== today){ c.rel.day = today; c.rel.dp = 0; c.rel.p += 5; }
+  if(kind === 'msg'){ if(c.rel.dp >= 40) n = 0; c.rel.dp += n; }
+  c.rel.p += n;
+  await saveChars();
+  const r = relOf(c);
+  if(r.lv > before){ toast(`💞 Tu și ${c.name}: ${r.name}`, 3500); if(navigator.vibrate) try{ navigator.vibrate([10, 60, 10]); }catch(e){} }
+}
+/* 👍 / 👎 care învață */
+const FB = [
+  ['Prea lung', 'Răspunsuri mai scurte, la obiect', 'len'], ['Prea scurt', 'Răspunsuri mai dezvoltate', 'len'],
+  ['Prea formal', 'Ton mai relaxat și familiar'], ['Repetitiv', 'Nu te repeta; vino mereu cu ceva nou'],
+  ['Previzibil', 'Fii mai spontan și surprinzător'], ['Iese din personaj', 'Rămâi strict în personaj, cu felul tău de a fi'],
+  ['Prea multe acțiuni', 'Mai puține *acțiuni*, mai mult dialog', 'act'], ['Prea puține acțiuni', 'Mai multe gesturi și detalii de scenă', 'act'],
+  ['Prea multe întrebări', 'Nu încheia fiecare mesaj cu o întrebare']
+];
+async function rateMsg(i, v){
+  const m = chat.msgs[i], c = cur; if(!m) return;
+  if(v === 1){
+    if(m.rate === 1){ delete m.rate; c.liked = (c.liked || []).filter(x => x !== plainLike(m.text)); }
+    else { m.rate = 1; const t = plainLike(m.text); if(t.length >= 15){ c.liked = [t].concat((c.liked || []).filter(x => x !== t)).slice(0, 3); } relBump(c, 3); toast('👍 Notat. ' + c.name + ' ține minte stilul ăsta.'); }
+    await saveChars(); await saveChat(); renderMsgs(); return;
+  }
+  openSheet(`<h4>Ce n-a mers la răspunsul ăsta?</h4><div class="fbopts">${FB.map((f, k) => `<button data-fb="${k}">${esc(f[0])}</button>`).join('')}</div>
+    <div class="pad"><input id="fbTxt" placeholder="Altceva… (ex: să nu-mi spună „dragule”)"><div class="btns" style="margin-top:10px"><button class="btn pri" id="fbOk">Reține</button></div></div>`);
+  const save = async (t, grp) => {
+    t = t.trim(); if(!t) return;
+    c.prefs = (c.prefs || []).filter(x => x.t !== t && !(grp && x.g === grp));    // opusul („prea lung” / „prea scurt”) se înlocuiește
+    c.prefs.unshift({t, g:grp || '', ts:Date.now()}); c.prefs = c.prefs.slice(0, 8);
+    m.rate = -1; await saveChars(); await saveChat(); closeSheet(); renderMsgs();
+    openSheet(`<h4>Reținut ✓ ${esc(c.name)} va ține cont de asta.</h4><div class="pad btns"><button class="btn" data-close>Bine</button><button class="btn pri" id="fbRe">↻ Rescrie răspunsul acum</button></div>`);
+    $('#fbRe').onclick = () => { closeSheet(); if(!busy && chat.msgs[i] === m) reply(m, {fix:t}); };
+  };
+  $$('.fbopts [data-fb]').forEach(b => b.onclick = () => { const f = FB[+b.dataset.fb]; save(f[1], f[2]); });
+  $('#fbOk').onclick = () => save($('#fbTxt').value);
+}
+const plainLike = t => plain(stripMood(t || '')).replace(/\s+/g, ' ').trim().slice(0, 280);
 function moodOf(){
+  if(chat.mood && chat.mood.t) return chat.mood.t;
   const last = [...chat.msgs].reverse().find(m => m.role === 'ai' && m.text && !m.err);
   if(!last) return null;
   const acts = (last.text.match(/\*[^*]+\*/g) || []).join(' ') || last.text;
@@ -1714,12 +1818,30 @@ function updateHead(){
   const box = $('#msgs'), h = box.querySelector('.hero');
   $('#chTop').classList.toggle('solid', !h || box.scrollTop > h.offsetHeight - 90);
 }
+const typer = new WeakMap();
+function typedText(m){ const st = typer.get(m); let v = st ? st.target.slice(0, st.shown) : stripMood(stripReact(m.text)); if((v.match(/\*/g) || []).length % 2) v += '*'; return v; }
 function liveUpdate(m){
   const i = chat.msgs.indexOf(m); if(i < 0 || cur == null) return;
-  const el = $(`#msgs .mw[data-i="${i}"] .bub`); if(!el) return renderMsgs();
-  el.innerHTML = fmtMsg(stripReact(m.text));
-  el.classList.toggle('typing', !!m.pending);
-  const box = $('#msgs'); if(box.scrollHeight - box.scrollTop - box.clientHeight < 160) box.scrollTop = box.scrollHeight;
+  if(!$(`#msgs .mw[data-i="${i}"] .bub`)) return renderMsgs();
+  let st = typer.get(m); if(!st){ st = {shown:0, raf:0}; typer.set(m, st); }
+  st.target = stripMood(stripReact(m.text));
+  if(!st.raf) st.raf = requestAnimationFrame(() => typeTick(m, st));
+}
+// scrie textul primit caracter cu caracter, mai repede când rămâne în urmă (nu întârzie niciodată mult față de stream)
+function typeTick(m, st){
+  st.raf = 0;
+  const i = chat.msgs.indexOf(m), el = i >= 0 ? $(`#msgs .mw[data-i="${i}"] .bub`) : null;
+  if(!el || !m.pending){ typer.delete(m); return; }
+  const back = st.target.length - st.shown;
+  if(back > 0){
+    st.shown = Math.min(st.target.length, st.shown + Math.max(1, Math.ceil(back / 14)));
+    let vis = st.target.slice(0, st.shown);
+    if((vis.match(/\*/g) || []).length % 2) vis += '*';      // acțiune începută: o închidem temporar ca să arate ca acțiune
+    el.innerHTML = fmtMsg(vis);
+    el.classList.add('typing');
+    const box = $('#msgs'); if(box.scrollHeight - box.scrollTop - box.clientHeight < 160) box.scrollTop = box.scrollHeight;
+  }
+  if(st.shown < st.target.length) st.raf = requestAnimationFrame(() => typeTick(m, st));
 }
 function updateComposer(){
   const empty = !$('#inp').value.trim();
@@ -1759,6 +1881,9 @@ function systemFor(c, ch){
     S.userAbout.trim() && `## Despre ${u}\n${S.userAbout.trim()}`,
     facts && `## Ce știi despre ${u} (din conversațiile voastre)\nFolosește natural când se potrivește, fără să le enumeri.\n${facts}`,
     ch && ch.scene && `## Scena acum\n${ch.scene}`,
+    `## Relația voastră acum: ${relOf(c).name}\n${relOf(c).how}. Dacă descrierea ta stabilește deja relația cu ${u}, aceea are prioritate; nivelul arată doar cât de familiar și deschis vorbești acum.`,
+    (c.prefs || []).length && `## Cum îi place lui ${u} să-i scrii (din notele lui, respectă-le)\n${c.prefs.map(x => '- ' + x.t).join('\n')}`,
+    (c.liked || []).length && `## Răspunsuri de-ale tale care i-au plăcut lui ${u} (ca ton și stil; nu le repeta)\n${c.liked.map(x => '„' + x + '”').join('\n')}`,
     `## Reguli de scris
 - Română corectă, cu diacritice și punctuație îngrijită.
 - Gesturile, acțiunile și decorul între *asteriscuri*; vorbele direct, fără ghilimele.
@@ -1767,7 +1892,7 @@ function systemFor(c, ch){
 - Nu folosi liniuțe lungi (— sau –); folosește virgula sau punctul.
 - Variază formulările; nu repeta aceleași gesturi și expresii de la un mesaj la altul.
 - Ții cont de momentul zilei și de pauzele dintre mesaje, notate între paranteze în mesajele lui ${u}; nu le menționa ca note.
-${S.vmsg !== 'off' ? `- Uneori, când e firesc (cam o dată la ${S.vmsg === 'des' ? '4' : '10'} mesaje), sau oricând ${u} îți cere, poți trimite un mesaj vocal: începe răspunsul cu [vocal] și scrie exact ce spui cu voce tare, ca o persoană care vorbește liber la telefon: propoziții scurte, ezitări firești (păi, adică, mă rog, știi?), reluări, fără *acțiuni* și fără emoji. Unde e firesc, rar, poți pune [râde], [chicotește], [oftează], [șoptește] sau ... pentru o pauză scurtă. 1-4 propoziții.\n` : ''}- Dacă un mesaj al lui ${u} te amuză sau te emoționează, poți începe răspunsul cu o reacție scrisă exact așa: [❤️] [😂] [😮] [😢] [👍] [🔥] sau [🥰]. Cel mult o dată la câteva mesaje, nu de fiecare dată.
+${S.vmsg !== 'off' ? `- Uneori, când e firesc (cam o dată la ${S.vmsg === 'des' ? '4' : '10'} mesaje), sau oricând ${u} îți cere, poți trimite un mesaj vocal: începe răspunsul cu [vocal] și scrie exact ce spui cu voce tare, ca o persoană care vorbește liber la telefon: propoziții scurte, ezitări firești (păi, adică, mă rog, știi?), reluări, fără *acțiuni* și fără emoji. Unde e firesc, rar, poți pune [râde], [chicotește], [oftează], [șoptește] sau ... pentru o pauză scurtă. 1-4 propoziții.\n` : ''}${ch ? `- La finalul fiecărui răspuns, pe un rând separat, notează-ți starea de acum exact așa: [stare: un emoji și 1-3 cuvinte], de exemplu [stare: 😊 bine dispusă]. Starea evoluează firesc din ce se întâmplă și din pauze, fără salturi bruște fără motiv.\n` : ''}- Dacă un mesaj al lui ${u} te amuză sau te emoționează, poți începe răspunsul cu o reacție scrisă exact așa: [❤️] [😂] [😮] [😢] [👍] [🔥] sau [🥰]. Cel mult o dată la câteva mesaje, nu de fiecare dată.
 ${canAutoPhoto(c)
   ? '- Poți trimite poze. Când vrei să-i trimiți una, încheie mesajul cu acțiunea *îți trimite o poză*; aplicația o atașează singură. Nu promite poze în alt fel.'
   : '- Nu poți trimite poze în această conversație. Nu spune că trimiți, că faci sau că ai trimis o poză.'}`
@@ -1807,7 +1932,7 @@ async function writeJournal(c, day, force){
   const date = new Date(day + 'T12:00').toLocaleDateString('ro-RO', {weekday:'long', day:'numeric', month:'long'});
   const out = await stream(systemFor(c, null), [{role:'user', text:
     `(Ieșim din conversație.) Scrie, ca ${c.name}, o intrare scurtă în jurnalul tău personal despre ziua de ${date}, pe baza conversației noastre de mai jos. 4-7 propoziții, la persoana I, sincer, cu ce ai simțit și ce ți-a rămas în minte despre ${u}. Fără *acțiuni*, fără titlu, fără dată.\n\nConversația:\n${log}`}], {max:500, cid:c.id, aux:true});
-  const text = faraLiniute(plain(out)).trim();
+  const text = faraLiniute(plain(stripMood(out))).trim();
   if(!text) return null;
   c.journal = c.journal.filter(j => j.day !== day).concat({day, text, ts:Date.now()}).sort((a, b) => a.day < b.day ? 1 : -1).slice(0, 120);
   await saveChars();
@@ -1875,6 +2000,7 @@ async function send(){
   if(replyTo){ um.reply = replyTo; clearReply(); }
   chat.msgs.push(um);
   await saveChat(); renderMsgs(true);
+  relBump(cur, 1, 'msg');
   await reply();
 }
 async function reply(target, opts = {}){
@@ -1916,7 +2042,8 @@ async function reply(target, opts = {}){
       // punctul de cache: ultimul mesaj al personajului dinaintea mesajului tău nou (istoricul de până acolo nu se mai schimbă)
       const li = ctx.lastIndexOf(lastU);
       for(let k = li - 1; k >= 0; k--) if(ctx[k].role === 'assistant'){ ctx[k]._cache = true; break; }
-      lastU.text = nowNote() + ' ' + lastU.text + (ar ? '\n\n' + ar : '');
+      const md = ch.mood && ch.mood.t ? ` (starea ta la ultimul mesaj: ${ch.mood.t}${Date.now() - ch.mood.ts > 3 * 36e5 ? ', acum ' + gapText(Date.now() - ch.mood.ts) : ''})` : '';
+      lastU.text = nowNote() + md + ' ' + lastU.text + (ar ? '\n\n' + ar : '') + (opts.fix ? `\n\n(Notă pentru răspunsul ăsta, nu o menționa: ${opts.fix}.)` : '');
     }
     const full = await stream(systemFor(c, ch), ctx, {max:LEN[S.len].max, signal:busy.signal, cid:c.id,
       onText: t => { m.text = t;
@@ -1924,6 +2051,8 @@ async function reply(target, opts = {}){
         if(!m.rec && S.vmsg !== 'off' && /^\s*(?:\[[^\]v][^\]]*\]\s*)?\[v/i.test(t)){ m.rec = m.hold = true; if(live){ live.rec = true; if(chat === ch) setBusyUI(true); } if(chat === ch) renderMsgs(); }
         draw(); }});
     m.text = faraLiniute(full.trim());
+    { let mo = null; m.text.replace(MOOD_RE, (a, x) => { mo = x.trim(); return ''; });
+      if(mo){ ch.mood = {t:mo, ts:Date.now()}; m.mood = mo; } m.text = stripMood(m.text).trim(); }
     let rm = m.text.match(AI_REACT);
     if(rm) m.text = m.text.replace(AI_REACT, '').trim();
     if(AI_VOICE.test(m.text)){
@@ -1940,7 +2069,7 @@ async function reply(target, opts = {}){
     const wait = showAt - Date.now();
     if(wait > 0) await sleep(wait);
   }catch(e){
-    if(e.name === 'AbortError' && m.text) m.text = faraLiniute(stripReact(m.text).trim());
+    if(e.name === 'AbortError' && m.text) m.text = faraLiniute(stripMood(stripReact(m.text)).trim());
     else { m.err = e.name === 'AbortError' ? 'Oprit.' : (e.message || 'Eroare'); m.text = ''; }
   }
   clearTimeout(showT); delete m.hold; delete m.rec;
@@ -2279,6 +2408,8 @@ async function charProfile(id, push = true){
     </div>
     ${c.persona ? `<div class="pfSec"><h3>Despre</h3><p class="clamp" id="pfAbout">${esc(c.persona)}</p><button class="more" id="pfMore" hidden>Mai mult</button></div>` : ''}
     ${c.aspect ? `<div class="pfSec"><h3>Cum arată</h3><p>${esc(c.aspect)}</p></div>` : ''}
+    <div class="pfSec"><h3>💞 Relația voastră</h3><div class="relbox"><span class="lv" id="pfRelName"></span><small id="pfRelSub"></small></div><div class="relbar"><i id="pfRelBar"></i></div></div>
+    <div class="pfSec" id="pfPrefsSec"><h3>🎯 Ce a învățat din notele tale</h3><ul class="facts" id="pfPrefs"></ul></div>
     <div class="pfSec"><h3>🎙️ Vocea</h3><div class="pfVoice"><span id="pfVName">${esc(voiceLabel(c))}</span><button class="btn sm" id="pfVPlay">▶ Ascultă</button><button class="btn sm" id="pfVPick">Schimbă</button></div></div>
     <div class="pfSec"><h3><span>📔 Jurnal</span></h3><div id="pfJrn"></div>
       <div class="btns jbtn"><button class="btn sm" id="pfJrnToday">✍️ Scrie despre azi</button>${(c.journal || []).length > 3 ? '<button class="btn sm" id="pfJrnAll">Vezi tot</button>' : ''}</div></div>
@@ -2316,6 +2447,16 @@ async function charProfile(id, push = true){
     const n = await extractFacts(c, ch); drawFacts(); toast(n ? n + ' lucruri noi reținute.' : 'Nimic nou de reținut.');
     b.disabled = false; b.textContent = '🔄';
   };
+  relInit(c).then(() => { const r = relOf(c); $('#pfRelName').textContent = r.name; $('#pfRelSub').textContent = `nivel ${r.lv} din ${RELS.length}` + (r.next ? ` · ${r.pc}% până la „${r.next}”` : ''); $('#pfRelBar').style.width = r.pc + '%'; });
+  const drawPrefs = () => {
+    const ps = c.prefs || [], lk = c.liked || [];
+    $('#pfPrefs').innerHTML = ps.map((x, k) => `<li><span>${esc(x.t)}</span><button data-px="${k}" aria-label="Șterge">✕</button></li>`).join('')
+      + lk.map((x, k) => `<li><span>👍 „${esc(x.length > 90 ? x.slice(0, 90) + '…' : x)}”</span><button data-lx="${k}" aria-label="Șterge">✕</button></li>`).join('')
+      || `<li><span style="color:var(--tx3)">Încă nimic. Folosește 👍 / 👎 sub răspunsuri și ${esc(c.name)} învață ce-ți place.</span></li>`;
+    $('#pfPrefs').querySelectorAll('[data-px]').forEach(b => b.onclick = async () => { c.prefs.splice(+b.dataset.px, 1); await saveChars(); drawPrefs(); });
+    $('#pfPrefs').querySelectorAll('[data-lx]').forEach(b => b.onclick = async () => { c.liked.splice(+b.dataset.lx, 1); await saveChars(); drawPrefs(); });
+  };
+  drawPrefs();
   $('#pfVPlay').onclick = () => voiceSample(c, $('#pfVPlay'));
   $('#pfVPick').onclick = () => pickVoice(c, () => { $('#pfVName').textContent = voiceLabel(c); });
   $('#pfFav').onclick = async () => { c.fav = !c.fav; await saveChars(); $('#pfFav').textContent = c.fav ? '★' : '☆'; toast(c.fav ? '⭐ Adăugat la favorite' : 'Scos de la favorite'); };
@@ -2341,15 +2482,22 @@ async function askPhoto(spont){
   busy = new AbortController(); live = {c, ch, photo:true}; setBusyUI(true);
   $('#sugg').innerHTML = '';
   try{
-    const recent = ch.msgs.slice(-9, -1).filter(x => x.text).map(x => (x.role === 'user' ? (S.userName || 'User') : c.name) + ': ' + x.text).join('\n');
+    const recent = ch.msgs.slice(-9, -1).filter(x => x.text).map(x => (x.role === 'user' ? (S.userName || 'User') : c.name) + ': ' + stripMood(x.text)).join('\n');
+    // pozele trimise deja: regizorul trebuie să aleagă altceva (altă încadrare, alt loc, altă poză)
+    const prevShots = ch.msgs.filter(x => x.img && x.scene).slice(-3).map(x => '- ' + x.scene).join('\n');
     const scene = await stream('You are a photo director. Answer with one English sentence only.', [{role:'user', text:
-      `Character: ${c.name}. Appearance: ${c.look || c.aspect}\n${ch.scene ? 'Current scene (translate to English): ' + ch.scene + '\n' : ''}\nRecent conversation:\n${recent || '(just started)'}\n\nDescribe, in ONE English sentence of max 45 words, the photo ${c.name} would send right now, matching the moment in the conversation. Start with the framing (selfie / mirror selfie / photo taken by a friend / close-up portrait), then setting, pose, outfit, facial expression, light and time of day. Keep the same person; do not describe the face again. Only the sentence.`}],
+      `Character: ${c.name}. Appearance: ${c.look || c.aspect}\n${ch.scene ? 'Current scene (translate to English): ' + ch.scene + '\n' : ''}\nRecent conversation:\n${recent || '(just started)'}\n\nDescribe, in ONE English sentence of max 45 words, the photo ${c.name} would send right now, matching the moment in the conversation. Start with the framing (selfie / mirror selfie / photo taken by a friend / close-up portrait / full body), then setting, pose, outfit, facial expression, light and time of day. Base it on what is happening in the conversation right now (where they are, what they are doing, what was asked for). Keep the same person; do not describe the face again.${prevShots ? '\nPhotos already sent (the new one must be clearly different: other framing, place, pose or outfit):\n' + prevShots : ''}\nOnly the sentence.`}],
       {max:160, signal:busy.signal, cid:c.id, aux:true});
-    const prompt = [c.look || '', scene.trim(), STIL_TAG[c.stil || 'photo']].filter(Boolean).join('. ');
+    const shot = scene.trim().replace(/^["„]|["”]$/g, '');
     const ref = c.photo ? await DB.get(c.photo) : null;
+    // FLUX.2 klein cu poză de referință editează poza primită: dacă îi descriem doar persoana, întoarce aproape aceeași poză.
+    // De aceea îi cerem explicit o poză NOUĂ cu aceeași persoană, cu tot restul schimbat după scena din conversație.
+    const prompt = ref && S.imgProv === 'worker'
+      ? `A brand-new photo of the same person as in the reference image (keep the face, hair color and identity). ${shot} Completely change the background, location, pose, camera angle, framing, clothing and lighting to match this description; do not reuse the composition, background or outfit of the reference image. ${STIL_TAG[c.stil || 'photo']}`
+      : [c.look || '', shot, STIL_TAG[c.stil || 'photo']].filter(Boolean).join('. ');
     let blob = await genImage(prompt, ref, busy.signal);
     try{ if(blob.type === 'image/png') blob = await toJpeg(blob, 2048, .92); }catch(e){}   // PNG → JPEG: de ~5 ori mai puțin spațiu
-    m.img = await saveImg(blob); m.prompt = prompt;
+    m.img = await saveImg(blob); m.prompt = prompt; m.scene = shot;
     addUsage(c.id, imgPrice(), 'img');
     if(S.imgProv === 'worker') setTimeout(() => loadNeurons(true), 1500);
   }catch(e){
@@ -3111,6 +3259,7 @@ function bind(){
     const w = e.target.closest('.mw'); if(!w) return;
     const i = +w.dataset.i, m = chat.msgs[i];
     if(e.target.closest('[data-regen]')){ if(!busy) reply(m); return; }
+    { const rb = e.target.closest('[data-rate]'); if(rb){ rateMsg(i, +rb.dataset.rate); return; } }
     if(e.target.closest('[data-say]')){ say(m.text, m); return; }
     if(e.target.closest('[data-vplay]')){ playVoice(m, e.target.closest('.bub')); return; }
     if(e.target.closest('[data-vtr]')){ const b = e.target.closest('.bub'); const t = b.querySelector('.vtxt'); t.hidden = !t.hidden; e.target.textContent = t.hidden ? 'Transcriere' : 'Ascunde transcrierea'; return; }
