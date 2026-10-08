@@ -262,6 +262,7 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
 .bub .tw{animation:twIn .35s ease-out}
 @keyframes twIn{from{opacity:.15}}
 .under{flex-wrap:wrap}
+.under .cutn{font-size:.74rem;color:var(--tx3);padding:0 4px}
 .under .rate{font-size:.9rem;padding:4px 7px}
 .under .rate.on{background:color-mix(in srgb,var(--acc) 22%,transparent)}
 .relbox{display:flex;align-items:center;gap:10px}
@@ -885,7 +886,7 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
 
 <script>
 'use strict';
-const APP_VER = '4.7';
+const APP_VER = '4.8';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -1078,7 +1079,7 @@ async function stream(sys, msgs, opts = {}){
     throw e;
   }
 }
-async function streamOnce(sys, msgs, {max = 700, signal, onText, cid, aux} = {}){
+async function streamOnce(sys, msgs, {max = 700, signal, onText, cid, aux, meta} = {}){
   const A = S.prov === 'anthropic';
   const model = modelFor(aux);
   if(A && !S.key) throw new Error('Lipsește cheia Anthropic. Deschide Setări.');
@@ -1095,7 +1096,7 @@ async function streamOnce(sys, msgs, {max = 700, signal, onText, cid, aux} = {})
           messages:[{role:'system', content:sys}, ...provMsgs(msgs)]})});
   if(!res.ok) throw new Error(await errText(res));
   const rd = res.body.getReader(), dec = new TextDecoder();
-  let buf = '', full = '', usage = null;
+  let buf = '', full = '', usage = null, stop = null, ended = false;
   try{
   for(;;){
     const {done, value} = await rd.read(); if(done) break;
@@ -1110,14 +1111,24 @@ async function streamOnce(sys, msgs, {max = 700, signal, onText, cid, aux} = {})
       if(A){
         if(j.type === 'content_block_delta' && j.delta?.text) piece = j.delta.text;
         else if(j.type === 'message_start' && j.message?.usage) usage = {...j.message.usage};
-        else if(j.type === 'message_delta' && j.usage){ usage = Object.assign(usage || {}, j.usage); }
+        else if(j.type === 'message_delta'){ if(j.usage) usage = Object.assign(usage || {}, j.usage); if(j.delta?.stop_reason) stop = j.delta.stop_reason; }
+        else if(j.type === 'message_stop') ended = true;
         else if(j.type === 'error') throw new Error(j.error?.message || 'eroare de la furnizor');
-      } else { piece = j.choices?.[0]?.delta?.content || ''; if(j.usage) usage = j.usage; }
+      } else { piece = j.choices?.[0]?.delta?.content || ''; if(j.usage) usage = j.usage; const fr = j.choices?.[0]?.finish_reason; if(fr){ stop = fr === 'length' ? 'max_tokens' : fr === 'content_filter' ? 'refusal' : fr; ended = true; } }
       if(piece){ full += piece; onText && onText(full); }
     }
   }
-  } finally { recordTokens(cid, usage, model); }
+  } finally { recordTokens(cid, usage, model); if(meta){ meta.stop = stop || (ended || !A ? 'end_turn' : 'cut'); } }
   return full;
+}
+// taie textul la ultima propoziție (sau acțiune) încheiată; dacă ar pierde prea mult, îl lasă cu „…”
+function trimToSentence(t){
+  t = String(t || '').trimEnd(); if(!t) return t;
+  if(/[.!?…”"*)\]]$/.test(t)) return t;
+  let best = -1; const re = /[.!?…](?=\s|$)|\*(?=\s|$)/g; let mm;
+  while((mm = re.exec(t))) best = mm.index + 1;
+  if(best > t.length * .45) return t.slice(0, best).trimEnd();
+  return t.replace(/\s+\S*$/, '') + '…';
 }
 function parseJSON(t){
   const s = String(t), a = s.indexOf('{'), b = s.lastIndexOf('}');
@@ -1402,6 +1413,7 @@ function msgHTML(m, i, lastAi, anim){
       ${m.img && m.imgAlts && m.imgAlts.length > 1 ? `<button data-ia="-1" ${m.ia <= 0 ? 'disabled' : ''}>‹</button><span>${m.ia + 1}/${m.imgAlts.length}</span><button data-ia="1" ${m.ia >= m.imgAlts.length - 1 ? 'disabled' : ''}>›</button>` : ''}
       ${m.img && !m.err ? `<button data-rephoto>🎲 Altă poză</button>` : ''}
       ${m.img || !m.alts ? '' : `<button data-regen>↻ Altul</button>`}
+      ${m.cut ? `<span class="cutn">${m.cut === 'refusal' ? '⚠️ întrerupt de furnizor' : m.cut === 'len' ? '✂️ prea lung, tăiat' : '📶 conexiune întreruptă'}</span>` : ''}
       ${m.err ? '' : `<button data-cont>▶ Continuă</button>`}
       ${m.err ? `<button data-retry>${m.errKind === 'flag' ? '🎲 Încearcă altă scenă' : 'Reîncearcă'}</button>` : ''}
       ${S.voice !== 'off' && m.text && !m.err ? `<button data-say>🔊</button>` : ''}
@@ -1868,7 +1880,7 @@ function setBusyUI(on){
   else if(cur && chat){ t.innerHTML = statusLine(); t.classList.remove('typing'); }
 }
 
-const LEN = {scurt:{t:'1-2 fraze scurte', max:350}, mediu:{t:'un paragraf, cel mult două', max:800}, lung:{t:'2-4 paragrafe bogate', max:1500}};
+const LEN = {scurt:{t:'1-2 fraze scurte', max:700}, mediu:{t:'un paragraf, cel mult două', max:1300}, lung:{t:'2-4 paragrafe bogate', max:2400}};
 // pozele automate (promise în text sau spontane) doar pentru personajele cu portret generat în aplicație
 const canAutoPhoto = c => S.imgProv !== 'none' && !!c.aiPortrait && !!c.photo;
 const PHOTO_PROMISE = /\*[^*]*\b(trimit|trimite|atașez|atașează|face|fac)\b[^*]*\b(poz|fotografi|selfie)[^*]*\*/i;
@@ -2047,7 +2059,8 @@ async function reply(target, opts = {}){
       const md = ch.mood && ch.mood.t ? ` (starea ta la ultimul mesaj: ${ch.mood.t}${Date.now() - ch.mood.ts > 3 * 36e5 ? ', acum ' + gapText(Date.now() - ch.mood.ts) : ''})` : '';
       lastU.text = nowNote() + md + ' ' + lastU.text + (ar ? '\n\n' + ar : '') + (opts.fix ? `\n\n(Notă pentru răspunsul ăsta, nu o menționa: ${opts.fix}.)` : '');
     }
-    const full = await stream(systemFor(c, ch), ctx, {max:LEN[S.len].max, signal:busy.signal, cid:c.id,
+    const meta = {};
+    const full = await stream(systemFor(c, ch), ctx, {max:LEN[S.len].max, signal:busy.signal, cid:c.id, meta,
       onText: t => { m.text = t;
         // mesaj vocal: textul nu apare pe ecran cât timp „înregistrează”
         if(!m.rec && S.vmsg !== 'off' && /^\s*(?:\[[^\]v][^\]]*\]\s*)?\[v/i.test(t)){ m.rec = m.hold = true; if(live){ live.rec = true; if(chat === ch) setBusyUI(true); } if(chat === ch) renderMsgs(); }
@@ -2055,6 +2068,13 @@ async function reply(target, opts = {}){
     m.text = faraLiniute(full.trim());
     { let mo = null; m.text.replace(MOOD_RE, (a, x) => { mo = x.trim(); return ''; });
       if(mo){ ch.mood = {t:mo, ts:Date.now()}; m.mood = mo; } m.text = stripMood(m.text).trim(); }
+    delete m.cut;
+    // răspuns tăiat (limită de lungime, conexiune căzută sau oprit de furnizor): nu lăsăm un cuvânt rupt la final
+    if(meta.stop && meta.stop !== 'end_turn' && meta.stop !== 'stop_sequence'){
+      const t = trimToSentence(m.text);
+      if(t) m.text = t;
+      m.cut = meta.stop === 'refusal' ? 'refusal' : meta.stop === 'max_tokens' ? 'len' : 'net';
+    }
     let rm = m.text.match(AI_REACT);
     if(rm) m.text = m.text.replace(AI_REACT, '').trim();
     if(AI_VOICE.test(m.text)){
