@@ -756,6 +756,11 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
         <input id="stWkTok" type="password" autocomplete="off">
         <label>Planul tău Cloudflare Workers</label>
         <div class="seg" id="stCfPlan"><button data-v="free">Gratuit</button><button data-v="paid">Paid · $5/lună</button></div>
+        <div id="stCapWrap" hidden>
+          <label>Limită zilnică pentru poze (peste cei 10.000 de neuroni gratuiți)</label>
+          <div class="seg" id="stCfCap"><button data-v="free">Doar gratuit</button><button data-v="0.1">Max $0,10/zi</button><button data-v="none">Fără limită</button></div>
+          <p class="hint" id="stCapHint"></p>
+        </div>
         <div class="neur" id="stNeur"></div>
         <details style="margin-top:12px"><summary>Reglaje Worker</summary>
           <label for="stWkModel">Model</label>
@@ -859,7 +864,7 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
 
 <script>
 'use strict';
-const APP_VER = '4.2';
+const APP_VER = '4.3';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -897,7 +902,7 @@ const DEF = {
   userName:'', userAbout:'', len:'mediu', font:16,
   imgProv:'none', gemKey:'', gemModel:'gemini-2.5-flash-image',
   wkBase:'', wkTok:'', wkModel:'eco', wkSize:'768x1024',
-  sugg:'off', pro:'on', voice:'tap', tts:'tel', cfPlan:'free', elKey:'', elModel:'eleven_v3', theme:'dark', vmsg:'rar', jrn:'on', aux:'on', ctxN:'30',
+  sugg:'off', pro:'on', voice:'tap', tts:'tel', cfPlan:'free', cfCap:'free', elKey:'', elModel:'eleven_v3', theme:'dark', vmsg:'rar', jrn:'on', aux:'on', ctxN:'30',
   falKey:'', falModel:'fal-ai/flux-pulid', falSize:'576x768', spont:'rar', imgAlt:'fal', sv:34, imgCost:'', pIn:'', pOut:''
 };
 let S = {...DEF};
@@ -1163,6 +1168,7 @@ async function genImage(prompt, ref, signal){
   }
   if(S.imgProv === 'worker'){
     if(!S.wkBase) throw new Error('Lipsește adresa Worker-ului în Setări → Poze.');
+    await checkCap();
     const fd = new FormData();
     fd.append('prompt', prompt); fd.append('model', S.wkModel || 'ancorat'); fd.append('size', S.wkSize || '576x768');
     fd.append('seed', String(Math.floor(Math.random() * 1e9)));
@@ -1173,6 +1179,7 @@ async function genImage(prompt, ref, signal){
     if(!r.ok) throw new Error(await errText(r));
     const d = await r.json();
     const b = d.data?.[0]?.b64_json; if(!b) throw new Error('Worker-ul n-a întors imagine.');
+    neurAdd(neurPerPhoto() || 5000);
     return b64ToBlob(b, 'image/png');
   }
   if(S.imgProv === 'fal'){
@@ -2324,6 +2331,7 @@ function profScroll(){
 
 async function askPhoto(spont){
   if(busy){ if(!spont) toast('Așteaptă să termine ' + (live ? live.c.name : '') + '.'); return; }
+  if(spont && capLeft() < (neurPerPhoto() || 5000)) return;   // limita zilnică atinsă: fără poze spontane
   if(S.imgProv === 'none'){ toast('Pornește pozele din Setări.'); return; }
   const c = cur, ch = chat;
   const m = {id:uid(), role:'ai', text:'', pendingImg:true, ts:Date.now()};
@@ -2773,7 +2781,7 @@ const aiReady = () => S.prov === 'anthropic' ? !!S.key.trim() : !!(S.oaBase && S
 const FIELDS = {stKey:'key', stModel:'model', stOaBase:'oaBase', stOaKey:'oaKey', stOaModel:'oaModel', stUser:'userName', stAbout:'userAbout',
   stGemKey:'gemKey', stGemModel:'gemModel', stWkBase:'wkBase', stWkTok:'wkTok', stWkModel:'wkModel', stWkSize:'wkSize',
   stFalKey:'falKey', stFalModel:'falModel', stFalSize:'falSize', stImgCost:'imgCost', stPin:'pIn', stPout:'pOut', stElKey:'elKey', stTtsFalKey:'falKey'};
-const SEGS = {stCfPlan:'cfPlan', stTts:'tts', stElModel:'elModel', stAux:'aux', stCtx:'ctxN', stVmsg:'vmsg', stJrn:'jrn', stTheme:'theme', stProv:'prov', stLen:'len', stFont:'font', stImg:'imgProv', stImgAlt:'imgProv', stSugg:'sugg', stPro:'pro', stVoice:'voice', stSpont:'spont'};
+const SEGS = {stCfCap:'cfCap', stCfPlan:'cfPlan', stTts:'tts', stElModel:'elModel', stAux:'aux', stCtx:'ctxN', stVmsg:'vmsg', stJrn:'jrn', stTheme:'theme', stProv:'prov', stLen:'len', stFont:'font', stImg:'imgProv', stImgAlt:'imgProv', stSugg:'sugg', stPro:'pro', stVoice:'voice', stSpont:'spont'};
 let setPanel = null, setPanelPushed = false;
 function openSettings(){
   for(const [id, k] of Object.entries(FIELDS)) $('#' + id).value = S[k] ?? '';
@@ -2830,6 +2838,10 @@ function syncSegs(){
   $('#stAltWrap').hidden = !alt;
   $('#stImgTestWrap').hidden = S.imgProv === 'none';
   drawWkEst();
+  $('#stCapWrap').hidden = S.cfPlan !== 'paid';
+  $('#stCapHint').textContent = {free:'Factura rămâne $5/lună: când se termină neuronii gratuiți de azi, aplicația nu mai cere poze până la 03:00.',
+    '0.1':'Cel mult ~$0,10 pe zi peste cei $5 (≈ $3/lună în cel mai rău caz). Apoi pozele se opresc până la 03:00.',
+    none:'Fără oprire: fiecare poză peste cotă se adaugă la factură.'}[S.cfCap] || '';
   $('#ttsEl').hidden = S.tts !== 'el'; $('#ttsFal').hidden = S.tts !== 'fal';
   $('#ttsHint').textContent = {tel:'Vocea sintetică a telefonului. Gratuită, dar sună robotic. Pentru voce umană alege ElevenLabs.',
     el:'Voce umană, cu râs, oftat și șoaptă. Planul gratuit ElevenLabs are ~10 minute de audio pe lună. Vocea fiecărui personaj se alege din profilul lui.',
@@ -2871,20 +2883,38 @@ function drawWkEst(){
 }
 // Workers Paid: peste 10.000 de neuroni/zi, $0,011 la 1.000 de neuroni
 const NEUR_USD = .011 / 1000;
-let neurToday = 0, neurWarned = '';
+let neurToday = 0, neurWarned = '', neurDay = '';
+const utcDay = () => new Date().toISOString().slice(0, 10);
+// statistica Cloudflare vine cu câteva minute întârziere, așa că adunăm și local estimarea fiecărei poze
+function neurSet(n){ const d = utcDay(); if(neurDay !== d){ neurDay = d; neurToday = 0; } neurToday = Math.max(neurToday, n); }
+function neurAdd(n){ const d = utcDay(); if(neurDay !== d){ neurDay = d; neurToday = 0; } neurToday += n; }
+const CAP_USD = {free:0, '0.1':.10};
+function capLeft(){   // neuroni permiși până la limită (Infinity = fără limită)
+  if(S.imgProv !== 'worker' || S.cfPlan !== 'paid' || !(S.cfCap in CAP_USD)) return Infinity;
+  if(neurDay !== utcDay()) return 10000 + CAP_USD[S.cfCap] / NEUR_USD;
+  return 10000 + CAP_USD[S.cfCap] / NEUR_USD - neurToday;
+}
+const capMsg = () => S.cfCap === 'free' ? 'Neuronii gratuiți de azi s-au terminat și ai ales „Doar gratuit”. Pozele revin la 03:00.' : 'Ai atins limita de $0,10 pe azi pentru poze. Revin la 03:00.';
+async function fetchNeurons(){
+  const r = await fetch(wkUrl() + '/usage', {headers: S.wkTok ? {authorization:'Bearer ' + S.wkTok.trim()} : {}});
+  if(!r.ok){ const e = new Error(r.status === 404 ? 'v3' : await errText(r)); e.st = r.status; throw e; }
+  const d = await r.json(); neurSet(d.neurons || 0); return d;
+}
+async function checkCap(){
+  if(capLeft() === Infinity) return;
+  try{ await fetchNeurons(); }catch(e){}           // dacă nu merge citirea, rămâne estimarea locală
+  if(capLeft() < (neurPerPhoto() || 5000)){ const e = new Error(capMsg()); e.cap = true; throw e; }
+}
 // consumul de neuroni Cloudflare de azi, citit prin Worker (GET /v1/usage)
 async function loadNeurons(after){
   const box = $('#stNeur');
   if(S.imgProv !== 'worker' || !S.wkBase){ box.innerHTML = ''; return; }
   try{
-    const r = await fetch(wkUrl() + '/usage', {headers: S.wkTok ? {authorization:'Bearer ' + S.wkTok.trim()} : {}});
-    if(!r.ok){
-      if(r.status === 404){ box.className = 'neur'; box.textContent = 'Consumul de neuroni apare după ce urci Worker-ul v3.'; return; }
-      throw new Error(await errText(r));
-    }
-    const d = await r.json();
+    let d;
+    try{ d = await fetchNeurons(); }
+    catch(e){ if(e.st === 404){ box.className = 'neur'; box.textContent = 'Consumul de neuroni apare după ce urci Worker-ul v3.'; return; } throw e; }
+    d = {...d, neurons:neurToday};
     const lim = d.limit || 10000, pc = Math.min(100, d.neurons / lim * 100);
-    neurToday = d.neurons;
     const per = neurPerPhoto(), left = per ? Math.max(0, Math.floor((lim - d.neurons) / per)) : null;
     if(S.cfPlan === 'paid'){
       const over = Math.max(0, d.neurons - lim), day = new Date().toISOString().slice(0, 10);
@@ -2892,6 +2922,7 @@ async function loadNeurons(after){
       box.innerHTML = `Azi: <b>${Math.round(d.neurons).toLocaleString('ro-RO')}</b> neuroni · primii ${lim.toLocaleString('ro-RO')} gratuiți`
         + (over ? ` · peste cotă: <b>${Math.round(over).toLocaleString('ro-RO')}</b> ≈ <b>${usd(over * NEUR_USD)}</b> azi` : left !== null ? ` · <b>~${left}</b> poze gratuite rămase, apoi ~${usd(per * NEUR_USD)}/poză` : '')
         + `<div class="bar"><i style="width:${pc}%"></i></div>`;
+      if(capLeft() !== Infinity && capLeft() < (per || 5000)) box.innerHTML += `<div style="margin-top:6px;color:var(--warn,#ffb020)">⏸ Pozele sunt oprite până la 03:00 (limita ta).</div>`;
       if(after && over && neurWarned !== day){ neurWarned = day; toast(`Ai trecut de cota gratuită de azi. Pozele merg în continuare${per ? `, ~${usd(per * NEUR_USD)} fiecare` : ''}.`, 4500); }
       return;
     }
