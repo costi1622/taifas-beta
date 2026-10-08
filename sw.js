@@ -1,8 +1,8 @@
 /* Taifas 2 — service worker
    Pagina vine din rețea întâi (versiunea nouă se vede imediat), cache-ul e doar plasă offline.
    API-urile și orice alt domeniu trec direct la rețea. */
-const CACHE = 'taifas2-v11';   // ↑ crește la fiecare versiune
-const SHELL = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './icon-512-maskable.png', './icon-180.png'];
+const CACHE = 'taifas2-v13';   // ↑ crește la fiecare versiune
+const SHELL = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './icon-512-maskable.png', './icon-180.png', './fonts/pjs-latin.woff2', './fonts/pjs-latin-ext.woff2', './fonts/pjs-latin-italic.woff2', './fonts/pjs-latin-ext-italic.woff2'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => Promise.all(SHELL.map(u => c.add(u).catch(() => {})))));

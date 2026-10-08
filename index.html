@@ -20,7 +20,11 @@
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html{font-size:16px}
-html,body{margin:0;height:100%;background:var(--bg);color:var(--tx);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;overscroll-behavior:none}
+@font-face{font-family:PJS;font-style:normal;font-weight:200 800;font-display:swap;src:url(fonts/pjs-latin.woff2) format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:PJS;font-style:normal;font-weight:200 800;font-display:swap;src:url(fonts/pjs-latin-ext.woff2) format('woff2');unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF}
+@font-face{font-family:PJS;font-style:italic;font-weight:200 800;font-display:swap;src:url(fonts/pjs-latin-italic.woff2) format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:PJS;font-style:italic;font-weight:200 800;font-display:swap;src:url(fonts/pjs-latin-ext-italic.woff2) format('woff2');unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--tx);font-family:PJS,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;overscroll-behavior:none;-webkit-font-smoothing:antialiased}
 button,input,textarea,select{font:inherit;color:inherit}
 button{cursor:pointer;border:0;background:none}
 [hidden]{display:none!important}
@@ -272,6 +276,124 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
 #vChat.bg-clar .me .bub{background:color-mix(in srgb,var(--me) 82%,transparent);backdrop-filter:blur(12px)}
 #vChat.bg-clar #composer{background:linear-gradient(#0e0c1200,#0e0c12d9 35%)}
 #vChat.bg-clar .under button{background:#0006}
+/* ===== 3.1 ===== */
+#nav{display:flex;align-items:flex-end;justify-content:space-around;padding:6px 6px calc(6px + var(--safe-b));background:color-mix(in srgb,var(--bg2) 90%,transparent);backdrop-filter:blur(14px);border-top:1px solid var(--line);flex:none;position:relative;z-index:3}
+#nav button{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 0 4px;color:var(--tx3);font-size:.66rem;font-weight:700;letter-spacing:.2px;border-radius:12px;transition:color .2s}
+#nav button svg{width:23px;height:23px;transition:transform .2s}
+#nav button.on{color:var(--tx)}
+#nav button.on svg{transform:translateY(-1px);color:var(--acc)}
+#nav button:active svg{transform:scale(.88)}
+#nav .mid{flex:none;width:56px;height:56px;border-radius:19px;background:var(--grad);color:#fff;margin:-20px 4px 4px;display:grid;place-items:center;padding:0;box-shadow:0 8px 22px color-mix(in srgb,var(--acc) 45%,transparent)}
+#nav .mid svg{width:26px;height:26px}
+#nav .mid:active{transform:scale(.93)}
+.grid{padding-bottom:20px}
+.card{transition:transform .18s cubic-bezier(.2,.8,.3,1),box-shadow .2s;box-shadow:0 6px 18px #0005}
+.card:active{transform:scale(.965)}
+.card .ov{padding:46px 12px 12px}
+.card .ov,.hero .ov{color:#fff}
+.card .lm{display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden;font-style:normal;font-size:.72rem;color:#ffffffb3;margin-top:6px;padding-top:6px;border-top:1px solid #ffffff26}
+.card .when{position:absolute;top:8px;left:8px;font-size:.66rem;font-weight:700;color:#fff;background:#0007;backdrop-filter:blur(6px);padding:3px 7px;border-radius:99px}
+@property --ang{syntax:'<angle>';inherits:false;initial-value:0deg}
+.card.isfav{background:conic-gradient(from var(--ang),#ff4f9a,#9b5cff,#4f8cff,#22c3a6,#ff4f9a);animation:favspin 5s linear infinite}
+.card.isfav>img,.card.isfav>.ph{inset:2.5px;width:calc(100% - 5px);height:calc(100% - 5px);border-radius:calc(var(--r) - 2px)}
+.card.isfav>.ov{left:2.5px;right:2.5px;bottom:2.5px;border-radius:0 0 calc(var(--r) - 2px) calc(var(--r) - 2px)}
+@keyframes favspin{to{--ang:360deg}}
+.card.empty{grid-column:1/-1;aspect-ratio:auto;padding:28px 20px;text-align:center;background:var(--bg2);border:2px dashed var(--line);box-shadow:none;color:var(--tx2);line-height:1.5}
+.card.empty b{font-size:1.1rem;color:var(--tx);text-shadow:none;margin-bottom:4px}
+.steps{display:flex;gap:6px;padding:0 16px 8px;flex:none}
+.steps button{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:8px 4px;border-radius:12px;background:var(--bg2);color:var(--tx3);font-size:.78rem;font-weight:700;transition:all .2s}
+.steps b{width:20px;height:20px;border-radius:50%;background:var(--card);display:grid;place-items:center;font-size:.7rem;transition:all .2s}
+.steps .on{background:var(--card);color:var(--tx)}
+.steps .on b{background:var(--grad);color:#fff}
+.steps .done b{background:var(--ok);color:#0e0c12}
+#vEdit>.status{flex:none;margin:0 16px 4px}
+#vEdit>.status:empty{display:none}
+.step{animation:stepin .25s ease-out}
+@keyframes stepin{from{opacity:0;transform:translateX(14px)}}
+.wiz{display:flex;gap:10px;padding:10px 16px calc(10px + var(--safe-b));border-top:1px solid var(--line);background:var(--bg);flex:none}
+.wiz .btn{flex:1}
+.edPrev{margin-top:14px;padding:14px 10px;border-radius:14px;background:var(--bg);border:1px solid var(--line)}
+.edPrev .lbl{font-size:.72rem;color:var(--tx3);text-transform:uppercase;letter-spacing:.08em;margin:0 0 8px 4px}
+.edPrev .m{max-width:100%}
+.ob{flex:1;overflow-y:auto;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:calc(24px + var(--safe-t)) 26px calc(24px + var(--safe-b));text-align:center}
+.obArt{display:flex;gap:10px;margin-bottom:18px}
+.obArt span{width:62px;height:82px;border-radius:16px;display:grid;place-items:center;font-size:1.7rem;background:linear-gradient(160deg,var(--c),color-mix(in srgb,var(--c) 40%,#1e1a26));transform:rotate(var(--r));box-shadow:0 10px 26px #0006;animation:float 4s ease-in-out infinite}
+.obArt span:nth-child(2){animation-delay:-1.3s;margin-top:-14px}
+.obArt span:nth-child(3){animation-delay:-2.6s}
+@keyframes float{50%{translate:0 -6px}}
+.obLogo{width:64px;height:64px;border-radius:18px;margin:6px 0 4px}
+.ob h1{margin:4px 0 6px;font-size:2.2rem;font-weight:800;letter-spacing:-1px;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+.obSub{margin:0 0 20px;color:var(--tx2);line-height:1.5}
+.obList{list-style:none;padding:0;margin:0 0 26px;text-align:left;width:100%;max-width:360px}
+.obList li{display:flex;gap:12px;align-items:center;padding:11px 14px;background:var(--bg2);border-radius:14px;margin-bottom:8px;line-height:1.4;font-size:.92rem;color:var(--tx2)}
+.obList li b{color:var(--tx)}
+.obList i{font-style:normal;font-size:1.3rem}
+.obBtn{width:100%;max-width:360px;padding:15px;font-size:1.05rem}
+#splash{position:fixed;inset:0;z-index:200;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;pointer-events:none;transition:opacity .4s}
+#splash img{width:88px;height:88px;border-radius:24px;animation:splashpop .6s cubic-bezier(.2,1.4,.4,1) both;box-shadow:0 12px 40px color-mix(in srgb,var(--acc) 40%,transparent)}
+#splash b{font-size:1.6rem;font-weight:800;letter-spacing:-.5px;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent;animation:splashpop .6s .12s cubic-bezier(.2,1.4,.4,1) both}
+#splash.out{opacity:0}
+@keyframes splashpop{from{opacity:0;transform:scale(.6)}}
+
+/* ===== 3.2 ===== */
+.bub{position:relative}
+.bub,.picbox{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.react{position:absolute;bottom:-13px;left:12px;font-size:.95rem;line-height:1;background:var(--bg2);border:1px solid var(--line);border-radius:99px;padding:3px 6px;box-shadow:0 2px 8px #0005;animation:rpop .35s cubic-bezier(.2,1.6,.4,1)}
+.mw.hasreact{margin-bottom:12px}
+@keyframes rpop{from{transform:scale(0)}}
+.rpick{position:fixed;z-index:70;display:flex;gap:2px;padding:6px 8px;background:var(--bg2);border:1px solid var(--line);border-radius:99px;box-shadow:0 10px 30px #0008;animation:rpop .25s cubic-bezier(.2,1.4,.4,1)}
+.rpick button{font-size:1.55rem;width:44px;height:44px;border-radius:50%;display:grid;place-items:center;transition:transform .15s}
+.rpick button:active{transform:scale(1.25)}
+.rpick button.on{background:color-mix(in srgb,var(--acc) 25%,transparent)}
+.rscrim{position:fixed;inset:0;z-index:69}
+.quote{display:block;width:100%;text-align:left;margin:0 0 6px;padding:6px 10px;border-left:3px solid var(--acc);border-radius:8px;background:#0000002e;font-size:.8rem;line-height:1.35;color:inherit;opacity:.9}
+.quote b{display:block;font-size:.74rem;color:var(--acc)}
+.quote span{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+#replyBar{display:flex;align-items:center;gap:10px;margin:0 10px 4px;padding:8px 12px;border-radius:14px;background:var(--bg2);border:1px solid var(--line);border-left:4px solid var(--acc);position:relative;z-index:2;flex:none;animation:stepin .2s ease-out}
+#replyBar div{flex:1;min-width:0;font-size:.82rem;line-height:1.35}
+#replyBar b{display:block;color:var(--acc);font-size:.76rem}
+#replyBar span{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--tx2)}
+#replyBar button{width:30px;height:30px;border-radius:50%;color:var(--tx2)}
+.mw .m{transition:transform .15s}
+.swipehint{position:absolute;left:-30px;top:50%;transform:translateY(-50%);opacity:0;font-size:1.1rem}
+#jumpDown{position:absolute;right:14px;bottom:calc(84px + var(--safe-b));z-index:3;width:42px;height:42px;border-radius:50%;background:var(--bg2);border:1px solid var(--line);color:var(--tx);display:grid;place-items:center;box-shadow:0 6px 18px #0007;animation:rpop .25s ease-out}
+#jumpDown svg{width:22px;height:22px}
+#jumpDown b{position:absolute;top:-6px;right:-4px;min-width:20px;height:20px;padding:0 5px;border-radius:99px;background:var(--grad);color:#fff;font-size:.7rem;display:grid;place-items:center}
+.chathead small .dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--ok);margin-right:5px;vertical-align:1px;box-shadow:0 0 0 2px color-mix(in srgb,var(--ok) 30%,transparent)}
+.chathead small .dot.off{background:var(--tx3);box-shadow:none}
+[data-theme=light] .quote{background:#00000010}
+[data-theme=light] .react{box-shadow:0 2px 8px #0002}
+
+/* ===== temă luminoasă ===== */
+:root[data-theme=light]{--bg:#f7f4fa;--bg2:#ffffff;--card:#f0eaf5;--line:#e4dcea;--tx:#1b1622;--tx2:#5e5569;--tx3:#968da1;--me:#ead9f8;--ai:#ffffff;color-scheme:light}
+:root[data-theme=dark]{color-scheme:dark}
+[data-theme=light] .ib:active,[data-theme=light] .sheet .opt:active,[data-theme=light] .res:active,[data-theme=light] .under button:active,[data-theme=light] .row:active{background:#0000000d}
+[data-theme=light] #chTop.solid .chathead{background:linear-gradient(#f7f4faf5,#f7f4fad9);border-bottom-color:#00000012}
+[data-theme=light] #chTop:not(.solid) .ib{background:#0006;color:#fff}
+[data-theme=light] #chTop #sceneBar{background:#ffffffd9;color:var(--tx2)}
+[data-theme=light] #composer{background:linear-gradient(#f7f4fa00,#f7f4fa 30%)}
+[data-theme=light] .ai .bub{box-shadow:0 1px 3px #00000014}
+[data-theme=light] .bub .act{color:#7c6d8e}
+[data-theme=light] .me .bub .act{color:#6b4a8b}
+[data-theme=light] .me .bub .tm{color:#00000059}
+[data-theme=light] .bub.err{background:#fde7eb;color:#9b1c31}
+[data-theme=light] .bub.err.flag{background:#efe6f5;color:#4b3a5a}
+[data-theme=light] .day span{background:#ffffffd9;border-color:#00000010}
+[data-theme=light] .picload{background:linear-gradient(100deg,#ece6f1 30%,#f8f4fb 50%,#ece6f1 70%);background-size:300% 100%}
+[data-theme=light] #sugg button{background:#ffffffeb;border-color:#e0d4ec}
+[data-theme=light] .spin{border-color:#0000001f;border-top-color:var(--acc)}
+[data-theme=light] .seg button.on{background:var(--bg2);box-shadow:0 1px 4px #0002}
+[data-theme=light] #toast{background:#fff;box-shadow:0 6px 20px #0002}
+[data-theme=light] .scrim{background:#0006}
+[data-theme=light] .hero::after{background:linear-gradient(#0000004d 0%,transparent 22%,transparent 55%,var(--bg) 100%)}
+[data-theme=light] .hero:not(.clear) .ov b{color:var(--tx);text-shadow:0 1px 14px #fff}
+[data-theme=light] .hero:not(.clear) .ov small{color:var(--tx2);text-shadow:0 1px 10px #fff}
+[data-theme=light] #vChat.bg-clar .bg::after{background:linear-gradient(#00000033 0%,#0000 25%,#f7f4fa59 55%,#f7f4fae6 82%,#f7f4faf7 100%)}
+[data-theme=light] #vChat.bg-clar .ai .bub{background:#ffffffd1}
+[data-theme=light] #vChat.bg-clar #composer{background:linear-gradient(#f7f4fa00,#f7f4fae6 35%)}
+[data-theme=light] #vChat.bg-clar .under button{background:#ffffffb3}
+[data-theme=light] .card{box-shadow:0 6px 18px #0002}
+[data-theme=light] .obArt span{box-shadow:0 10px 26px #0002}
 #toast{position:fixed;left:50%;bottom:calc(90px + var(--safe-b));transform:translateX(-50%);background:#2a2433;border:1px solid var(--line);padding:10px 16px;border-radius:12px;z-index:99;max-width:90vw;font-size:.9rem;box-shadow:0 6px 20px #0008;transition:opacity .2s;pointer-events:none}
 #toast:empty{opacity:0}
 </style>
@@ -282,17 +404,35 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
 <section id="vHome" class="view">
   <header class="top">
     <h1>Taifas</h1>
-    <button class="ib" id="btnSearch" aria-label="Caută">🔎</button>
-    <button class="ib" id="btnSettings" aria-label="Setări">⚙️</button>
   </header>
-  <nav class="tabs">
-    <button data-tab="chars" class="on">Personaje</button>
-    <button data-tab="chats">Conversații</button>
-  </nav>
-  <div class="scroll">
+  <div class="scroll" id="homeScroll">
     <div class="search" id="searchWrap" hidden>🔎<input id="search" placeholder="Caută un personaj" autocomplete="off"></div>
     <div id="homeChars" class="grid"></div>
     <div id="homeChats" class="list" hidden></div>
+  </div>
+  <nav id="nav">
+    <button data-tab="chars" class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/></svg><span>Acasă</span></button>
+    <button data-tab="chats"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20.5l1.4-4.9A8 8 0 1 1 21 12z"/></svg><span>Conversații</span></button>
+    <button class="mid" id="btnNew" aria-label="Personaj nou"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
+    <button id="btnSearch"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><span>Caută</span></button>
+    <button id="btnSettings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg><span>Setări</span></button>
+  </nav>
+</section>
+
+<!-- PRIMA DESCHIDERE -->
+<section id="vWelcome" class="view" hidden>
+  <div class="ob">
+    <div class="obArt"><span style="--r:-8deg;--c:#ff4f9a">💬</span><span style="--r:6deg;--c:#9b5cff">📸</span><span style="--r:-3deg;--c:#4f8cff">✨</span></div>
+    <img src="icon-192.png" class="obLogo" alt="">
+    <h1>Taifas</h1>
+    <p class="obSub">Conversații lungi și relaxate cu personajele tale.<br>Totul rămâne doar pe telefonul tău.</p>
+    <ul class="obList">
+      <li><i>📸</i><span><b>Urci o poză</b> și AI-ul îi scrie descrierea, 1:1</span></li>
+      <li><i>💬</i><span><b>Conversații cu memorie</b>, scene și mai multe fire</span></li>
+      <li><i>🎨</i><span><b>Poze trimise de personaje</b>, cu aceeași față</span></li>
+    </ul>
+    <button class="btn pri obBtn" id="obStart">Începe</button>
+    <div class="hint" style="text-align:center">Ai nevoie doar de o cheie Anthropic. Durează un minut.</div>
   </div>
 </section>
 
@@ -309,6 +449,8 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
   <button id="sceneBar" hidden></button>
   </div>
   <div id="msgs"></div>
+  <button id="jumpDown" hidden aria-label="Mergi jos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg><b id="jumpN" hidden></b></button>
+  <div id="replyBar" hidden><div><b id="rbName"></b><span id="rbTxt"></span></div><button type="button" id="rbX" aria-label="Anulează">✕</button></div>
   <div id="typingBar" hidden><span id="tbAv"></span><span id="tbTxt"></span></div>
   <div id="sugg"></div>
   <form id="composer" autocomplete="off">
@@ -329,50 +471,59 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
     <h2 id="edTitle">Personaj nou</h2>
     <button class="btn sm pri" id="edSave">Salvează</button>
   </header>
-  <div class="scroll"><div class="form">
-    <div class="sec">
-      <button type="button" class="photo" id="edPhoto"><span><b>＋</b>Urcă o poză<br>sau generează una mai jos</span></button>
-      <input type="file" id="edFile" accept="image/*" hidden>
-      <div class="status" id="edStatus"></div>
-      <div class="btns" id="edGenWrap" style="margin-top:0"><button type="button" class="btn sm" id="edGen">🎨 Generează portretul din descriere</button></div>
-      <label for="edName">Nume</label>
-      <input id="edName" placeholder="ex. Ana" maxlength="40">
-      <label for="edTag">Pe scurt</label>
-      <input id="edTag" placeholder="o frază care apare pe card" maxlength="120">
+  <div class="steps" id="edSteps"><button type="button" data-s="1"><b>1</b>Poza</button><button type="button" data-s="2"><b>2</b>Cine e</button><button type="button" data-s="3"><b>3</b>Replici</button></div>
+  <div class="status" id="edStatus"></div>
+  <div class="scroll" id="edScroll"><div class="form">
+    <div class="step" data-step="1">
+      <div class="sec">
+        <button type="button" class="photo" id="edPhoto"><span><b>＋</b>Urcă o poză<br>AI-ul o descrie 1:1</span></button>
+        <input type="file" id="edFile" accept="image/*" hidden>
+        <label for="edName">Nume</label>
+        <input id="edName" placeholder="ex. Ana" maxlength="40">
+        <label for="edTag">Pe scurt</label>
+        <input id="edTag" placeholder="o frază care apare pe card" maxlength="120">
+        <div class="hint" id="edNoPhotoHint">N-ai poză? Continuă: la pasul 2 scrii ideea, iar AI-ul îi poate genera portretul.</div>
+      </div>
     </div>
 
-    <div class="sec">
-      <div class="lblrow"><label for="edAspect">Aspect (din poză)</label><span style="display:flex;gap:6px"><button type="button" class="btn sm" id="edCheck">🔍 Verifică</button><button type="button" class="btn sm" id="edRedesc">↻ Din nou</button></span></div>
-      <textarea id="edAspect" rows="5" placeholder="Se completează singur când urci poza. Poți corecta orice."></textarea>
-      <div class="hint">Personajul se va descrie mereu așa, iar pozele generate pornesc de la aceeași față.</div>
+    <div class="step" data-step="2" hidden>
+      <div class="sec">
+        <div class="lblrow"><label for="edPersona">Personalitate și poveste</label><button type="button" class="btn sm" id="edDraft">✨ Completează</button></div>
+        <textarea id="edPersona" rows="6" placeholder="Cine e, ce-i place, ce relație aveți, cum se poartă. Scrie câteva idei și apasă ✨ Completează."></textarea>
+      </div>
+      <div class="sec">
+        <div class="lblrow"><label for="edAspect">Aspect</label><span style="display:flex;gap:6px"><button type="button" class="btn sm" id="edCheck">🔍 Verifică</button><button type="button" class="btn sm" id="edRedesc">↻ Din nou</button></span></div>
+        <textarea id="edAspect" rows="5" placeholder="Se completează singur din poză sau din ✨ Completează. Poți corecta orice."></textarea>
+        <div class="btns" id="edGenWrap"><button type="button" class="btn sm" id="edGen">🎨 Generează portretul din descriere</button></div>
+        <div class="hint">Personajul se va descrie mereu așa, iar pozele generate pornesc de la aceeași față.</div>
+      </div>
     </div>
 
-    <div class="sec">
-      <div class="lblrow"><label for="edPersona">Personalitate și poveste</label><button type="button" class="btn sm" id="edDraft">✨ Completează</button></div>
-      <textarea id="edPersona" rows="6" placeholder="Cine e, ce-i place, ce relație aveți, cum se poartă. Scrie câteva idei și apasă ✨ Completează."></textarea>
-      <label for="edSpeech">Cum vorbește <span style="font-weight:400;color:var(--tx3)">(opțional)</span></label>
-      <input id="edSpeech" placeholder="ex. cald, cu umor, propoziții scurte">
-      <label for="edGreet">Prima replică</label>
-      <textarea id="edGreet" rows="3" placeholder="*zâmbește* Bună! Ce mai faci?"></textarea>
+    <div class="step" data-step="3" hidden>
+      <div class="sec">
+        <label for="edGreet">Prima replică</label>
+        <textarea id="edGreet" rows="3" placeholder="*zâmbește* Bună! Ce mai faci?"></textarea>
+        <label for="edSpeech">Cum vorbește <span style="font-weight:400;color:var(--tx3)">(opțional)</span></label>
+        <input id="edSpeech" placeholder="ex. cald, cu umor, propoziții scurte">
+        <div class="edPrev" id="edPrev"></div>
+      </div>
+      <div class="sec">
+        <h3>Culori în conversație</h3>
+        <div class="swatches" id="edAcc"></div>
+        <label>Fundal</label>
+        <div class="seg" id="edBg"><button type="button" data-v="clar">Poza clară</button><button type="button" data-v="poza">Estompată</button><button type="button" data-v="grad">Culoare</button><button type="button" data-v="none">Simplu</button></div>
+      </div>
+      <details class="sec">
+        <summary>Avansat: descrierea pentru imagini</summary>
+        <label for="edLook">Aspect în engleză (pentru generatorul de poze)</label>
+        <textarea id="edLook" rows="4"></textarea>
+        <label for="edStil">Stil</label>
+        <select id="edStil"><option value="photo">Fotografie realistă</option><option value="anime">Anime</option><option value="illustration">Ilustrație</option><option value="3d">3D</option></select>
+      </details>
+      <div class="btns" id="edDelWrap"><button type="button" class="btn dan" id="edDel">Șterge personajul</button></div>
     </div>
-
-    <div class="sec">
-      <h3>Culori în conversație</h3>
-      <div class="swatches" id="edAcc"></div>
-      <label>Fundal</label>
-      <div class="seg" id="edBg"><button type="button" data-v="clar">Poza clară</button><button type="button" data-v="poza">Estompată</button><button type="button" data-v="grad">Culoare</button><button type="button" data-v="none">Simplu</button></div>
-    </div>
-
-    <details class="sec">
-      <summary>Avansat: descrierea pentru imagini</summary>
-      <label for="edLook">Aspect în engleză (pentru generatorul de poze)</label>
-      <textarea id="edLook" rows="4"></textarea>
-      <label for="edStil">Stil</label>
-      <select id="edStil"><option value="photo">Fotografie realistă</option><option value="anime">Anime</option><option value="illustration">Ilustrație</option><option value="3d">3D</option></select>
-    </details>
-
-    <div class="btns" id="edDelWrap"><button type="button" class="btn dan" id="edDel">Șterge personajul</button></div>
   </div></div>
+  <div class="wiz"><button type="button" class="btn" id="edBack">‹ Înapoi</button><button type="button" class="btn pri" id="edNext">Continuă ›</button></div>
 </section>
 
 <!-- SETĂRI -->
@@ -464,6 +615,8 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
       <h3 style="margin-top:22px">Răspunsuri</h3>
       <label>Lungime</label>
       <div class="seg" id="stLen"><button data-v="scurt">Scurte</button><button data-v="mediu">Medii</button><button data-v="lung">Lungi</button></div>
+      <label>Temă</label>
+      <div class="seg" id="stTheme"><button data-v="auto">Automat</button><button data-v="dark">Întunecată</button><button data-v="light">Luminoasă</button></div>
       <label>Mărime text</label>
       <div class="seg" id="stFont"><button data-v="15">Mic</button><button data-v="16">Normal</button><button data-v="18">Mare</button></div>
       <label>Sugestii de răspuns</label>
@@ -500,10 +653,11 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
 </section>
 
 <div id="toast"></div>
+<div id="splash"><img src="icon-192.png" alt=""><b>Taifas</b></div>
 
 <script>
 'use strict';
-const APP_VER = '3.0';
+const APP_VER = '3.2';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -541,7 +695,7 @@ const DEF = {
   userName:'', userAbout:'', len:'mediu', font:16,
   imgProv:'none', gemKey:'', gemModel:'gemini-2.5-flash-image',
   wkBase:'', wkTok:'', wkModel:'ancorat', wkSize:'576x768',
-  sugg:'off', pro:'on', voice:'tap',
+  sugg:'off', pro:'on', voice:'tap', theme:'dark',
   falKey:'', falModel:'fal-ai/flux-pulid', falSize:'576x768', spont:'rar', imgAlt:'fal', sv:30, imgCost:'', pIn:'', pOut:''
 };
 let S = {...DEF};
@@ -820,7 +974,7 @@ async function genImage(prompt, ref, signal){
 }
 
 /* ───────── navigare ───────── */
-const VIEWS = ['vHome', 'vChat', 'vEdit', 'vSet'];
+const VIEWS = ['vHome', 'vChat', 'vEdit', 'vSet', 'vWelcome'];
 function show(id, push = true){
   VIEWS.forEach(v => $('#' + v).hidden = v !== id);
   if(push && id !== 'vHome') history.pushState({v:id}, '');
@@ -837,17 +991,17 @@ function goHome(){ cur = null; chat = null; show('vHome', false); renderHome(); 
 /* ───────── ACASĂ ───────── */
 let homeTab = 'chars';
 function renderHome(){
-  $$('.tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === homeTab));
+  $$('#nav [data-tab]').forEach(b => b.classList.toggle('on', b.dataset.tab === homeTab));
   $('#homeChars').hidden = homeTab !== 'chars';
   $('#homeChats').hidden = homeTab !== 'chats';
   const sorted = [...chars].sort((a, b) => (b.fav ? 1 : 0) - (a.fav ? 1 : 0) || (b.lastAt || b.created || 0) - (a.lastAt || a.created || 0));
   $('#searchWrap').hidden = homeTab !== 'chars' || chars.length < 5;
   const q = $('#search').value.trim().toLowerCase();
   const shown = q ? sorted.filter(c => (c.name + ' ' + (c.tag || '')).toLowerCase().includes(q)) : sorted;
-  $('#homeChars').innerHTML = (q ? '' : `<button class="card new" id="btnNew"><div><span>＋</span><em>Personaj nou</em></div></button>`) +
-    shown.map(c => `<button class="card" data-open="${c.id}">${c.fav ? '<span class="fav">⭐</span>' : ''}
+  $('#homeChars').innerHTML = (!chars.length ? `<button class="card empty" data-new><b>Niciun personaj încă</b>Apasă ＋ jos ca să creezi primul personaj, din poză sau din imaginație.</button>` : '') +
+    shown.map(c => `<button class="card${c.fav ? ' isfav' : ''}" data-open="${c.id}">${c.fav ? '<span class="fav">⭐</span>' : ''}${c.lastAt && c.last ? `<span class="when">${when(c.lastAt)}</span>` : ''}
       ${c.photo ? `<img data-k="${esc(c.photo)}" alt="">` : `<div class="ph" style="background:${colorFor(c)}">${esc(c.name[0] || '?')}</div>`}
-      <div class="ov"><b>${esc(c.name)}</b>${c.tag ? `<small>${esc(c.tag)}</small>` : ''}</div></button>`).join('');
+      <div class="ov"><b>${esc(c.name)}</b>${c.tag ? `<small>${esc(c.tag)}</small>` : ''}${c.last ? `<em class="lm">${esc(c.last)}</em>` : ''}</div></button>`).join('');
   const withChat = sorted.filter(c => c.last);
   $('#homeChats').innerHTML = withChat.length ? withChat.map(c => `<button class="row" data-open="${c.id}">
       ${avatarHTML(c)}<div class="t"><b>${esc(c.name)}</b><small>${esc(c.last)}</small></div><time>${when(c.lastAt)}</time></button>`).join('')
@@ -872,7 +1026,7 @@ async function openChat(id, push = true, tid){
   if(!chat.msgs.length && cur.greet) chat.msgs.push(greetMsg(cur));
   $('#chAv').outerHTML = avatarHTML(cur, 'av" id="chAv');
   $('#chName').textContent = cur.name;
-  $('#chTag').textContent = tagLine(cur);
+  $('#chTag').innerHTML = statusLine();
   $('#chatBg').style.backgroundImage = '';
   if(cur.photo && ['clar', 'poza'].includes(cur.bg || 'clar')) $('#chatBg').dataset.bgk = cur.photo;
   applyLook(cur);
@@ -883,6 +1037,7 @@ async function openChat(id, push = true, tid){
   hydrate($('#vChat'));
   setBusyUI(!!(busy && live && live.ch === chat));
   $('#sugg').innerHTML = '';
+  clearReply(); jumpCount = 0;
   maybeProactive();
 }
 function tagLine(c){
@@ -938,10 +1093,10 @@ function msgHTML(m, i, lastAi, anim){
   else if(m.err) inner = `<div class="bub err${m.errKind === 'flag' ? ' flag' : ''}">${m.errKind === 'flag' ? '🚫' : '⚠️'} ${esc(m.err)}</div>`;
   else if(m.img && !me){
     cls += ' picm';
-    inner = `<div class="picbox"><img class="pic big" data-k="${esc(m.img)}" data-view="${esc(m.img)}" alt="">${tm}</div>${m.text ? `<div class="bub">${fmtMsg(m.text)}</div>` : ''}`;
+    inner = `<div class="picbox"><img class="pic big" data-k="${esc(m.img)}" data-view="${esc(m.img)}" alt="">${tm}${reactHTML(m)}</div>${m.text ? `<div class="bub">${fmtMsg(m.text)}</div>` : ''}`;
   }
-  else if(m.img) inner = `<div class="bub picwrap"><img class="pic" data-k="${esc(m.img)}" data-view="${esc(m.img)}" alt="">${m.text ? `<div class="cap">${fmtMsg(m.text)}</div>` : ''}${tm}</div>`;
-  else inner = `<div class="bub${m.pending ? ' typing' : ''}">${fmtMsg(m.text)}${m.pending ? '' : tm}</div>`;
+  else if(m.img) inner = `<div class="bub picwrap">${quoteHTML(m)}<img class="pic" data-k="${esc(m.img)}" data-view="${esc(m.img)}" alt="">${m.text ? `<div class="cap">${fmtMsg(m.text)}</div>` : ''}${tm}${reactHTML(m)}</div>`;
+  else inner = `<div class="bub${m.pending ? ' typing' : ''}">${quoteHTML(m)}${fmtMsg(m.text)}${m.pending ? '' : tm}${reactHTML(m)}</div>`;
   let under = '';
   if(!me && i === lastAi && !m.pending && !m.pendingImg){
     const n = m.alts?.length || 1;
@@ -951,7 +1106,87 @@ function msgHTML(m, i, lastAi, anim){
       ${m.err ? `<button data-retry>${m.errKind === 'flag' ? '🎲 Încearcă altă scenă' : 'Reîncearcă'}</button>` : ''}
       ${S.voice !== 'off' && m.text && !m.err ? `<button data-say>🔊</button>` : ''}</div>`;
   }
-  return `<div class="mw${anim ? ' anim' : ''}" data-i="${i}"><div class="m ${cls}">${me ? '' : avatarHTML(cur)}${inner}</div>${under}</div>`;
+  return `<div class="mw${anim ? ' anim' : ''}${m.react ? ' hasreact' : ''}" data-i="${i}"><div class="m ${cls}">${me ? '' : avatarHTML(cur)}${inner}</div>${under}</div>`;
+}
+const REACTS = ['❤️', '😂', '😮', '😢', '👍', '🔥'];
+const reactHTML = m => m.react ? `<span class="react">${m.react}</span>` : '';
+function quoteHTML(m){
+  if(!m.reply) return '';
+  return `<button class="quote" data-q="${esc(m.reply.id)}"><b>${esc(m.reply.name)}</b><span>${esc(m.reply.text)}</span></button>`;
+}
+function plain(t){ return String(t || '').replace(/\*[^*]*\*/g, ' ').replace(/\s+/g, ' ').trim(); }
+function reactPicker(i){
+  const m = chat.msgs[i]; if(!m || m.pending || m.pendingImg || m.err) return;
+  const el = $(`#msgs .mw[data-i="${i}"] .bub, #msgs .mw[data-i="${i}"] .picbox`); if(!el) return;
+  closeReactPicker();
+  const r = el.getBoundingClientRect();
+  const sc = document.createElement('div'); sc.className = 'rscrim'; sc.onclick = closeReactPicker;
+  const pk = document.createElement('div'); pk.className = 'rpick';
+  pk.innerHTML = REACTS.map(e => `<button class="${m.react === e ? 'on' : ''}" data-e="${e}">${e}</button>`).join('');
+  document.body.append(sc, pk);
+  const w = pk.offsetWidth, top = r.top - pk.offsetHeight - 8;
+  pk.style.top = Math.max(8, top < 60 ? r.bottom + 8 : top) + 'px';
+  pk.style.left = Math.max(8, Math.min(innerWidth - w - 8, (m.role === 'user' ? r.right - w : r.left))) + 'px';
+  pk.onclick = async e => {
+    const b = e.target.closest('[data-e]'); if(!b) return;
+    m.react = m.react === b.dataset.e ? '' : b.dataset.e;
+    if(!m.react) delete m.react;
+    closeReactPicker(); await saveChat(); renderMsgs();
+    if(navigator.vibrate) try{ navigator.vibrate(8); }catch(_){}
+  };
+}
+function closeReactPicker(){ $$('.rpick,.rscrim').forEach(x => x.remove()); }
+let replyTo = null;
+function setReply(i){
+  const m = chat.msgs[i]; if(!m || m.pending || m.pendingImg || m.err) return;
+  const name = m.role === 'user' ? (S.userName.trim() || 'Tu') : cur.name;
+  replyTo = {id:m.id, name, text: (m.img && !m.text ? '📷 Poză' : plain(m.text)).slice(0, 140)};
+  $('#rbName').textContent = '↩ Răspunzi ' + (m.role === 'user' ? 'la mesajul tău' : 'lui ' + name);
+  $('#rbTxt').textContent = replyTo.text;
+  $('#replyBar').hidden = false;
+  $('#inp').focus();
+  if(navigator.vibrate) try{ navigator.vibrate(8); }catch(_){}
+}
+function clearReply(){ replyTo = null; $('#replyBar').hidden = true; }
+// starea din antet: online / ultima dată + dispoziția dedusă din ultimul răspuns
+const MOODS = [
+  [/\b(râde|chicotește|hohot)/i, '😂', 'amuzament'],
+  [/\b(zâmbe|vesel|bucur|entuziasm|încântat)/i, '😊', 'bună dispoziție'],
+  [/\b(roșe|timid|emoționat|fluturi)/i, '😳', 'emoție'],
+  [/\b(oftează|trist|lacrim|plânge|melancol)/i, '😢', 'melancolie'],
+  [/\b(căscă|obosit|somnoros|adoarme|somn)/i, '😴', 'oboseală'],
+  [/\b(încruntă|supărat|nervos|enervat|furios)/i, '😠', 'supărare'],
+  [/\b(gânde|meditează|reflectează|pensiv)/i, '🤔', 'gânduri'],
+  [/\b(surprins|tresare|ochii mari|uimit)/i, '😮', 'surpriză'],
+  [/\b(îmbrățișe|tandru|drag|dor)/i, '🥰', 'tandrețe']
+];
+function moodOf(){
+  const last = [...chat.msgs].reverse().find(m => m.role === 'ai' && m.text && !m.err);
+  if(!last) return null;
+  const acts = (last.text.match(/\*[^*]+\*/g) || []).join(' ') || last.text;
+  for(const [re, e, n] of MOODS) if(re.test(acts)) return e + ' ' + n;
+  return null;
+}
+function statusLine(){
+  const last = [...chat.msgs].reverse().find(m => m.ts && !m.err);
+  const ago = last ? Date.now() - last.ts : Infinity;
+  let st;
+  if(ago < 10 * 60e3) st = '<span class="dot"></span>online';
+  else {
+    const min = Math.round(ago / 60e3), h = Math.round(min / 60), d = Math.round(h / 24);
+    st = '<span class="dot off"></span>ultima dată ' + (min < 60 ? `acum ${min} min` : h < 24 ? `acum ${h} h` : d === 1 ? 'ieri' : `acum ${d} zile`);
+  }
+  const mood = moodOf();
+  const ts = threadsOf(cur), t = ts.length > 1 ? ts.find(x => x.id === (cur.thread || 'main')) : null;
+  return st + (mood ? ' · ' + mood : '') + (t ? ' · 🧵 ' + esc(t.title) : '');
+}
+// buton „jos" + contor de mesaje noi
+let jumpCount = 0;
+function updateJump(){
+  const box = $('#msgs'), far = box.scrollHeight - box.scrollTop - box.clientHeight > 320;
+  if(!far) jumpCount = 0;
+  $('#jumpDown').hidden = !far;
+  $('#jumpN').hidden = !jumpCount; $('#jumpN').textContent = jumpCount > 9 ? '9+' : jumpCount;
 }
 const seenMap = new WeakMap();
 function heroHTML(){
@@ -972,13 +1207,16 @@ function renderMsgs(toBottom){
     const d = new Date(m.ts || Date.now()).toDateString();
     if(d !== prevDay && !(m.pending && !m.text)){ html += `<div class="day"><span>${dayLabel(m.ts || Date.now())}</span></div>`; prevDay = d; }
     const show = !(m.pending && !m.text);
-    html += msgHTML(m, i, lastAi, show && !seen.has(m.id));
+    const fresh = show && !seen.has(m.id);
+    html += msgHTML(m, i, lastAi, fresh);
+    if(fresh && !near && !toBottom && m.role === 'ai') jumpCount++;
     if(show) seen.add(m.id);
   });
   box.innerHTML = html;
   hydrate(box);
   if(toBottom || near) box.scrollTop = box.scrollHeight;
-  updateHead();
+  updateHead(); updateJump();
+  if(cur && !(busy && live && live.ch === chat)) $('#chTag').innerHTML = statusLine();
 }
 function updateHead(){
   const box = $('#msgs'), h = box.querySelector('.hero');
@@ -1011,7 +1249,7 @@ function setBusyUI(on){
   } else tb.hidden = true;
   const t = $('#chTag');
   if(on && live && cur && live.ch === chat){ t.textContent = live.photo ? 'îți face o poză…' : 'scrie…'; t.classList.add('typing'); }
-  else if(cur){ t.textContent = tagLine(cur); t.classList.remove('typing'); }
+  else if(cur && chat){ t.innerHTML = statusLine(); t.classList.remove('typing'); }
 }
 
 const LEN = {scurt:{t:'1-2 fraze scurte', max:350}, mediu:{t:'un paragraf, cel mult două', max:800}, lung:{t:'2-4 paragrafe bogate', max:1500}};
@@ -1038,10 +1276,20 @@ function systemFor(c, ch){
 function contextUpTo(idx){
   const from = Math.max(chat.sumUpTo || 0, idx - 40, 0);
   const sum = chat.summary ? [{role:'user', text:`(Rezumatul conversației de până acum, ca să-ți amintești: ${chat.summary})`}, {role:'assistant', text:'*dă din cap*'}] : [];
-  return sum.concat(chat.msgs.slice(from, idx).filter(m => !m.err && !m.pending && (m.text || m.img))
-    .map(m => m.role === 'user'
-      ? {role:'user', text: m.img ? '[ți-am trimis o poză]' + (m.text ? ' ' + m.text : '') : m.text, _img: m.img || null}
-      : {role:'assistant', text: m.text || '*îți trimite o poză*'}));
+  let react = '';
+  const out = [];
+  for(const m of chat.msgs.slice(from, idx).filter(m => !m.err && !m.pending && (m.text || m.img))){
+    if(m.role === 'user'){
+      let pre = '';
+      if(react){ pre += `(am reacționat cu ${react} la mesajul tău) `; react = ''; }
+      if(m.reply) pre += `(răspund la: „${m.reply.text}”) `;
+      out.push({role:'user', text: pre + (m.img ? '[ți-am trimis o poză]' + (m.text ? ' ' + m.text : '') : m.text), _img: m.img || null});
+    } else {
+      out.push({role:'assistant', text: m.text || '*îți trimite o poză*'});
+      if(m.react) react = m.react;
+    }
+  }
+  return sum.concat(out);
 }
 // ultimele 2 poze trimise de utilizator merg ca imagini (personajul le vede); cele mai vechi rămân doar menționate
 async function attachUserImages(ctx){
@@ -1061,7 +1309,9 @@ async function send(){
   if(busy){ toast('Așteaptă să termine ' + (live ? live.c.name : '') + '.'); return; }
   if(rec) rec.stop();
   $('#inp').value = ''; autoSize(); updateComposer();
-  chat.msgs.push({id:uid(), role:'user', text:t, ts:Date.now()});
+  const um = {id:uid(), role:'user', text:t, ts:Date.now()};
+  if(replyTo){ um.reply = replyTo; clearReply(); }
+  chat.msgs.push(um);
   await saveChat(); renderMsgs(true);
   await reply();
 }
@@ -1267,7 +1517,9 @@ async function pickedImage(file){
     if(busy){ toast('Așteaptă răspunsul.'); return; }
     const k = await saveImg(pendingPic); pendingPic = null;
     $('#inp').value = ''; autoSize(); updateComposer();
-    chat.msgs.push({id:uid(), role:'user', text:cap, img:k, ts:Date.now()});
+    const um = {id:uid(), role:'user', text:cap, img:k, ts:Date.now()};
+    if(replyTo){ um.reply = replyTo; clearReply(); }
+    chat.msgs.push(um);
     await saveChat(); renderMsgs(true);
     reply();
   };
@@ -1482,6 +1734,8 @@ function msgSheet(i){
   const m = chat.msgs[i]; if(!m || m.pending || m.pendingImg) return;
   const me = m.role === 'user';
   const opts = [];
+  if(!m.err) opts.push(['↩️', 'Răspunde la mesaj', () => setReply(i)]);
+  if(!m.err) opts.push(['❤️', m.react ? 'Schimbă reacția' : 'Reacționează', () => setTimeout(() => reactPicker(i), 50)]);
   if(m.text) opts.push(['📋', 'Copiază', () => { navigator.clipboard?.writeText(m.text); toast('Copiat'); }]);
   if(m.text && !me) opts.push(['🔊', 'Citește cu voce', () => say(m.text)]);
   if(m.text && !busy) opts.push(['✏️', me ? 'Editează și retrimite' : 'Editează', () => editMsg(i)]);
@@ -1579,10 +1833,31 @@ function openEditor(id){
   $('#edLook').value = c?.look || ''; $('#edStil').value = c?.stil || 'photo';
   ed.accent = c?.accent || ''; ed.bg = c?.bg || 'clar'; drawLook();
   $('#edDelWrap').hidden = !c;
+  edGo(1);
   setEdStatus('');
   renderEdPhoto();
   show('vEdit');
   $('#vEdit .scroll').scrollTop = 0;
+}
+let edStep = 1;
+function edGo(n){
+  edStep = Math.max(1, Math.min(3, n));
+  $$('#vEdit .step').forEach(x => x.hidden = +x.dataset.step !== edStep);
+  $$('#edSteps [data-s]').forEach(b => { const k = +b.dataset.s; b.classList.toggle('on', k === edStep); b.classList.toggle('done', k < edStep); });
+  $('#edBack').style.visibility = edStep > 1 ? 'visible' : 'hidden';
+  $('#edNext').textContent = edStep < 3 ? 'Continuă ›' : (ed && ed.id ? 'Salvează' : 'Creează personajul');
+  $('#edSave').hidden = !(ed && ed.id);
+  $('#edScroll').scrollTop = 0;
+  if(edStep === 3) drawEdPreview();
+}
+async function drawEdPreview(){
+  const box = $('#edPrev'); if(!box || !ed) return;
+  const g = $('#edGreet').value.trim();
+  if(!g){ box.innerHTML = '<div class="lbl">Previzualizare</div><div style="color:var(--tx3);font-size:.85rem;padding:0 4px">Scrie prima replică și o vezi aici, cum apare în conversație.</div>'; return; }
+  let av = `<span class="av" style="background:${colorFor({id:ed.id || 'x'})}">${esc(($('#edName').value.trim() || '?')[0])}</span>`;
+  const u = ed.photoBlob ? URL.createObjectURL(ed.photoBlob) : (ed.photoKey ? await imgUrl(ed.photoKey) : '');
+  if(u) av = `<img class="av" src="${u}" alt="">`;
+  box.innerHTML = `<div class="lbl">Previzualizare · ${esc($('#edName').value.trim() || 'Personaj')}</div><div class="m ai">${av}<div class="bub">${fmtMsg(g)}<span class="tm">${hhmm(Date.now())}</span></div></div>`;
 }
 function drawLook(){
   $('#edAcc').innerHTML = `<button type="button" data-a="" style="background:var(--grad)" class="${ed.accent ? '' : 'on'}" aria-label="Implicit"></button>` +
@@ -1597,6 +1872,7 @@ async function renderEdPhoto(){
   p.classList.toggle('has', !!u);
   p.innerHTML = u ? `<img src="${u}" alt=""><span class="chg">Schimbă poza</span>` : `<span><b>＋</b>Urcă o poză<br>sau generează una mai jos</span>`;
   $('#edRedesc').hidden = $('#edCheck').hidden = !u;
+  $('#edNoPhotoHint').hidden = !!u;
   $('#edGenWrap').hidden = S.imgProv === 'none';
   $('#edGen').textContent = u ? '🎨 Generează alt portret din descriere' : '🎨 Generează portretul din descriere';
 }
@@ -1717,7 +1993,7 @@ const aiReady = () => S.prov === 'anthropic' ? !!S.key.trim() : !!(S.oaBase && S
 const FIELDS = {stKey:'key', stModel:'model', stOaBase:'oaBase', stOaKey:'oaKey', stOaModel:'oaModel', stUser:'userName', stAbout:'userAbout',
   stGemKey:'gemKey', stGemModel:'gemModel', stWkBase:'wkBase', stWkTok:'wkTok', stWkModel:'wkModel', stWkSize:'wkSize',
   stFalKey:'falKey', stFalModel:'falModel', stFalSize:'falSize', stImgCost:'imgCost', stPin:'pIn', stPout:'pOut'};
-const SEGS = {stProv:'prov', stLen:'len', stFont:'font', stImg:'imgProv', stImgAlt:'imgProv', stSugg:'sugg', stPro:'pro', stVoice:'voice', stSpont:'spont'};
+const SEGS = {stTheme:'theme', stProv:'prov', stLen:'len', stFont:'font', stImg:'imgProv', stImgAlt:'imgProv', stSugg:'sugg', stPro:'pro', stVoice:'voice', stSpont:'spont'};
 function openSettings(){
   for(const [id, k] of Object.entries(FIELDS)) $('#' + id).value = S[k] ?? '';
   syncSegs();
@@ -1738,7 +2014,15 @@ function syncSegs(){
   $('#stImgTestWrap').hidden = S.imgProv === 'none';
   $('#stGem').hidden = S.imgProv !== 'gemini'; $('#stWk').hidden = S.imgProv !== 'worker'; $('#stFal').hidden = S.imgProv !== 'fal';
   document.documentElement.style.fontSize = (+S.font || 16) + 'px';
+  applyTheme();
 }
+const mqLight = matchMedia('(prefers-color-scheme: light)');
+function applyTheme(){
+  const t = S.theme === 'light' || (S.theme !== 'dark' && mqLight.matches) ? 'light' : 'dark';
+  document.documentElement.dataset.theme = t;
+  const m = document.querySelector('meta[name=theme-color]'); if(m) m.content = t === 'light' ? '#f7f4fa' : '#0e0c12';
+}
+mqLight.addEventListener?.('change', () => applyTheme());
 async function testAI(){
   const r = $('#stTestRes'); r.className = 'status'; r.innerHTML = '<span class="spin"></span> Testez…';
   try{
@@ -1826,9 +2110,15 @@ function autoSize(){ const t = $('#inp'); t.style.height = 'auto'; t.style.heigh
 function bind(){
   $$('[data-back]').forEach(b => b.onclick = back);
   $('#btnSettings').onclick = openSettings;
-  $$('.tabs button').forEach(b => b.onclick = () => { homeTab = b.dataset.tab; renderHome(); });
+  $$('#nav [data-tab]').forEach(b => b.onclick = () => { homeTab = b.dataset.tab; renderHome(); $('#homeScroll').scrollTop = 0; });
+  $('#obStart').onclick = () => openSettings();
+  $('#edSteps').addEventListener('click', e => { const b = e.target.closest('[data-s]'); if(b) edGo(+b.dataset.s); });
+  $('#edBack').onclick = () => edGo(edStep - 1);
+  $('#edNext').onclick = () => edStep < 3 ? edGo(edStep + 1) : saveEditor();
+  $('#edGreet').addEventListener('input', drawEdPreview);
+  $('#edName').addEventListener('input', drawEdPreview);
   $('#vHome').addEventListener('click', e => {
-    if(e.target.closest('#btnNew')){ if(!aiReady()) toast('Sfat: adaugă întâi cheia în Setări, ca poza să fie descrisă automat.', 3500); openEditor(null); return; }
+    if(e.target.closest('#btnNew, [data-new]')){ if(!aiReady()) toast('Sfat: adaugă întâi cheia în Setări, ca poza să fie descrisă automat.', 3500); openEditor(null); return; }
     const o = e.target.closest('[data-open]'); if(o) openChat(o.dataset.open);
   });
   // conversație
@@ -1855,21 +2145,47 @@ function bind(){
   $('#vHome').addEventListener('scroll', () => clearTimeout(lpT), true);
   $('#vHome').addEventListener('contextmenu', e => { if(e.target.closest('[data-open]')) e.preventDefault(); });
   $('#vHome').addEventListener('click', e => { if(lpFired){ e.stopImmediatePropagation(); lpFired = false; } }, true);
-  // glisare pe ultimul răspuns → variante (ca în Botify)
-  let sx = 0, sy = 0, sEl = null;
-  $('#msgs').addEventListener('touchstart', e => { const b = e.target.closest('.mw'); sEl = null; if(!b || busy) return; const m = chat.msgs[+b.dataset.i]; if(!m || m.role !== 'ai' || !b.querySelector('.under')) return; sEl = b; sx = e.touches[0].clientX; sy = e.touches[0].clientY; }, {passive:true});
-  $('#msgs').addEventListener('touchmove', e => { if(!sEl) return; const dx = e.touches[0].clientX - sx; if(Math.abs(dx) > Math.abs(e.touches[0].clientY - sy)) sEl.querySelector('.m').style.transform = `translateX(${Math.max(-80, Math.min(80, dx * .5))}px)`; }, {passive:true});
+  // glisare: spre dreapta pe orice mesaj = răspunde la el; spre stânga pe ultimul răspuns = altă variantă
+  let sx = 0, sy = 0, sEl = null, sLastAi = false, sLock = null;
+  $('#msgs').addEventListener('touchstart', e => {
+    const b = e.target.closest('.mw'); sEl = null; sLock = null; if(!b) return;
+    const m = chat.msgs[+b.dataset.i]; if(!m || m.pending || m.pendingImg) return;
+    sEl = b; sLastAi = !!b.querySelector('.under') && !!m.alts && !m.img && !busy;
+    sx = e.touches[0].clientX; sy = e.touches[0].clientY;
+  }, {passive:true});
+  $('#msgs').addEventListener('touchmove', e => {
+    if(!sEl) return;
+    const dx = e.touches[0].clientX - sx, dy = e.touches[0].clientY - sy;
+    if(sLock === null && (Math.abs(dx) > 8 || Math.abs(dy) > 8)) sLock = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
+    if(sLock !== 'x') return;
+    const lim = dx > 0 ? 80 : (sLastAi ? -80 : 0);
+    sEl.querySelector('.m').style.transform = `translateX(${Math.max(Math.min(0, lim), Math.min(80, dx * .5))}px)`;
+  }, {passive:true});
   $('#msgs').addEventListener('touchend', e => {
     if(!sEl) return; const el = sEl; sEl = null;
-    const mm = el.querySelector('.m'); mm.classList.add('swipe'); mm.style.transform = ''; setTimeout(() => mm.classList.remove('swipe'), 200);
-    const dx = e.changedTouches[0].clientX - sx, dy = e.changedTouches[0].clientY - sy;
-    if(Math.abs(dx) < 70 || Math.abs(dy) > 50) return;
-    const i = +el.dataset.i, m = chat.msgs[i]; if(!m.alts || m.img) return;
-    if(dx < 0){ if((m.alt || 0) < m.alts.length - 1){ m.alt++; m.text = m.alts[m.alt]; saveChat(); renderMsgs(); } else reply(m); }
-    else if((m.alt || 0) > 0){ m.alt--; m.text = m.alts[m.alt]; saveChat(); renderMsgs(); }
+    const mm = el.querySelector('.m'); mm.style.transform = '';
+    if(sLock !== 'x') return;
+    const dx = e.changedTouches[0].clientX - sx;
+    if(Math.abs(dx) < 70) return;
+    const i = +el.dataset.i, m = chat.msgs[i];
+    if(dx > 0){ setReply(i); return; }
+    if(!sLastAi) return;
+    if((m.alt || 0) < m.alts.length - 1){ m.alt++; m.text = m.alts[m.alt]; saveChat(); renderMsgs(); } else reply(m);
   });
+  $('#rbX').onclick = clearReply;
+  $('#jumpDown').onclick = () => { const box = $('#msgs'); box.scrollTo({top:box.scrollHeight, behavior:'smooth'}); jumpCount = 0; };
+  $('#msgs').addEventListener('scroll', updateJump, {passive:true});
+  setInterval(() => { if(cur && chat && !$('#vChat').hidden && !(busy && live && live.ch === chat)) $('#chTag').innerHTML = statusLine(); }, 60e3);
+  let tapT = null, tapI = -1;
   $('#msgs').addEventListener('click', e => {
-    const v = e.target.closest('[data-view]'); if(v){ viewImg(v.dataset.view); return; }
+    const v = e.target.closest('[data-view]');
+    if(v){
+      // dublu-tap pe poză = reacție; un tap = vizualizator
+      const w0 = e.target.closest('.mw'), i0 = w0 ? +w0.dataset.i : -1;
+      if(tapT && tapI === i0){ clearTimeout(tapT); tapT = null; reactPicker(i0); return; }
+      clearTimeout(tapT); tapI = i0; tapT = setTimeout(() => { tapT = null; viewImg(v.dataset.view); }, 280);
+      return;
+    }
     if(e.target.closest('.hero')){ charProfile(cur.id); return; }
     const w = e.target.closest('.mw'); if(!w) return;
     const i = +w.dataset.i, m = chat.msgs[i];
@@ -1878,7 +2194,13 @@ function bind(){
     if(e.target.closest('[data-retry]')){ if(!busy) retry(i); return; }
     const a = e.target.closest('[data-alt]');
     if(a){ m.alt = Math.max(0, Math.min(m.alts.length - 1, (m.alt || 0) + +a.dataset.alt)); m.text = m.alts[m.alt]; delete m.err; saveChat(); renderMsgs(); return; }
-    if(e.target.closest('.bub')) msgSheet(i);
+    const q = e.target.closest('[data-q]');
+    if(q){ jumpTo(cur.id, chat.tid || 'main', q.dataset.q); return; }
+    if(e.target.closest('.bub, .picbox')){
+      if(tapT && tapI === i){ clearTimeout(tapT); tapT = null; reactPicker(i); return; }
+      clearTimeout(tapT); tapI = i;
+      tapT = setTimeout(() => { tapT = null; if(!e.target.closest('.picbox')) msgSheet(i); }, 280);
+    }
   });
   // editor
   $('#edPhoto').onclick = () => $('#edFile').click();
@@ -1923,7 +2245,9 @@ async function init(){
   bind();
   history.replaceState(null, '');
   renderHome();
-  if(!aiReady()) openSettings();
+  if(!aiReady() && !chars.length) show('vWelcome', false);
+  else if(!aiReady()) openSettings();
+  setTimeout(() => { const sp = $('#splash'); sp.classList.add('out'); setTimeout(() => sp.remove(), 450); }, 650);
   navigator.storage?.persist?.().catch(() => {});
   if('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
 }
