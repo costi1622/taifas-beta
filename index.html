@@ -364,6 +364,15 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
 [data-theme=light] .quote{background:#00000010}
 [data-theme=light] .react{box-shadow:0 2px 8px #0002}
 
+/* 3.3: câmpul de scris + antet */
+#composer{gap:5px;padding-left:8px;padding-right:8px}
+#btnPlus,#btnSugg,#btnMic{width:40px;height:40px;margin-bottom:2px}
+#btnSend{width:44px;height:44px}
+#inp{min-width:0;min-height:44px;padding:11px 14px}
+#inp::placeholder{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--tx3)}
+.chathead small{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.3;font-size:.74rem}
+#chTop .chathead .ib{flex:none}
+
 /* ===== temă luminoasă ===== */
 :root[data-theme=light]{--bg:#f7f4fa;--bg2:#ffffff;--card:#f0eaf5;--line:#e4dcea;--tx:#1b1622;--tx2:#5e5569;--tx3:#968da1;--me:#ead9f8;--ai:#ffffff;color-scheme:light}
 :root[data-theme=dark]{color-scheme:dark}
@@ -459,7 +468,7 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
     <input type="file" id="fCam" accept="image/*" capture="environment" hidden>
     <button type="button" id="btnSugg" aria-label="Sugestii de răspuns">💡</button>
     <button type="button" id="btnMic" aria-label="Dictează">🎤</button>
-    <textarea id="inp" rows="1" placeholder="Scrie un mesaj…"></textarea>
+    <textarea id="inp" rows="1" placeholder="Mesaj…"></textarea>
     <button type="submit" id="btnSend" aria-label="Trimite">➤</button>
   </form>
 </section>
@@ -657,7 +666,7 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
 
 <script>
 'use strict';
-const APP_VER = '3.2';
+const APP_VER = '3.3';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -1150,14 +1159,14 @@ function setReply(i){
 function clearReply(){ replyTo = null; $('#replyBar').hidden = true; }
 // starea din antet: online / ultima dată + dispoziția dedusă din ultimul răspuns
 const MOODS = [
-  [/\b(râde|chicotește|hohot)/i, '😂', 'amuzament'],
-  [/\b(zâmbe|vesel|bucur|entuziasm|încântat)/i, '😊', 'bună dispoziție'],
+  [/\b(râde|chicotește|hohot)/i, '😂', 'haz'],
+  [/\b(zâmbe|vesel|bucur|entuziasm|încântat)/i, '😊', 'voie bună'],
   [/\b(roșe|timid|emoționat|fluturi)/i, '😳', 'emoție'],
-  [/\b(oftează|trist|lacrim|plânge|melancol)/i, '😢', 'melancolie'],
-  [/\b(căscă|obosit|somnoros|adoarme|somn)/i, '😴', 'oboseală'],
+  [/\b(oftează|trist|lacrim|plânge|melancol)/i, '😢', 'tristețe'],
+  [/\b(căscă|obosit|somnoros|adoarme|somn)/i, '😴', 'somn'],
   [/\b(încruntă|supărat|nervos|enervat|furios)/i, '😠', 'supărare'],
   [/\b(gânde|meditează|reflectează|pensiv)/i, '🤔', 'gânduri'],
-  [/\b(surprins|tresare|ochii mari|uimit)/i, '😮', 'surpriză'],
+  [/\b(surprins|tresare|ochii mari|uimit)/i, '😮', 'uimire'],
   [/\b(îmbrățișe|tandru|drag|dor)/i, '🥰', 'tandrețe']
 ];
 function moodOf(){
@@ -1253,6 +1262,9 @@ function setBusyUI(on){
 }
 
 const LEN = {scurt:{t:'1-2 fraze scurte', max:350}, mediu:{t:'un paragraf, cel mult două', max:800}, lung:{t:'2-4 paragrafe bogate', max:1500}};
+// pozele automate (promise în text sau spontane) doar pentru personajele cu portret generat în aplicație
+const canAutoPhoto = c => S.imgProv !== 'none' && !!c.aiPortrait && !!c.photo;
+const PHOTO_PROMISE = /\*[^*]*\b(trimit|trimite|atașez|atașează|face|fac)\b[^*]*\b(poz|fotografi|selfie)[^*]*\*/i;
 function systemFor(c, ch){
   const u = S.userName.trim() || 'utilizatorul';
   const facts = (c.facts || []).map(f => '- ' + f.t).join('\n');
@@ -1270,7 +1282,10 @@ function systemFor(c, ch){
 - Scrii DOAR pentru ${c.name}. Nu scrii niciodată vorbele, gândurile sau acțiunile lui ${u}.
 - Lungime: ${LEN[S.len].t}.
 - Nu folosi liniuțe lungi (— sau –); folosește virgula sau punctul.
-- Variază formulările; nu repeta aceleași gesturi și expresii de la un mesaj la altul.`
+- Variază formulările; nu repeta aceleași gesturi și expresii de la un mesaj la altul.
+${canAutoPhoto(c)
+  ? '- Poți trimite poze. Când vrei să-i trimiți una, încheie mesajul cu acțiunea *îți trimite o poză*; aplicația o atașează singură. Nu promite poze în alt fel.'
+  : '- Nu poți trimite poze în această conversație. Nu spune că trimiți, că faci sau că ai trimis o poză.'}`
   ].filter(Boolean).join('\n\n');
 }
 function contextUpTo(idx){
@@ -1343,7 +1358,11 @@ async function reply(target, opts = {}){
     summarizeIfNeeded(c, ch);
     ch.factCount = (ch.factCount || 0) + 1;
     if(ch.factCount >= 6){ ch.factCount = 0; extractFacts(c, ch); }
-    if(S.imgProv !== 'none' && S.spont !== 'off' && !m.pro){
+    if(canAutoPhoto(c) && PHOTO_PROMISE.test(m.text)){
+      ch.sinceImg = 0;
+      setTimeout(() => { if(chat === ch && !busy) askPhoto(true); }, 900);
+    }
+    else if(canAutoPhoto(c) && S.spont !== 'off' && !m.pro){
       ch.sinceImg = (ch.sinceImg || 0) + 1;
       if(ch.sinceImg >= (S.spont === 'des' ? 4 : 8) && Math.random() < .6){
         ch.sinceImg = 0;
@@ -1880,7 +1899,7 @@ function setEdStatus(t, cls = ''){ const s = $('#edStatus'); s.className = 'stat
 async function edPhotoBlob(){ return ed.photoBlob || (ed.photoKey ? await DB.get(ed.photoKey) : null); }
 async function onPhotoPicked(file){
   if(!file) return;
-  try{ ed.photoBlob = await toJpeg(file); }catch(e){ setEdStatus('Nu pot citi poza.', 'err'); return; }
+  try{ ed.photoBlob = await toJpeg(file); ed.aiPortrait = false; }catch(e){ setEdStatus('Nu pot citi poza.', 'err'); return; }
   renderEdPhoto();
   runDescribe();
 }
@@ -1931,6 +1950,7 @@ async function runPortrait(){
     const stil = $('#edStil').value || 'photo';
     const prompt = `head and shoulders portrait of an adult, ${look}, looking at the camera, friendly expression, simple softly blurred background. ${STIL_TAG[stil]}`;
     ed.photoBlob = await genImage(prompt, null);
+    ed.aiPortrait = true;
     addUsage(ed.id, imgPrice(), 'img');
     await renderEdPhoto();
     setEdStatus('✓ Portret generat. Dacă nu-ți place, mai apasă o dată.', 'ok');
@@ -1958,7 +1978,7 @@ async function saveEditor(){
   let c = ed.id ? charById(ed.id) : null;
   const isNew = !c;
   if(isNew){ c = {id:uid(), created:Date.now()}; chars.push(c); }
-  if(ed.photoBlob){ const old = c.photo; c.photo = await saveImg(ed.photoBlob); if(old) await delImg(old); }
+  if(ed.photoBlob){ const old = c.photo; c.photo = await saveImg(ed.photoBlob); if(old) await delImg(old); c.aiPortrait = !!ed.aiPortrait; }
   const oldGreet = c.greet;
   Object.assign(c, {name, tag:$('#edTag').value.trim(), aspect:$('#edAspect').value.trim(), persona:$('#edPersona').value.trim(),
     speech:$('#edSpeech').value.trim(), greet:$('#edGreet').value.trim(), look:$('#edLook').value.trim(), stil:$('#edStil').value,
@@ -2106,7 +2126,7 @@ async function importAll(file){
 }
 
 /* ───────── evenimente ───────── */
-function autoSize(){ const t = $('#inp'); t.style.height = 'auto'; t.style.height = Math.min(140, t.scrollHeight + 2) + 'px'; }
+function autoSize(){ const t = $('#inp'); t.style.height = 'auto'; t.style.height = t.value ? Math.min(140, t.scrollHeight + 2) + 'px' : ''; }
 function bind(){
   $$('[data-back]').forEach(b => b.onclick = back);
   $('#btnSettings').onclick = openSettings;
