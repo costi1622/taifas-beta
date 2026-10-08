@@ -101,7 +101,9 @@ button{cursor:pointer;border:0;background:none}
 #inp:focus{border-color:#5a4a70}
 #btnSend{width:44px;height:44px;border-radius:50%;background:var(--grad);color:#fff;font-size:1.1rem;display:grid;place-items:center;flex:none}
 #btnSend.stop{background:var(--card);border:1px solid var(--line)}
-#btnPhoto{width:44px;height:44px;border-radius:50%;background:var(--bg2);font-size:1.15rem;display:grid;place-items:center;flex:none;border:1px solid var(--line)}
+#btnPlus{width:44px;height:44px;border-radius:50%;background:var(--bg2);font-size:1.4rem;display:grid;place-items:center;flex:none;border:1px solid var(--line);color:var(--tx)}
+.me .bub .pic{aspect-ratio:auto;height:auto;max-height:360px;object-fit:contain}
+.prev{display:block;max-width:100%;max-height:46vh;margin:0 auto 10px;border-radius:14px}
 
 /* forms */
 .form{padding:4px 16px calc(40px + var(--safe-b));max-width:640px;width:100%;margin:0 auto}
@@ -208,6 +210,20 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
 .neur .bar{height:8px;border-radius:4px;background:var(--bg);border:1px solid var(--line);overflow:hidden;margin-top:6px}
 .neur .bar i{display:block;height:100%;background:var(--grad)}
 .neur.warn .bar i{background:linear-gradient(90deg,#ffb020,#ff6b4a)}
+#btnMic{width:44px;height:44px;border-radius:50%;background:var(--bg2);font-size:1.1rem;display:grid;place-items:center;flex:none;border:1px solid var(--line)}
+#btnMic.rec{background:#ff4f6a;border-color:#ff4f6a;animation:pulse 1.2s infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 #ff4f6a80}50%{box-shadow:0 0 0 8px #ff4f6a00}}
+.srch{display:flex;gap:8px;padding:0 6px 8px}
+.srch input{flex:1}
+.res{display:block;width:100%;text-align:left;padding:10px 8px;border-radius:12px;border-bottom:1px solid var(--line)}
+.res:active{background:#ffffff10}
+.res .h{display:flex;align-items:center;gap:8px;font-size:.8rem;color:var(--tx3);margin-bottom:3px}
+.res .h .av{width:22px;height:22px;font-size:.65rem}
+.res .h b{color:var(--tx2)}
+.res .t{font-size:.92rem;line-height:1.4;color:var(--tx);display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.res mark{background:color-mix(in srgb,var(--acc) 45%,transparent);color:inherit;border-radius:3px;padding:0 1px}
+.mw.flash .bub{animation:flash 1.6s ease-out}
+@keyframes flash{0%,30%{box-shadow:0 0 0 3px var(--acc)}100%{box-shadow:0 0 0 0 transparent}}
 #toast{position:fixed;left:50%;bottom:calc(90px + var(--safe-b));transform:translateX(-50%);background:#2a2433;border:1px solid var(--line);padding:10px 16px;border-radius:12px;z-index:99;max-width:90vw;font-size:.9rem;box-shadow:0 6px 20px #0008;transition:opacity .2s;pointer-events:none}
 #toast:empty{opacity:0}
 </style>
@@ -218,6 +234,7 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
 <section id="vHome" class="view">
   <header class="top">
     <h1>Taifas</h1>
+    <button class="ib" id="btnSearch" aria-label="Caută">🔎</button>
     <button class="ib" id="btnSettings" aria-label="Setări">⚙️</button>
   </header>
   <nav class="tabs">
@@ -237,14 +254,18 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
   <header class="top chathead">
     <button class="ib" data-back aria-label="Înapoi">‹</button>
     <button class="who" id="chWho"><span class="av" id="chAv"></span><div><b id="chName"></b><small id="chTag"></small></div></button>
+    <button class="ib" id="chSearch" aria-label="Caută în conversații">🔎</button>
     <button class="ib" id="chMenu" aria-label="Meniu">⋯</button>
   </header>
   <button id="sceneBar" hidden></button>
   <div id="msgs"></div>
   <div id="sugg"></div>
   <form id="composer" autocomplete="off">
-    <button type="button" id="btnPhoto" aria-label="Cere o poză">📷</button>
+    <button type="button" id="btnPlus" aria-label="Poze">＋</button>
+    <input type="file" id="fGal" accept="image/*" hidden>
+    <input type="file" id="fCam" accept="image/*" capture="environment" hidden>
     <button type="button" id="btnSugg" aria-label="Sugestii de răspuns">💡</button>
+    <button type="button" id="btnMic" aria-label="Dictează">🎤</button>
     <textarea id="inp" rows="1" placeholder="Scrie un mesaj…"></textarea>
     <button type="submit" id="btnSend" aria-label="Trimite">➤</button>
   </form>
@@ -431,7 +452,7 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
 
 <script>
 'use strict';
-const APP_VER = '2.7';
+const APP_VER = '2.9';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -878,14 +899,15 @@ function liveUpdate(m){
 }
 function updateComposer(){
   const empty = !$('#inp').value.trim();
+  $('#btnMic').hidden = !SpeechRec || (!empty && !rec) || !!(busy && live && live.ch === chat);
   const working = !!(busy && live && live.ch === chat);
-  $('#btnPhoto').hidden = S.imgProv === 'none' || !empty;
+  $('#btnPlus').hidden = false;
   $('#btnSugg').hidden = !empty || working || !aiReady();
 }
 function setBusyUI(on){
   const b = $('#btnSend'); b.classList.toggle('stop', on); b.textContent = on ? '■' : '➤';
   b.setAttribute('aria-label', on ? 'Oprește' : 'Trimite');
-  $('#btnPhoto').disabled = on;
+  $('#btnPlus').disabled = on;
   updateComposer();
   const t = $('#chTag');
   if(on && live && cur && live.ch === chat){ t.textContent = live.photo ? 'îți face o poză…' : 'scrie…'; t.classList.add('typing'); }
@@ -917,13 +939,27 @@ function contextUpTo(idx){
   const from = Math.max(chat.sumUpTo || 0, idx - 40, 0);
   const sum = chat.summary ? [{role:'user', text:`(Rezumatul conversației de până acum, ca să-ți amintești: ${chat.summary})`}, {role:'assistant', text:'*dă din cap*'}] : [];
   return sum.concat(chat.msgs.slice(from, idx).filter(m => !m.err && !m.pending && (m.text || m.img))
-    .map(m => ({role: m.role === 'user' ? 'user' : 'assistant', text: m.text || '*îți trimite o poză*'})));
+    .map(m => m.role === 'user'
+      ? {role:'user', text: m.img ? '[ți-am trimis o poză]' + (m.text ? ' ' + m.text : '') : m.text, _img: m.img || null}
+      : {role:'assistant', text: m.text || '*îți trimite o poză*'}));
+}
+// ultimele 2 poze trimise de utilizator merg ca imagini (personajul le vede); cele mai vechi rămân doar menționate
+async function attachUserImages(ctx){
+  let n = 0;
+  for(let i = ctx.length - 1; i >= 0 && n < 2; i--){
+    const x = ctx[i]; if(!x._img) continue;
+    const b = await DB.get(x._img); if(!b) continue;
+    try{ x.image = await blobToB64(b.type === 'image/jpeg' ? b : await toJpeg(b, 1280)); n++; }catch(e){}
+  }
+  ctx.forEach(x => delete x._img);
+  return ctx;
 }
 
 async function send(){
   const t = $('#inp').value.trim();
   if(!t) return;
   if(busy){ toast('Așteaptă să termine ' + (live ? live.c.name : '') + '.'); return; }
+  if(rec) rec.stop();
   $('#inp').value = ''; autoSize(); updateComposer();
   chat.msgs.push({id:uid(), role:'user', text:t, ts:Date.now()});
   await saveChat(); renderMsgs(true);
@@ -939,7 +975,7 @@ async function reply(target, opts = {}){
   const idx = ch.msgs.indexOf(m);
   busy = new AbortController(); live = {c, ch}; setBusyUI(true);
   try{
-    const ctx = contextUpTo(idx);
+    const ctx = await attachUserImages(contextUpTo(idx));
     if(m.note) ctx.push({role:'user', text:m.note});
     const full = await stream(systemFor(c, ch), ctx, {max:LEN[S.len].max, signal:busy.signal, cid:c.id,
       onText: t => { m.text = t; if(chat === ch) liveUpdate(m); }});
@@ -1105,6 +1141,141 @@ async function renderCost(){
     ${top.map(([c, v]) => `<div class="row2"><span>${esc(c.name)}</span><span>${usd(v)}</span></div>`).join('')}`;
 }
 
+/* poze: ＋ (cere de la personaj, galerie, cameră), salvare și partajare */
+function plusMenu(){
+  if(busy && live && live.ch === chat){ toast('Așteaptă răspunsul.'); return; }
+  const o = [];
+  if(S.imgProv !== 'none') o.push(['📷', `Cere o poză de la ${cur.name}`, () => askPhoto()]);
+  o.push(['🖼️', 'Trimite o poză din galerie', () => $('#fGal').click()]);
+  o.push(['📸', 'Fă o poză cu camera', () => $('#fCam').click()]);
+  if(S.imgProv === 'none') o.push(['⚙️', 'Pornește pozele de la personaje (Setări)', openSettings]);
+  sheet(o);
+}
+let pendingPic = null;
+async function pickedImage(file){
+  if(!file) return;
+  let b;
+  try{ b = await toJpeg(file, 1600, .88); }catch(e){ toast('Nu pot citi poza.'); return; }
+  pendingPic = b;
+  const u = URL.createObjectURL(b);
+  openSheet(`<h4>Trimite poza către ${esc(cur.name)}</h4><div class="pad">
+    <img class="prev" src="${u}" alt="">
+    <textarea id="shTxt" rows="2" placeholder="Scrie ceva (opțional)">${esc($('#inp').value.trim())}</textarea>
+    <div class="btns"><button class="btn" data-close>Renunță</button><button class="btn pri" id="shOk">Trimite</button></div></div>`);
+  $('#shOk').onclick = async () => {
+    const cap = $('#shTxt').value.trim(); closeSheet();
+    if(busy){ toast('Așteaptă răspunsul.'); return; }
+    const k = await saveImg(pendingPic); pendingPic = null;
+    $('#inp').value = ''; autoSize(); updateComposer();
+    chat.msgs.push({id:uid(), role:'user', text:cap, img:k, ts:Date.now()});
+    await saveChat(); renderMsgs(true);
+    reply();
+  };
+}
+function picName(k, b){
+  const ext = /png/.test(b.type) ? 'png' : /webp/.test(b.type) ? 'webp' : 'jpg';
+  const who = (cur && cur.name || 'Taifas').replace(/[^\p{L}\p{N}]+/gu, '-');
+  const d = new Date(), z = n => String(n).padStart(2, '0');
+  return `Taifas-${who}-${d.getFullYear()}${z(d.getMonth() + 1)}${z(d.getDate())}-${z(d.getHours())}${z(d.getMinutes())}${z(d.getSeconds())}.${ext}`;
+}
+async function saveImage(k){
+  const b = await DB.get(k); if(!b){ toast('Poza nu mai există.'); return; }
+  download(b, picName(k, b));
+  toast('Poza se salvează în Descărcări.');
+}
+function canShareFiles(){
+  try{ return !!(navigator.canShare && navigator.canShare({files:[new File([new Blob(['x'], {type:'image/png'})], 'x.png', {type:'image/png'})]})); }catch(e){ return false; }
+}
+async function shareImage(k){
+  const b = await DB.get(k); if(!b) return;
+  const f = new File([b], picName(k, b), {type:b.type || 'image/jpeg'});
+  try{ await navigator.share({files:[f]}); }catch(e){ if(e.name !== 'AbortError') saveImage(k); }
+}
+
+/* dictare vocală (recunoașterea vorbirii din browser, română) */
+const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition || null;
+let rec = null;
+function toggleMic(){
+  if(rec){ rec.stop(); return; }
+  if(!SpeechRec){ toast('Browserul nu suportă dictarea.'); return; }
+  try{ speechSynthesis?.cancel(); }catch(e){}
+  const r = new SpeechRec();
+  r.lang = 'ro-RO'; r.interimResults = true; r.continuous = true;
+  const base = $('#inp').value.trim();
+  r.onresult = e => {
+    let t = '';
+    for(let i = 0; i < e.results.length; i++) t += e.results[i][0].transcript;
+    t = t.trim();
+    if(t) t = t[0].toUpperCase() + t.slice(1);
+    $('#inp').value = (base ? base + ' ' : '') + t; autoSize();
+  };
+  r.onerror = e => {
+    if(e.error === 'not-allowed' || e.error === 'service-not-allowed') toast('Permite accesul la microfon pentru Taifas.', 3500);
+    else if(e.error !== 'no-speech' && e.error !== 'aborted') toast('Dictarea s-a oprit: ' + e.error);
+  };
+  r.onend = () => { rec = null; $('#btnMic').classList.remove('rec'); $('#btnMic').textContent = '🎤'; updateComposer(); };
+  rec = r;
+  $('#btnMic').classList.add('rec'); $('#btnMic').textContent = '⏹';
+  try{ r.start(); }catch(e){ r.onend(); toast('Nu pot porni microfonul.'); }
+}
+
+/* căutare în conversații */
+const norm = t => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+function snippet(text, q){
+  const t = String(text).replace(/\s+/g, ' '), n = norm(t), k = n.indexOf(q);
+  if(k < 0) return esc(t.slice(0, 160));
+  const a = Math.max(0, k - 60), b = Math.min(t.length, k + q.length + 90);
+  return (a ? '…' : '') + esc(t.slice(a, k)) + '<mark>' + esc(t.slice(k, k + q.length)) + '</mark>' + esc(t.slice(k + q.length, b)) + (b < t.length ? '…' : '');
+}
+async function searchAll(q, onlyId){
+  const out = [];
+  for(const c of chars){
+    if(onlyId && c.id !== onlyId) continue;
+    for(const t of threadsOf(c)){
+      const ch = (live && live.c === c && (live.ch.tid || 'main') === t.id) ? live.ch : await DB.get(chatKey(c.id, t.id));
+      if(!ch) continue;
+      for(const m of ch.msgs) if(m.text && norm(m.text).includes(q)) out.push({c, t, m});
+    }
+  }
+  return out.sort((a, b) => (b.m.ts || 0) - (a.m.ts || 0)).slice(0, 80);
+}
+function openSearch(onlyId){
+  const who = onlyId ? charById(onlyId) : null;
+  openSheet(`<h4>🔎 Caută ${who ? 'în conversațiile cu ' + esc(who.name) : 'în toate conversațiile'}</h4>
+    <div class="srch"><input id="srIn" placeholder="cuvânt sau frază" autocomplete="off" enterkeyhint="search"></div>
+    ${who ? '<div class="pad" style="margin:-2px 0 8px"><button class="btn sm" id="srAll">Caută peste tot</button></div>' : ''}
+    <div id="srRes"><p>Scrie cel puțin 2 litere.</p></div>`);
+  const inp = $('#srIn'); setTimeout(() => inp.focus(), 50);
+  if(who) $('#srAll').onclick = () => { const v = inp.value; closeSheet(); openSearch(); $('#srIn').value = v; $('#srIn').dispatchEvent(new Event('input')); };
+  let tm = null, seq = 0;
+  inp.addEventListener('input', () => {
+    clearTimeout(tm);
+    tm = setTimeout(async () => {
+      const q = norm(inp.value.trim()), my = ++seq, box = $('#srRes');
+      if(!box) return;
+      if(q.length < 2){ box.innerHTML = '<p>Scrie cel puțin 2 litere.</p>'; return; }
+      box.innerHTML = '<p><span class="spin"></span></p>';
+      const res = await searchAll(q, onlyId);
+      if(my !== seq || !$('#srRes')) return;
+      if(!res.length){ box.innerHTML = '<p>Nimic găsit.</p>'; return; }
+      const u = S.userName.trim() || 'Tu';
+      box.innerHTML = `<p style="margin-bottom:4px">${res.length}${res.length === 80 ? '+' : ''} rezultate</p>` + res.map((r, k) => `<button class="res" data-r="${k}">
+        <div class="h">${avatarHTML(r.c)}<b>${esc(r.c.name)}</b>${threadsOf(r.c).length > 1 ? ' · ' + esc(r.t.title) : ''} · ${when(r.m.ts)}</div>
+        <div class="t">${r.m.role === 'user' ? '<b>' + esc(u) + ':</b> ' : ''}${snippet(r.m.text, q)}</div></button>`).join('');
+      hydrate(box);
+      box.querySelectorAll('[data-r]').forEach(b => b.onclick = () => { const r = res[+b.dataset.r]; closeSheet(); jumpTo(r.c.id, r.t.id, r.m.id); });
+    }, 220);
+  });
+}
+async function jumpTo(cid, tid, mid){
+  const same = cur && cur.id === cid && chat && (chat.tid || 'main') === tid && !$('#vChat').hidden;
+  if(!same) await openChat(cid, $('#vChat').hidden, tid);
+  const i = chat.msgs.findIndex(m => m.id === mid); if(i < 0) return;
+  const el = $(`#msgs .mw[data-i="${i}"]`); if(!el) return;
+  el.scrollIntoView({block:'center'});
+  el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash');
+}
+
 /* voce */
 function say(t){
   if(!('speechSynthesis' in window) || !t) return;
@@ -1121,7 +1292,7 @@ function say(t){
 /* profilul personajului */
 async function charProfile(id){
   const c = charById(id); if(!c) return;
-  const pics = (await allChats(c)).flatMap(ch => ch.msgs.filter(m => m.img).map(m => ({k:m.img, ts:m.ts}))).sort((a, b) => b.ts - a.ts).map(x => x.k);
+  const pics = (await allChats(c)).flatMap(ch => ch.msgs.filter(m => m.img && m.role === 'ai').map(m => ({k:m.img, ts:m.ts}))).sort((a, b) => b.ts - a.ts).map(x => x.k);
   const spent = ((await DB.get('usage') || {}).chars || {})[id] || 0;
   const u = S.userName.trim() || 'tine';
   openSheet(`<div class="prof">
@@ -1209,7 +1380,9 @@ function msgSheet(i){
   if(m.text) opts.push(['📋', 'Copiază', () => { navigator.clipboard?.writeText(m.text); toast('Copiat'); }]);
   if(m.text && !me) opts.push(['🔊', 'Citește cu voce', () => say(m.text)]);
   if(m.text && !busy) opts.push(['✏️', me ? 'Editează și retrimite' : 'Editează', () => editMsg(i)]);
-  if(m.img) opts.push(['🖼️', 'Fă-o poză de profil', async () => { cur.photo = m.img; await saveChars(); toast('Poză de profil schimbată'); openChat(cur.id); }]);
+  if(m.img) opts.push(['💾', 'Salvează poza în telefon', () => saveImage(m.img)]);
+  if(m.img && canShareFiles()) opts.push(['↗️', 'Trimite poza în altă aplicație', () => shareImage(m.img)]);
+  if(m.img && !me) opts.push(['🖼️', 'Fă-o poză de profil', async () => { cur.photo = m.img; await saveChars(); toast('Poză de profil schimbată'); openChat(cur.id); }]);
   if(!busy) opts.push(['🗑️', 'Șterge mesajul', async () => { chat.msgs.splice(i, 1); await saveChat(); renderMsgs(); }, 'dan']);
   if(!busy && i < chat.msgs.length - 1) opts.push(['⤺', 'Șterge tot de aici în jos', async () => { chat.msgs.splice(i); await saveChat(); renderMsgs(); }, 'dan']);
   sheet(opts);
@@ -1281,10 +1454,11 @@ function confirmSheet(text, okLabel, fn){
 async function viewImg(k){
   const u = await imgUrl(k); if(!u) return;
   const v = document.createElement('div'); v.className = 'viewer';
-  v.innerHTML = `<img src="${u}" alt=""><button class="ib x" aria-label="Închide">✕</button><button class="btn dl">⬇ Salvează</button>`;
+  v.innerHTML = `<img src="${u}" alt=""><button class="ib x" aria-label="Închide">✕</button><div class="dl" style="display:flex;gap:8px"><button class="btn" id="vwSave">⬇ Salvează</button>${canShareFiles() ? '<button class="btn" id="vwShare">↗️ Trimite</button>' : ''}</div>`;
   v.querySelector('.x').onclick = () => v.remove();
   v.querySelector('img').onclick = () => v.remove();
-  v.querySelector('.dl').onclick = async () => download(await DB.get(k), `Taifas-${Date.now()}.png`);
+  v.querySelector('#vwSave').onclick = () => saveImage(k);
+  const sh = v.querySelector('#vwShare'); if(sh) sh.onclick = () => shareImage(k);
   document.body.appendChild(v);
 }
 
@@ -1556,9 +1730,16 @@ function bind(){
   $('#composer').onsubmit = e => { e.preventDefault(); if(busy) busy.abort(); else send(); };
   $('#inp').addEventListener('input', () => { autoSize(); updateComposer(); });
   $('#inp').addEventListener('keydown', e => { if(e.key === 'Enter' && !e.shiftKey && !matchMedia('(pointer:coarse)').matches){ e.preventDefault(); $('#composer').requestSubmit(); } });
-  $('#btnPhoto').onclick = askPhoto;
+  $('#btnPlus').onclick = plusMenu;
+  // apăsare lungă pe o poză din conversație → meniul ei (salvează, trimite, poză de profil)
+  $('#msgs').addEventListener('contextmenu', e => { const w = e.target.closest('.mw'); if(!w || !e.target.closest('.pic')) return; e.preventDefault(); msgSheet(+w.dataset.i); });
+  $('#fGal').onchange = e => { pickedImage(e.target.files[0]); e.target.value = ''; };
+  $('#fCam').onchange = e => { pickedImage(e.target.files[0]); e.target.value = ''; };
   $('#chMenu').onclick = chatMenu;
   $('#chWho').onclick = () => charProfile(cur.id);
+  $('#btnMic').onclick = toggleMic;
+  $('#btnSearch').onclick = () => openSearch();
+  $('#chSearch').onclick = () => openSearch(cur.id);
   $('#btnSugg').onclick = () => { if(!aiReady()){ toast('Adaugă cheia în Setări.'); return; } if(busy){ toast('Așteaptă răspunsul.'); return; } suggest(); };
   $('#search').addEventListener('input', renderHome);
   // apăsare lungă pe card → profil
