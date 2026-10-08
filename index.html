@@ -224,6 +224,54 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
 .res mark{background:color-mix(in srgb,var(--acc) 45%,transparent);color:inherit;border-radius:3px;padding:0 1px}
 .mw.flash .bub{animation:flash 1.6s ease-out}
 @keyframes flash{0%,30%{box-shadow:0 0 0 3px var(--acc)}100%{box-shadow:0 0 0 0 transparent}}
+/* ===== 3.0: conversație ===== */
+#chTop{position:absolute;top:0;left:0;right:0;z-index:4}
+#chTop .chathead{background:transparent;border-bottom:1px solid transparent;backdrop-filter:none;transition:background .25s,border-color .25s}
+#chTop.solid .chathead{background:linear-gradient(#0e0c12f5,#0e0c12d9);backdrop-filter:blur(12px);border-bottom-color:#ffffff10}
+#chTop .who{transition:opacity .25s}
+#chTop:not(.solid) .who{opacity:0;pointer-events:none}
+#chTop:not(.solid) .ib{background:#0008;backdrop-filter:blur(6px)}
+#chTop #sceneBar{background:#0e0c12cc;backdrop-filter:blur(8px)}
+#msgs{padding-top:0}
+.hero{position:relative;flex:none;cursor:pointer;margin:0 -12px 4px;height:min(54vh,480px);overflow:hidden}
+.hero img,.hero .ph{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center 20%}
+.hero .ph{display:grid;place-items:center;font-size:5rem;font-weight:800;color:#fff9}
+.hero::after{content:"";position:absolute;inset:0;background:linear-gradient(#0e0c1266 0%,transparent 22%,transparent 55%,var(--bg) 100%)}
+.hero.clear{height:min(42vh,380px)}
+.hero.clear::after{display:none}
+.hero .ov{position:absolute;left:0;right:0;bottom:0;padding:18px 20px 10px;text-align:center;z-index:1}
+.hero .ov b{display:block;font-size:1.7rem;font-weight:800;letter-spacing:-.3px;text-shadow:0 2px 12px #000c}
+.hero .ov small{display:block;color:#e8e1f0;font-size:.88rem;margin-top:4px;text-shadow:0 1px 8px #000c;line-height:1.35}
+.day{align-self:center;margin:6px 0 2px;font-size:.74rem;color:var(--tx2)}
+.day span{background:#1e1a26cc;backdrop-filter:blur(8px);padding:4px 11px;border-radius:99px;border:1px solid #ffffff0d}
+.bub{line-height:1.55;padding:11px 15px;white-space:normal}
+.bub .say{display:block;white-space:pre-wrap;margin:4px 0}
+.bub .act{display:block;white-space:pre-wrap;margin:4px 0;color:#b9abc9;font-style:italic;font-size:.93em;line-height:1.45}
+.me .bub .act{color:#e2cff3}
+.bub>:first-child{margin-top:0}
+.bub .tm{display:block;text-align:right;font-size:.66rem;color:var(--tx3);margin:4px -4px -4px 0;line-height:1}
+.me .bub .tm{color:#ffffff80}
+.bub.typing .say:last-of-type::after,.bub.typing .act:last-of-type::after{content:"▍";color:var(--acc);animation:blink 1s steps(2) infinite;margin-left:1px}
+@keyframes blink{50%{opacity:0}}
+.mw.anim{animation:pop .3s cubic-bezier(.2,.8,.3,1)}
+@keyframes pop{from{opacity:0;transform:translateY(10px) scale(.98)}}
+.m.picm{max-width:100%;width:100%;flex-direction:column;align-items:flex-start;gap:6px}
+.m.picm .av{display:none}
+.picbox{position:relative;width:100%;max-width:440px}
+.pic.big{display:block;width:100%;aspect-ratio:3/4;object-fit:cover;border-radius:20px;cursor:zoom-in;background:#ffffff0a;box-shadow:0 8px 30px #0008}
+.picbox .tm{position:absolute;right:10px;bottom:9px;font-size:.7rem;color:#fff;background:#0007;padding:2px 7px;border-radius:99px}
+.picload{width:100%;max-width:440px;aspect-ratio:3/4;border-radius:20px;background:linear-gradient(100deg,#1e1a26 30%,#2c2638 50%,#1e1a26 70%);background-size:300% 100%;animation:shim 1.4s linear infinite;display:grid;place-items:center;color:var(--tx2);font-size:.9rem}
+@keyframes shim{from{background-position:100% 0}to{background-position:-100% 0}}
+.bub.err.flag{background:#2e2233;color:#e9d9f0}
+#typingBar{display:flex;align-items:center;gap:8px;padding:2px 14px 4px;font-size:.82rem;color:var(--tx2);position:relative;z-index:2;flex:none}
+#typingBar .av{width:24px;height:24px;font-size:.65rem;animation:ring 1.4s infinite}
+@keyframes ring{0%,100%{box-shadow:0 0 0 0 color-mix(in srgb,var(--acc) 70%,transparent)}50%{box-shadow:0 0 0 5px transparent}}
+#vChat.bg-clar .bg{opacity:1;filter:none;transform:none}
+#vChat.bg-clar .bg::after{content:"";position:absolute;inset:0;background:linear-gradient(#0e0c1233 0%,#0e0c1200 25%,#0e0c1259 55%,#0e0c12e0 82%,#0e0c12f5 100%)}
+#vChat.bg-clar .ai .bub{background:#1b1723c4;backdrop-filter:blur(12px)}
+#vChat.bg-clar .me .bub{background:color-mix(in srgb,var(--me) 82%,transparent);backdrop-filter:blur(12px)}
+#vChat.bg-clar #composer{background:linear-gradient(#0e0c1200,#0e0c12d9 35%)}
+#vChat.bg-clar .under button{background:#0006}
 #toast{position:fixed;left:50%;bottom:calc(90px + var(--safe-b));transform:translateX(-50%);background:#2a2433;border:1px solid var(--line);padding:10px 16px;border-radius:12px;z-index:99;max-width:90vw;font-size:.9rem;box-shadow:0 6px 20px #0008;transition:opacity .2s;pointer-events:none}
 #toast:empty{opacity:0}
 </style>
@@ -251,6 +299,7 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
 <!-- CONVERSAȚIE -->
 <section id="vChat" class="view" hidden>
   <div class="bg" id="chatBg"></div>
+  <div id="chTop">
   <header class="top chathead">
     <button class="ib" data-back aria-label="Înapoi">‹</button>
     <button class="who" id="chWho"><span class="av" id="chAv"></span><div><b id="chName"></b><small id="chTag"></small></div></button>
@@ -258,7 +307,9 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
     <button class="ib" id="chMenu" aria-label="Meniu">⋯</button>
   </header>
   <button id="sceneBar" hidden></button>
+  </div>
   <div id="msgs"></div>
+  <div id="typingBar" hidden><span id="tbAv"></span><span id="tbTxt"></span></div>
   <div id="sugg"></div>
   <form id="composer" autocomplete="off">
     <button type="button" id="btnPlus" aria-label="Poze">＋</button>
@@ -309,7 +360,7 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
       <h3>Culori în conversație</h3>
       <div class="swatches" id="edAcc"></div>
       <label>Fundal</label>
-      <div class="seg" id="edBg"><button type="button" data-v="poza">Poza, estompată</button><button type="button" data-v="grad">Culoare</button><button type="button" data-v="none">Simplu</button></div>
+      <div class="seg" id="edBg"><button type="button" data-v="clar">Poza clară</button><button type="button" data-v="poza">Estompată</button><button type="button" data-v="grad">Culoare</button><button type="button" data-v="none">Simplu</button></div>
     </div>
 
     <details class="sec">
@@ -452,7 +503,7 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
 
 <script>
 'use strict';
-const APP_VER = '2.9';
+const APP_VER = '3.0';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -491,7 +542,7 @@ const DEF = {
   imgProv:'none', gemKey:'', gemModel:'gemini-2.5-flash-image',
   wkBase:'', wkTok:'', wkModel:'ancorat', wkSize:'576x768',
   sugg:'off', pro:'on', voice:'tap',
-  falKey:'', falModel:'fal-ai/flux-pulid', falSize:'576x768', spont:'rar', imgAlt:'fal', sv:25, imgCost:'', pIn:'', pOut:''
+  falKey:'', falModel:'fal-ai/flux-pulid', falSize:'576x768', spont:'rar', imgAlt:'fal', sv:30, imgCost:'', pIn:'', pOut:''
 };
 let S = {...DEF};
 let chars = [];            // [{id,name,tag,photo,aspect,look,stil,persona,speech,greet,created,lastAt,last}]
@@ -566,6 +617,21 @@ function faraLiniute(t){
     .replace(/,\s*([,.!?…])/g, '$1')
     .replace(/([.!?…])\s*,/g, '$1')
     .replace(/ {2,}/g, ' ');
+}
+function fmtMsg(t){
+  const src = String(t || '').replace(/\*\*(.+?)\*\*/g, '\u0001$1\u0002');
+  return src.split(/(\*[^*\n]+\*)/).map(p => {
+    if(/^\*[^*\n]+\*$/.test(p)) return `<span class="act">${esc(p.slice(1, -1).trim())}</span>`;
+    const x = p.replace(/^\s+|\s+$/g, ''); if(!x) return '';
+    return `<span class="say">${esc(x).replace(/\u0001/g, '<b>').replace(/\u0002/g, '</b>')}</span>`;
+  }).join('');
+}
+const hhmm = ts => ts ? new Date(ts).toLocaleTimeString('ro-RO', {hour:'2-digit', minute:'2-digit'}) : '';
+function dayLabel(ts){
+  const d = new Date(ts), n = new Date(), y = new Date(); y.setDate(n.getDate() - 1);
+  if(d.toDateString() === n.toDateString()) return 'Azi';
+  if(d.toDateString() === y.toDateString()) return 'Ieri';
+  return d.toLocaleDateString('ro-RO', {day:'numeric', month:'long', ...(d.getFullYear() !== n.getFullYear() ? {year:'numeric'} : {})});
 }
 function fmt(t){
   let h = esc(t).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
@@ -808,7 +874,7 @@ async function openChat(id, push = true, tid){
   $('#chName').textContent = cur.name;
   $('#chTag').textContent = tagLine(cur);
   $('#chatBg').style.backgroundImage = '';
-  if(cur.photo && (cur.bg || 'poza') === 'poza') $('#chatBg').dataset.bgk = cur.photo;
+  if(cur.photo && ['clar', 'poza'].includes(cur.bg || 'clar')) $('#chatBg').dataset.bgk = cur.photo;
   applyLook(cur);
   renderScene();
   updateComposer();
@@ -833,6 +899,7 @@ function applyLook(c){
     v.style.setProperty('--me', `color-mix(in srgb,${a} 30%,#1a1622)`);
   } else ['--acc', '--grad', '--me'].forEach(k => v.style.removeProperty(k));
   v.classList.toggle('bg-grad', c.bg === 'grad');
+  v.classList.toggle('bg-clar', (c.bg || 'clar') === 'clar' && !!c.photo);
   v.classList.toggle('bg-none', c.bg === 'none');
 }
 function renderScene(){
@@ -862,39 +929,66 @@ function maybeProactive(){
 function newChat(){ return {msgs:[], summary:'', sumUpTo:0}; }
 function greetMsg(c){ return {id:uid(), role:'ai', text:c.greet, alts:[c.greet], alt:0, ts:Date.now()}; }
 
-function msgHTML(m, i, lastAi){
+function msgHTML(m, i, lastAi, anim){
   const me = m.role === 'user';
-  let inner;
-  if(m.pending && !m.text) inner = `<div class="bub"><span class="dots"><i></i><i></i><i></i></span></div>`;
-  else if(m.pendingImg) inner = `<div class="bub"><span class="spin"></span> ${esc(cur.name)} îți face o poză…</div>`;
-  else if(m.err) inner = `<div class="bub err">⚠️ ${esc(m.err)}</div>`;
-  else if(m.img) inner = `<div class="bub picwrap"><img class="pic" data-k="${esc(m.img)}" data-view="${esc(m.img)}" alt="">${m.text ? `<div class="cap">${fmt(m.text)}</div>` : ''}</div>`;
-  else inner = `<div class="bub">${fmt(m.text)}</div>`;
+  if(m.pending && !m.text) return '';                       // „scrie…” apare în bara de jos
+  const tm = `<span class="tm">${hhmm(m.ts)}</span>`;
+  let inner, cls = me ? 'me' : 'ai';
+  if(m.pendingImg){ inner = `<div class="picload">📷 ${esc(cur.name)} îți face o poză…</div>`; cls += ' picm'; }
+  else if(m.err) inner = `<div class="bub err${m.errKind === 'flag' ? ' flag' : ''}">${m.errKind === 'flag' ? '🚫' : '⚠️'} ${esc(m.err)}</div>`;
+  else if(m.img && !me){
+    cls += ' picm';
+    inner = `<div class="picbox"><img class="pic big" data-k="${esc(m.img)}" data-view="${esc(m.img)}" alt="">${tm}</div>${m.text ? `<div class="bub">${fmtMsg(m.text)}</div>` : ''}`;
+  }
+  else if(m.img) inner = `<div class="bub picwrap"><img class="pic" data-k="${esc(m.img)}" data-view="${esc(m.img)}" alt="">${m.text ? `<div class="cap">${fmtMsg(m.text)}</div>` : ''}${tm}</div>`;
+  else inner = `<div class="bub${m.pending ? ' typing' : ''}">${fmtMsg(m.text)}${m.pending ? '' : tm}</div>`;
   let under = '';
   if(!me && i === lastAi && !m.pending && !m.pendingImg){
     const n = m.alts?.length || 1;
     under = `<div class="under">
       ${n > 1 ? `<button data-alt="-1" ${m.alt <= 0 ? 'disabled' : ''}>‹</button><span>${(m.alt || 0) + 1}/${n}</span><button data-alt="1" ${m.alt >= n - 1 ? 'disabled' : ''}>›</button>` : ''}
       ${m.img || !m.alts ? '' : `<button data-regen>↻ Alt răspuns</button>`}
-      ${m.err ? `<button data-retry>Reîncearcă</button>` : ''}
+      ${m.err ? `<button data-retry>${m.errKind === 'flag' ? '🎲 Încearcă altă scenă' : 'Reîncearcă'}</button>` : ''}
       ${S.voice !== 'off' && m.text && !m.err ? `<button data-say>🔊</button>` : ''}</div>`;
   }
-  return `<div class="mw" data-i="${i}"><div class="m ${me ? 'me' : 'ai'}">${me ? '' : avatarHTML(cur)}${inner}</div>${under}</div>`;
+  return `<div class="mw${anim ? ' anim' : ''}" data-i="${i}"><div class="m ${cls}">${me ? '' : avatarHTML(cur)}${inner}</div>${under}</div>`;
+}
+const seenMap = new WeakMap();
+function heroHTML(){
+  const mode = cur.bg || 'clar', clear = mode === 'clar' && cur.photo;
+  const ov = `<div class="ov"><b>${esc(cur.name)}</b>${cur.tag ? `<small>${esc(cur.tag)}</small>` : ''}</div>`;
+  if(clear) return `<div class="hero clear">${ov}</div>`;
+  return `<div class="hero">${cur.photo ? `<img data-k="${esc(cur.photo)}" alt="">` : `<div class="ph" style="background:${colorFor(cur)}">${esc((cur.name || '?')[0])}</div>`}${ov}</div>`;
 }
 function renderMsgs(toBottom){
   const box = $('#msgs');
   const near = box.scrollHeight - box.scrollTop - box.clientHeight < 120;
   let lastAi = -1; chat.msgs.forEach((m, i) => { if(m.role === 'ai') lastAi = i; });
   if(lastAi >= 0 && chat.msgs.slice(lastAi + 1).some(m => m.role === 'user')) lastAi = -1;
-  box.innerHTML = `<div class="intro">${avatarHTML(cur)}<b>${esc(cur.name)}</b>${cur.tag ? `<p>${esc(cur.tag)}</p>` : ''}</div>` +
-    chat.msgs.map((m, i) => msgHTML(m, i, lastAi)).join('');
+  let seen = seenMap.get(chat);
+  if(!seen){ seen = new Set(chat.msgs.map(m => m.id)); seenMap.set(chat, seen); }
+  let html = heroHTML(), prevDay = '';
+  chat.msgs.forEach((m, i) => {
+    const d = new Date(m.ts || Date.now()).toDateString();
+    if(d !== prevDay && !(m.pending && !m.text)){ html += `<div class="day"><span>${dayLabel(m.ts || Date.now())}</span></div>`; prevDay = d; }
+    const show = !(m.pending && !m.text);
+    html += msgHTML(m, i, lastAi, show && !seen.has(m.id));
+    if(show) seen.add(m.id);
+  });
+  box.innerHTML = html;
   hydrate(box);
   if(toBottom || near) box.scrollTop = box.scrollHeight;
+  updateHead();
+}
+function updateHead(){
+  const box = $('#msgs'), h = box.querySelector('.hero');
+  $('#chTop').classList.toggle('solid', !h || box.scrollTop > h.offsetHeight - 90);
 }
 function liveUpdate(m){
   const i = chat.msgs.indexOf(m); if(i < 0 || cur == null) return;
   const el = $(`#msgs .mw[data-i="${i}"] .bub`); if(!el) return renderMsgs();
-  el.innerHTML = fmt(m.text);
+  el.innerHTML = fmtMsg(m.text);
+  el.classList.toggle('typing', !!m.pending);
   const box = $('#msgs'); if(box.scrollHeight - box.scrollTop - box.clientHeight < 160) box.scrollTop = box.scrollHeight;
 }
 function updateComposer(){
@@ -909,6 +1003,12 @@ function setBusyUI(on){
   b.setAttribute('aria-label', on ? 'Oprește' : 'Trimite');
   $('#btnPlus').disabled = on;
   updateComposer();
+  const tb = $('#typingBar');
+  if(on && live && cur && live.ch === chat){
+    tb.hidden = false;
+    $('#tbAv').innerHTML = avatarHTML(cur); hydrate(tb);
+    $('#tbTxt').textContent = cur.name + (live.photo ? ' îți face o poză…' : ' scrie…');
+  } else tb.hidden = true;
   const t = $('#chTag');
   if(on && live && cur && live.ch === chat){ t.textContent = live.photo ? 'îți face o poză…' : 'scrie…'; t.classList.add('typing'); }
   else if(cur){ t.textContent = tagLine(cur); t.classList.remove('typing'); }
@@ -988,7 +1088,7 @@ async function reply(target, opts = {}){
   m.alts[m.alt] = m.text; delete m.pending; m.ts = Date.now();
   busy = null; live = null;
   await saveChat(c, ch);
-  if(chat === ch){ setBusyUI(false); renderMsgs(); }
+  if(chat === ch){ setBusyUI(false); renderMsgs(); if(!m.err && navigator.vibrate && !document.hidden) try{ navigator.vibrate(12); }catch(e){} }
   if(!m.err){
     summarizeIfNeeded(c, ch);
     ch.factCount = (ch.factCount || 0) + 1;
@@ -1352,10 +1452,15 @@ async function askPhoto(spont){
     m.img = await saveImg(blob); m.prompt = prompt;
     addUsage(c.id, imgPrice(), 'img');
     if(S.imgProv === 'worker') setTimeout(() => loadNeurons(true), 1500);
-  }catch(e){ m.err = e.name === 'AbortError' ? 'Oprit.' : (e.message || 'Eroare la poză'); }
+  }catch(e){
+    const msg = e.message || '';
+    if(e.name === 'AbortError') m.err = 'Oprit.';
+    else if(/3030|flagged|safety|blocked|prohibit|nsfw|SAFETY|IMAGE_OTHER/i.test(msg)){ m.err = 'Serviciul de imagini a respins poza asta.'; m.errKind = 'flag'; }
+    else m.err = msg || 'Eroare la poză';
+  }
   delete m.pendingImg; busy = null; live = null;
   await saveChat(c, ch);
-  if(chat === ch){ setBusyUI(false); renderMsgs(true); }
+  if(chat === ch){ setBusyUI(false); renderMsgs(true); if(!m.err && navigator.vibrate) try{ navigator.vibrate(12); }catch(e){} }
 }
 
 // memorie lungă: partea veche a conversației se strânge într-un rezumat
@@ -1472,7 +1577,7 @@ function openEditor(id){
   $('#edAspect').value = c?.aspect || ''; $('#edPersona').value = c?.persona || '';
   $('#edSpeech').value = c?.speech || ''; $('#edGreet').value = c?.greet || '';
   $('#edLook').value = c?.look || ''; $('#edStil').value = c?.stil || 'photo';
-  ed.accent = c?.accent || ''; ed.bg = c?.bg || 'poza'; drawLook();
+  ed.accent = c?.accent || ''; ed.bg = c?.bg || 'clar'; drawLook();
   $('#edDelWrap').hidden = !c;
   setEdStatus('');
   renderEdPhoto();
@@ -1581,7 +1686,7 @@ async function saveEditor(){
   const oldGreet = c.greet;
   Object.assign(c, {name, tag:$('#edTag').value.trim(), aspect:$('#edAspect').value.trim(), persona:$('#edPersona').value.trim(),
     speech:$('#edSpeech').value.trim(), greet:$('#edGreet').value.trim(), look:$('#edLook').value.trim(), stil:$('#edStil').value,
-    accent:ed.accent || '', bg:ed.bg || 'poza'});
+    accent:ed.accent || '', bg:ed.bg || 'clar'});
   await saveChars();
   // dacă salutul s-a schimbat și conversația are doar salutul, îl înlocuim
   if(!isNew && oldGreet !== c.greet){
@@ -1731,6 +1836,7 @@ function bind(){
   $('#inp').addEventListener('input', () => { autoSize(); updateComposer(); });
   $('#inp').addEventListener('keydown', e => { if(e.key === 'Enter' && !e.shiftKey && !matchMedia('(pointer:coarse)').matches){ e.preventDefault(); $('#composer').requestSubmit(); } });
   $('#btnPlus').onclick = plusMenu;
+  $('#msgs').addEventListener('scroll', updateHead, {passive:true});
   // apăsare lungă pe o poză din conversație → meniul ei (salvează, trimite, poză de profil)
   $('#msgs').addEventListener('contextmenu', e => { const w = e.target.closest('.mw'); if(!w || !e.target.closest('.pic')) return; e.preventDefault(); msgSheet(+w.dataset.i); });
   $('#fGal').onchange = e => { pickedImage(e.target.files[0]); e.target.value = ''; };
@@ -1764,6 +1870,7 @@ function bind(){
   });
   $('#msgs').addEventListener('click', e => {
     const v = e.target.closest('[data-view]'); if(v){ viewImg(v.dataset.view); return; }
+    if(e.target.closest('.hero')){ charProfile(cur.id); return; }
     const w = e.target.closest('.mw'); if(!w) return;
     const i = +w.dataset.i, m = chat.msgs[i];
     if(e.target.closest('[data-regen]')){ if(!busy) reply(m); return; }
@@ -1811,6 +1918,7 @@ async function init(){
   S = {...DEF, ...(saved || {})};
   if(saved && (S.sv || 0) < 25){ if(S.spont === 'off') S.spont = 'rar'; S.sv = 25; saveSettings(); }
   chars = (await DB.get('chars') || []).filter(c => c && c.id && c.name);
+  if((S.sv || 0) < 30){ chars.forEach(c => { if(!c.bg || c.bg === 'poza') c.bg = 'clar'; }); await saveChars(); S.sv = 30; saveSettings(); }
   syncSegs();
   bind();
   history.replaceState(null, '');
