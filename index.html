@@ -106,6 +106,8 @@ button{cursor:pointer;border:0;background:none}
 /* forms */
 .form{padding:4px 16px calc(40px + var(--safe-b));max-width:640px;width:100%;margin:0 auto}
 .sec{background:var(--bg2);border-radius:var(--r);padding:14px;margin-bottom:12px}
+#stAdv>summary{font-size:.95rem;color:var(--tx)}
+#stAdv[open]>summary{margin-bottom:4px}
 .sec h3{margin:0 0 10px;font-size:.8rem;text-transform:uppercase;letter-spacing:.08em;color:var(--tx2)}
 label{display:block;font-size:.85rem;color:var(--tx2);margin:12px 0 6px;font-weight:600}
 .sec>label:first-child,.sec>h3+label{margin-top:0}
@@ -182,6 +184,26 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
 .gal img{width:100%;aspect-ratio:3/4;object-fit:cover;border-radius:8px;cursor:zoom-in}
 .prof h5{margin:14px 6px 6px;font-size:.78rem;text-transform:uppercase;letter-spacing:.08em;color:var(--tx3)}
 .swipe{transition:transform .15s}
+/* 2.4 */
+#sceneBar{position:relative;z-index:2;flex:none;margin:0;padding:7px 14px;font-size:.82rem;color:var(--tx2);background:#ffffff08;border-bottom:1px solid #ffffff0d;text-align:left;width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.swatches{display:flex;gap:10px;flex-wrap:wrap}
+.swatches button{width:34px;height:34px;border-radius:50%;border:2px solid transparent;box-shadow:inset 0 0 0 2px #0006}
+.swatches button.on{border-color:#fff}
+.facts{list-style:none;margin:0;padding:0 6px}
+.facts li{display:flex;align-items:flex-start;gap:8px;padding:7px 0;border-bottom:1px solid var(--line);font-size:.9rem;line-height:1.4}
+.facts li span{flex:1}
+.facts li button{color:var(--tx3);padding:0 4px}
+.addfact{display:flex;gap:6px;margin:8px 6px 0}
+.addfact input{flex:1}
+.thr{display:flex;align-items:center;gap:6px}
+.thr .opt{flex:1}
+.thr .opt small{display:block;color:var(--tx3);font-size:.78rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:62vw}
+.thr .ib{width:36px;height:36px;font-size:1rem}
+.cost{font-size:.92rem;line-height:1.6}
+.cost b{font-size:1.4rem;display:block}
+.cost .row2{display:flex;justify-content:space-between;color:var(--tx2);font-size:.86rem;padding:4px 0;border-bottom:1px solid var(--line)}
+#vChat.bg-grad .bg{opacity:.5;filter:none;transform:none;background:radial-gradient(120% 60% at 50% 0%,var(--acc) 0%,transparent 60%)!important}
+#vChat.bg-none .bg{display:none}
 #toast{position:fixed;left:50%;bottom:calc(90px + var(--safe-b));transform:translateX(-50%);background:#2a2433;border:1px solid var(--line);padding:10px 16px;border-radius:12px;z-index:99;max-width:90vw;font-size:.9rem;box-shadow:0 6px 20px #0008;transition:opacity .2s;pointer-events:none}
 #toast:empty{opacity:0}
 </style>
@@ -213,6 +235,7 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
     <button class="who" id="chWho"><span class="av" id="chAv"></span><div><b id="chName"></b><small id="chTag"></small></div></button>
     <button class="ib" id="chMenu" aria-label="Meniu">⋯</button>
   </header>
+  <button id="sceneBar" hidden></button>
   <div id="msgs"></div>
   <div id="sugg"></div>
   <form id="composer" autocomplete="off">
@@ -256,6 +279,13 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
       <textarea id="edGreet" rows="3" placeholder="*zâmbește* Bună! Ce mai faci?"></textarea>
     </div>
 
+    <div class="sec">
+      <h3>Culori în conversație</h3>
+      <div class="swatches" id="edAcc"></div>
+      <label>Fundal</label>
+      <div class="seg" id="edBg"><button type="button" data-v="poza">Poza, estompată</button><button type="button" data-v="grad">Culoare</button><button type="button" data-v="none">Simplu</button></div>
+    </div>
+
     <details class="sec">
       <summary>Avansat: descrierea pentru imagini</summary>
       <label for="edLook">Aspect în engleză (pentru generatorul de poze)</label>
@@ -275,17 +305,13 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
     <h2>Setări</h2>
   </header>
   <div class="scroll"><div class="form">
-    <div class="welcome" id="stWelcome" hidden><b>Bun venit în Taifas 👋</b>Un singur pas: lipește cheia Anthropic mai jos și apasă „Testează". Restul e opțional.</div>
+    <div class="welcome" id="stWelcome" hidden><b>Bun venit în Taifas 👋</b>Lipește cheia Anthropic, scrie-ți numele și apasă „Testează". Gata, restul e opțional.</div>
 
     <div class="sec">
-      <h3>Inteligența (text)</h3>
-      <div class="seg" id="stProv"><button data-v="anthropic">Claude</button><button data-v="openai">Alt furnizor</button></div>
+      <h3>Pornire</h3>
       <div id="stAnt">
         <label for="stKey">Cheie Anthropic</label>
         <input id="stKey" type="password" placeholder="sk-ant-…" autocomplete="off">
-        <label for="stModel">Model</label>
-        <input id="stModel" list="dlModels" placeholder="claude-sonnet-5-5">
-        <datalist id="dlModels"><option value="claude-sonnet-5-5"><option value="claude-opus-5-5"><option value="claude-haiku-5-5"><option value="claude-sonnet-5"></datalist>
       </div>
       <div id="stOa" hidden>
         <label for="stOaBase">Adresă (compatibil OpenAI)</label>
@@ -296,64 +322,91 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
         <input id="stOaModel" placeholder="ex. google/gemini-2.5-flash">
         <div class="hint">Pentru descrierea din poză, modelul trebuie să accepte imagini.</div>
       </div>
+      <label for="stUser">Cum să-ți spună personajele</label>
+      <input id="stUser" placeholder="ex. Costi">
       <div class="btns"><button type="button" class="btn" id="stTest">Testează</button></div>
       <div class="status" id="stTestRes"></div>
     </div>
 
     <div class="sec">
-      <h3>Tu</h3>
-      <label for="stUser">Cum să-ți spună personajele</label>
-      <input id="stUser" placeholder="ex. Costi">
-      <label for="stAbout">Despre tine <span style="font-weight:400;color:var(--tx3)">(opțional)</span></label>
-      <textarea id="stAbout" rows="2" placeholder="ce vrei să știe orice personaj despre tine"></textarea>
-    </div>
-
-    <div class="sec">
-      <h3>Răspunsuri</h3>
-      <label>Lungime</label>
-      <div class="seg" id="stLen"><button data-v="scurt">Scurte</button><button data-v="mediu">Medii</button><button data-v="lung">Lungi</button></div>
-      <label>Mărime text</label>
-      <div class="seg" id="stFont"><button data-v="15">Mic</button><button data-v="16">Normal</button><button data-v="18">Mare</button></div>
-    </div>
-
-    <div class="sec">
-      <h3>Ca în Botify</h3>
-      <label>Sugestii de răspuns după fiecare mesaj</label>
-      <div class="seg" id="stSugg"><button data-v="off">Doar la 💡</button><button data-v="auto">Automat</button></div>
-      <label>Personajul îți scrie primul dacă n-ai mai intrat de 8 ore</label>
-      <div class="seg" id="stPro"><button data-v="off">Nu</button><button data-v="on">Da</button></div>
-      <label>Citire cu voce</label>
-      <div class="seg" id="stVoice"><button data-v="off">Oprit</button><button data-v="tap">La 🔊</button><button data-v="auto">Automat</button></div>
-      <div class="hint">Vocea e cea a telefonului (română, dacă e instalată). Se citesc doar replicile, fără *acțiuni*.</div>
-    </div>
-
-    <div class="sec">
-      <h3>Poze în conversație (opțional)</h3>
-      <div class="seg" id="stImg"><button data-v="none">Oprit</button><button data-v="gemini">Gemini</button><button data-v="worker">Worker propriu</button></div>
-      <div id="stGem" hidden>
-        <label for="stGemKey">Cheie Google AI Studio</label>
-        <input id="stGemKey" type="password" placeholder="AIza…" autocomplete="off">
-        <div class="lblrow"><label for="stGemModel">Model</label><button type="button" class="btn sm" id="stGemList">🔎 Caută modelele</button></div>
-        <input id="stGemModel" list="dlGem" placeholder="gemini-2.5-flash-image">
-        <datalist id="dlGem"></datalist>
-        <div class="status" id="stGemRes"></div>
-      </div>
+      <h3>Poze în conversație</h3>
+      <div class="seg" id="stImg"><button data-v="none">Oprite</button><button data-v="worker">Worker-ul meu</button><button data-v="alt">Altă sursă…</button></div>
       <div id="stWk" hidden>
         <label for="stWkBase">Adresa Worker-ului (se termină în /v1)</label>
         <input id="stWkBase" type="url" placeholder="https://taifas-imagini.….workers.dev/v1">
         <label for="stWkTok">Parolă (TOKEN)</label>
         <input id="stWkTok" type="password" autocomplete="off">
-        <label for="stWkModel">Model</label>
-        <select id="stWkModel"><option value="ancorat">ancorat — FLUX.2 klein (ține fața)</option><option value="ancorat+">ancorat+ — FLUX.2 dev (mai bun, mai scump)</option></select>
-        <label for="stWkSize">Mărime</label>
-        <select id="stWkSize"><option>480x640</option><option>576x768</option><option>768x1024</option></select>
-        <div class="hint">Mărimea mică = mai multe poze pe zi în cota gratuită Cloudflare.</div>
+        <details style="margin-top:12px"><summary>Reglaje Worker</summary>
+          <label for="stWkModel">Model</label>
+          <select id="stWkModel"><option value="ancorat">ancorat: FLUX.2 klein (ține fața)</option><option value="ancorat+">ancorat+: FLUX.2 dev (mai bun, mai scump)</option></select>
+          <label for="stWkSize">Mărime</label>
+          <select id="stWkSize"><option>480x640</option><option>576x768</option><option>768x1024</option></select>
+          <div class="hint">Mărimea mică = mai multe poze pe zi în cota gratuită Cloudflare.</div>
+        </details>
       </div>
-      <div class="hint">Butonul 📷 din conversație cere o poză a personajului, pornind de la poza lui de profil.</div>
+      <div id="stAltWrap" hidden>
+        <div class="seg" id="stImgAlt" style="margin-top:12px"><button data-v="fal">fal.ai</button><button data-v="gemini">Gemini</button></div>
+        <div id="stFal" hidden>
+          <label for="stFalKey">Cheie fal.ai</label>
+          <input id="stFalKey" type="password" placeholder="xxxxxxxx-xxxx-…:…" autocomplete="off">
+          <label for="stFalModel">Model</label>
+          <input id="stFalModel" list="dlFal" placeholder="fal-ai/flux-pulid">
+          <datalist id="dlFal"><option value="fal-ai/flux-pulid">PuLID FLUX: ține fața din poza de profil</option><option value="fal-ai/flux-2-pro/edit">FLUX.2 pro edit</option><option value="fal-ai/flux-2/edit">FLUX.2 dev edit</option></datalist>
+          <label for="stFalSize">Mărime</label>
+          <select id="stFalSize"><option>576x768</option><option>768x1024</option><option>896x1152</option></select>
+          <div class="hint">Cheia: fal.ai → Dashboard → Keys. Plătit, câțiva cenți pe poză.</div>
+        </div>
+        <div id="stGem" hidden>
+          <label for="stGemKey">Cheie Google AI Studio</label>
+          <input id="stGemKey" type="password" placeholder="AIza…" autocomplete="off">
+          <div class="lblrow"><label for="stGemModel">Model</label><button type="button" class="btn sm" id="stGemList">🔎 Caută modelele</button></div>
+          <input id="stGemModel" list="dlGem" placeholder="gemini-2.5-flash-image">
+          <datalist id="dlGem"></datalist>
+          <div class="status" id="stGemRes"></div>
+          <div class="hint">Cere facturare activă la Google.</div>
+        </div>
+      </div>
     </div>
 
-    <div class="sec">
-      <h3>Date</h3>
+    <details class="sec" id="stAdv">
+      <summary>Avansat <span id="stCostMini" style="font-weight:400;color:var(--tx3)"></span></summary>
+
+      <h3 style="margin-top:14px">Model AI</h3>
+      <div class="seg" id="stProv"><button data-v="anthropic">Claude</button><button data-v="openai">Alt furnizor</button></div>
+      <div id="stAntAdv">
+        <label for="stModel">Model Claude</label>
+        <input id="stModel" list="dlModels" placeholder="claude-sonnet-5-5">
+        <datalist id="dlModels"><option value="claude-sonnet-5-5"><option value="claude-opus-5-5"><option value="claude-haiku-5-5"><option value="claude-sonnet-5"></datalist>
+      </div>
+      <label for="stAbout">Despre tine (pentru toate personajele)</label>
+      <textarea id="stAbout" rows="2" placeholder="ce vrei să știe orice personaj despre tine"></textarea>
+
+      <h3 style="margin-top:22px">Răspunsuri</h3>
+      <label>Lungime</label>
+      <div class="seg" id="stLen"><button data-v="scurt">Scurte</button><button data-v="mediu">Medii</button><button data-v="lung">Lungi</button></div>
+      <label>Mărime text</label>
+      <div class="seg" id="stFont"><button data-v="15">Mic</button><button data-v="16">Normal</button><button data-v="18">Mare</button></div>
+      <label>Sugestii de răspuns</label>
+      <div class="seg" id="stSugg"><button data-v="off">Doar la 💡</button><button data-v="auto">După fiecare mesaj</button></div>
+      <label>Personajul îți scrie primul după 8 ore de pauză</label>
+      <div class="seg" id="stPro"><button data-v="off">Nu</button><button data-v="on">Da</button></div>
+      <label>Citire cu voce (vocea telefonului, fără *acțiuni*)</label>
+      <div class="seg" id="stVoice"><button data-v="off">Oprit</button><button data-v="tap">La 🔊</button><button data-v="auto">Automat</button></div>
+
+      <h3 style="margin-top:22px">Poze</h3>
+      <label>Poze spontane (personajul trimite singur)</label>
+      <div class="seg" id="stSpont"><button data-v="off">Niciodată</button><button data-v="rar">Rar</button><button data-v="des">Des</button></div>
+      <label for="stImgCost">Cost estimat pe poză ($)</label>
+      <input id="stImgCost" inputmode="decimal" placeholder="automat">
+
+      <h3 style="margin-top:22px">Consum</h3>
+      <div class="cost" id="stCost"></div>
+      <label for="stPin">Preț $/1M tokeni: intrare · ieșire</label>
+      <div style="display:flex;gap:8px"><input id="stPin" inputmode="decimal" placeholder="auto"><input id="stPout" inputmode="decimal" placeholder="auto"></div>
+      <div class="hint">Gol = automat după model (Sonnet 5.5: 2 · 10; Opus 5.5: 4 · 20; Haiku: 1 · 5). Estimare, nu factura oficială.</div>
+      <div class="btns"><button type="button" class="btn sm" id="stCostReset">Resetează contorul</button></div>
+
+      <h3 style="margin-top:22px">Date</h3>
       <div class="btns" style="margin-top:0">
         <button type="button" class="btn" id="stExport">⬇ Backup</button>
         <button type="button" class="btn" id="stImport">⬆ Restaurează</button>
@@ -361,7 +414,7 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
       <input type="file" id="stImpFile" accept=".json,application/json" hidden>
       <div class="hint">Backup-ul conține personajele, conversațiile și pozele. Cheile API nu intră în backup.</div>
       <div class="btns"><button type="button" class="btn dan" id="stWipe">Șterge tot</button></div>
-    </div>
+    </details>
     <div class="hint" style="text-align:center" id="stVer"></div>
   </div></div>
 </section>
@@ -370,7 +423,7 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
 
 <script>
 'use strict';
-const APP_VER = '2.3';
+const APP_VER = '2.5';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -408,7 +461,8 @@ const DEF = {
   userName:'', userAbout:'', len:'mediu', font:16,
   imgProv:'none', gemKey:'', gemModel:'gemini-2.5-flash-image',
   wkBase:'', wkTok:'', wkModel:'ancorat', wkSize:'576x768',
-  sugg:'off', pro:'on', voice:'tap'
+  sugg:'off', pro:'on', voice:'tap',
+  falKey:'', falModel:'fal-ai/flux-pulid', falSize:'576x768', spont:'rar', imgAlt:'fal', sv:25, imgCost:'', pIn:'', pOut:''
 };
 let S = {...DEF};
 let chars = [];            // [{id,name,tag,photo,aspect,look,stil,persona,speech,greet,created,lastAt,last}]
@@ -420,12 +474,19 @@ let live = null;           // {c, ch}: conversația în care se generează acum
 const saveSettings = () => DB.set('settings', S);
 const saveChars = () => DB.set('chars', chars);
 const charById = id => chars.find(c => c.id === id);
+// fire de conversație: firul „main" păstrează cheia veche chat:<id>, celelalte chat:<id>:<fir>
+const chatKey = (cid, tid) => (!tid || tid === 'main') ? 'chat:' + cid : 'chat:' + cid + ':' + tid;
+function threadsOf(c){ if(!c.threads || !c.threads.length) c.threads = [{id:'main', title:'Conversația 1', lastAt:c.lastAt || 0, last:c.last || ''}]; return c.threads; }
+async function loadChat(c, tid){ const ch = await DB.get(chatKey(c.id, tid)) || newChat(); ch.tid = tid; return ch; }
 async function saveChat(c = cur, ch = chat){
   if(!c || !ch) return;
-  await DB.set('chat:' + c.id, ch);
+  const tid = ch.tid || 'main';
+  await DB.set(chatKey(c.id, tid), ch);
   const last = [...ch.msgs].reverse().find(m => (m.text || m.img) && !m.err);
-  c.last = last ? (last.img && !last.text ? '📷 Poză' : (last.role === 'user' ? 'Tu: ' : '') + last.text.replace(/\*/g, '').slice(0, 90)) : '';
-  c.lastAt = last ? last.ts : c.lastAt;
+  const preview = last ? (last.img && !last.text ? '📷 Poză' : (last.role === 'user' ? 'Tu: ' : '') + last.text.replace(/\*/g, '').slice(0, 90)) : '';
+  const t = threadsOf(c).find(x => x.id === tid);
+  if(t){ t.last = preview; t.lastAt = last ? last.ts : t.lastAt; }
+  if((c.thread || 'main') === tid){ c.last = preview; c.lastAt = last ? last.ts : c.lastAt; }
   await saveChars();
 }
 
@@ -504,7 +565,7 @@ async function errText(r){
   return `${r.status}: ${t}`;
 }
 // trimite și primește bucată cu bucată; întoarce textul complet
-async function stream(sys, msgs, {max = 700, signal, onText} = {}){
+async function stream(sys, msgs, {max = 700, signal, onText, cid} = {}){
   const A = S.prov === 'anthropic';
   if(A && !S.key) throw new Error('Lipsește cheia Anthropic. Deschide Setări.');
   if(!A && !(S.oaBase && S.oaModel)) throw new Error('Completează adresa și modelul în Setări.');
@@ -516,11 +577,12 @@ async function stream(sys, msgs, {max = 700, signal, onText} = {}){
           system:[{type:'text', text:sys, cache_control:{type:'ephemeral'}}], messages:provMsgs(msgs)})})
     : await fetch(S.oaBase.replace(/\/+$/, '') + '/chat/completions', {method:'POST', signal, headers:{
         'content-type':'application/json', ...(S.oaKey ? {authorization:'Bearer ' + S.oaKey.trim()} : {})},
-        body: JSON.stringify({model:S.oaModel, stream:true, max_tokens:max,
+        body: JSON.stringify({model:S.oaModel, stream:true, max_tokens:max, ...(/openai|openrouter|groq|deepseek|together|mistral/i.test(S.oaBase) ? {stream_options:{include_usage:true}} : {}),
           messages:[{role:'system', content:sys}, ...provMsgs(msgs)]})});
   if(!res.ok) throw new Error(await errText(res));
   const rd = res.body.getReader(), dec = new TextDecoder();
-  let buf = '', full = '';
+  let buf = '', full = '', usage = null;
+  try{
   for(;;){
     const {done, value} = await rd.read(); if(done) break;
     buf += dec.decode(value, {stream:true});
@@ -533,11 +595,14 @@ async function stream(sys, msgs, {max = 700, signal, onText} = {}){
       let piece = '';
       if(A){
         if(j.type === 'content_block_delta' && j.delta?.text) piece = j.delta.text;
+        else if(j.type === 'message_start' && j.message?.usage) usage = {...j.message.usage};
+        else if(j.type === 'message_delta' && j.usage){ usage = Object.assign(usage || {}, j.usage); }
         else if(j.type === 'error') throw new Error(j.error?.message || 'eroare de la furnizor');
-      } else piece = j.choices?.[0]?.delta?.content || '';
+      } else { piece = j.choices?.[0]?.delta?.content || ''; if(j.usage) usage = j.usage; }
       if(piece){ full += piece; onText && onText(full); }
     }
   }
+  } finally { recordTokens(cid, usage); }
   return full;
 }
 function parseJSON(t){
@@ -627,6 +692,25 @@ async function genImage(prompt, ref, signal){
     const b = d.data?.[0]?.b64_json; if(!b) throw new Error('Worker-ul n-a întors imagine.');
     return b64ToBlob(b, 'image/png');
   }
+  if(S.imgProv === 'fal'){
+    if(!S.falKey) throw new Error('Lipsește cheia fal.ai în Setări → Poze.');
+    const model = (S.falModel || DEF.falModel).trim().replace(/^\/+|\/+$/g, '');
+    const [w, h] = (S.falSize || '576x768').split('x').map(Number);
+    const body = {prompt, image_size:{width:w, height:h}, num_images:1, sync_mode:true};
+    if(ref){ const uri = 'data:' + (ref.type || 'image/jpeg') + ';base64,' + await blobToB64(ref); body.reference_image_url = uri; body.image_url = uri; body.image_urls = [uri]; }
+    let r;
+    try{ r = await fetch('https://fal.run/' + model, {method:'POST', signal, headers:{'content-type':'application/json', authorization:'Key ' + S.falKey.trim()}, body:JSON.stringify(body)}); }
+    catch(e){ if(e.name === 'AbortError') throw e; throw new Error('fal.ai nu răspunde din browser (rețea sau CORS). Spune-mi și îl trecem prin Worker-ul tău.'); }
+    if(!r.ok){
+      let t = r.statusText; try{ const j = await r.json(); t = typeof j.detail === 'string' ? j.detail : JSON.stringify(j.detail || j); }catch(e){}
+      throw new Error('fal.ai ' + r.status + ': ' + t);
+    }
+    const d = await r.json();
+    const u = d.images?.[0]?.url || d.image?.url;
+    if(!u) throw new Error('fal.ai n-a întors imagine.');
+    if(u.startsWith('data:')){ const k = u.indexOf(','); return b64ToBlob(u.slice(k + 1), u.slice(5, u.indexOf(';')) || 'image/jpeg'); }
+    return await (await fetch(u, {signal})).blob();
+  }
   throw new Error('Pozele sunt oprite. Pornește-le din Setări.');
 }
 
@@ -673,22 +757,57 @@ function when(ts){
 }
 
 /* ───────── CONVERSAȚIE ───────── */
-async function openChat(id, push = true){
+async function openChat(id, push = true, tid){
   cur = charById(id); if(!cur) return;
-  chat = (live && live.c.id === id) ? live.ch : (await DB.get('chat:' + id) || newChat());
+  threadsOf(cur);
+  tid = tid || cur.thread || 'main';
+  if(!cur.threads.some(t => t.id === tid)) tid = cur.threads[0].id;
+  cur.thread = tid;
+  chat = (live && live.c.id === id && (live.ch.tid || 'main') === tid) ? live.ch : await loadChat(cur, tid);
   if(!chat.msgs.length && cur.greet) chat.msgs.push(greetMsg(cur));
   $('#chAv').outerHTML = avatarHTML(cur, 'av" id="chAv');
   $('#chName').textContent = cur.name;
-  $('#chTag').textContent = cur.tag || '';
+  $('#chTag').textContent = tagLine(cur);
   $('#chatBg').style.backgroundImage = '';
-  if(cur.photo) $('#chatBg').dataset.bgk = cur.photo;
-  $('#btnPhoto').hidden = S.imgProv === 'none';
+  if(cur.photo && (cur.bg || 'poza') === 'poza') $('#chatBg').dataset.bgk = cur.photo;
+  applyLook(cur);
+  renderScene();
+  updateComposer();
   show('vChat', push);
   renderMsgs(true);
   hydrate($('#vChat'));
-  setBusyUI(!!(busy && live && live.c === cur));
+  setBusyUI(!!(busy && live && live.ch === chat));
   $('#sugg').innerHTML = '';
   maybeProactive();
+}
+function tagLine(c){
+  const ts = threadsOf(c);
+  if(ts.length > 1){ const t = ts.find(x => x.id === (c.thread || 'main')); return '🧵 ' + (t ? t.title : ''); }
+  return c.tag || '';
+}
+const ACCENTS = ['#ff4f9a', '#9b5cff', '#4f8cff', '#22c3a6', '#ffb020', '#ff6b4a', '#c08a5c', '#d8d0e0'];
+function applyLook(c){
+  const v = $('#vChat'), a = c.accent;
+  if(a){
+    v.style.setProperty('--acc', a);
+    v.style.setProperty('--grad', `linear-gradient(135deg,${a},color-mix(in srgb,${a} 55%,#9b5cff))`);
+    v.style.setProperty('--me', `color-mix(in srgb,${a} 30%,#1a1622)`);
+  } else ['--acc', '--grad', '--me'].forEach(k => v.style.removeProperty(k));
+  v.classList.toggle('bg-grad', c.bg === 'grad');
+  v.classList.toggle('bg-none', c.bg === 'none');
+}
+function renderScene(){
+  const b = $('#sceneBar');
+  b.hidden = !chat.scene;
+  b.textContent = chat.scene ? '🎬 ' + chat.scene : '';
+}
+function editScene(){
+  openSheet(`<h4>🎬 Scena</h4><p>Unde sunteți, când, ce se întâmplă. ${esc(cur.name)} ține cont de ea, iar pozele pornesc de aici.</p>
+    <div class="pad"><textarea id="shTxt" placeholder="ex. Seara, într-o cafenea mică din centrul vechi, plouă afară.">${esc(chat.scene || '')}</textarea>
+    <div class="btns"><button class="btn" id="shClr">Fără scenă</button><button class="btn pri" id="shOk">Aplică</button></div></div>`);
+  const done = async t => { chat.scene = t; await saveChat(); renderScene(); closeSheet(); toast(t ? 'Scena e setată.' : 'Scena a fost scoasă.'); };
+  $('#shOk').onclick = () => done($('#shTxt').value.trim());
+  $('#shClr').onclick = () => done('');
 }
 const PRO_H = 8;
 function maybeProactive(){
@@ -739,24 +858,34 @@ function liveUpdate(m){
   el.innerHTML = fmt(m.text);
   const box = $('#msgs'); if(box.scrollHeight - box.scrollTop - box.clientHeight < 160) box.scrollTop = box.scrollHeight;
 }
+function updateComposer(){
+  const empty = !$('#inp').value.trim();
+  const working = !!(busy && live && live.ch === chat);
+  $('#btnPhoto').hidden = S.imgProv === 'none' || !empty;
+  $('#btnSugg').hidden = !empty || working || !aiReady();
+}
 function setBusyUI(on){
   const b = $('#btnSend'); b.classList.toggle('stop', on); b.textContent = on ? '■' : '➤';
   b.setAttribute('aria-label', on ? 'Oprește' : 'Trimite');
   $('#btnPhoto').disabled = on;
+  updateComposer();
   const t = $('#chTag');
-  if(on && live && cur && live.c === cur){ t.textContent = live.photo ? 'îți face o poză…' : 'scrie…'; t.classList.add('typing'); }
-  else if(cur){ t.textContent = cur.tag || ''; t.classList.remove('typing'); }
+  if(on && live && cur && live.ch === chat){ t.textContent = live.photo ? 'îți face o poză…' : 'scrie…'; t.classList.add('typing'); }
+  else if(cur){ t.textContent = tagLine(cur); t.classList.remove('typing'); }
 }
 
 const LEN = {scurt:{t:'1-2 fraze scurte', max:350}, mediu:{t:'un paragraf, cel mult două', max:800}, lung:{t:'2-4 paragrafe bogate', max:1500}};
-function systemFor(c){
+function systemFor(c, ch){
   const u = S.userName.trim() || 'utilizatorul';
+  const facts = (c.facts || []).map(f => '- ' + f.t).join('\n');
   return [
     `Ești ${c.name}. Joci acest personaj într-o conversație privată cu ${u}. Rămâi mereu în personaj; nu spui că ești un AI.`,
     c.aspect && `## Cum arăți\nAceasta e înfățișarea ta exactă. Când te descrii sau descrii ce porți, rămâi fidel ei.\n${c.aspect}`,
     c.persona && `## Cine ești\n${c.persona}`,
     c.speech && `## Cum vorbești\n${c.speech}`,
     S.userAbout.trim() && `## Despre ${u}\n${S.userAbout.trim()}`,
+    facts && `## Ce știi despre ${u} (din conversațiile voastre)\nFolosește natural când se potrivește, fără să le enumeri.\n${facts}`,
+    ch && ch.scene && `## Scena acum\n${ch.scene}`,
     `## Reguli de scris
 - Română corectă, cu diacritice și punctuație îngrijită.
 - Gesturile, acțiunile și decorul între *asteriscuri*; vorbele direct, fără ghilimele.
@@ -777,7 +906,7 @@ async function send(){
   const t = $('#inp').value.trim();
   if(!t) return;
   if(busy){ toast('Așteaptă să termine ' + (live ? live.c.name : '') + '.'); return; }
-  $('#inp').value = ''; autoSize();
+  $('#inp').value = ''; autoSize(); updateComposer();
   chat.msgs.push({id:uid(), role:'user', text:t, ts:Date.now()});
   await saveChat(); renderMsgs(true);
   await reply();
@@ -794,7 +923,7 @@ async function reply(target, opts = {}){
   try{
     const ctx = contextUpTo(idx);
     if(m.note) ctx.push({role:'user', text:m.note});
-    const full = await stream(systemFor(c), ctx, {max:LEN[S.len].max, signal:busy.signal,
+    const full = await stream(systemFor(c, ch), ctx, {max:LEN[S.len].max, signal:busy.signal, cid:c.id,
       onText: t => { m.text = t; if(chat === ch) liveUpdate(m); }});
     m.text = faraLiniute(full.trim());
     if(!m.text) throw new Error('Răspuns gol. Încearcă din nou.');
@@ -808,6 +937,15 @@ async function reply(target, opts = {}){
   if(chat === ch){ setBusyUI(false); renderMsgs(); }
   if(!m.err){
     summarizeIfNeeded(c, ch);
+    ch.factCount = (ch.factCount || 0) + 1;
+    if(ch.factCount >= 6){ ch.factCount = 0; extractFacts(c, ch); }
+    if(S.imgProv !== 'none' && S.spont !== 'off' && !m.pro){
+      ch.sinceImg = (ch.sinceImg || 0) + 1;
+      if(ch.sinceImg >= (S.spont === 'des' ? 4 : 8) && Math.random() < .6){
+        ch.sinceImg = 0;
+        setTimeout(() => { if(chat === ch && !busy) askPhoto(true); }, 1500);
+      }
+    }
     if(chat === ch && S.voice === 'auto') say(m.text);
     if(chat === ch && S.sugg === 'auto') suggest();
   }
@@ -826,13 +964,127 @@ async function suggest(){
   try{
     const out = await stream('Ajuți un utilizator să continue o conversație. Scrii în română corectă, cu diacritice.', [{role:'user', text:
       `Personaj: ${c.name}${c.tag ? ' (' + c.tag + ')' : ''}.\n\nUltimele mesaje:\n${recent || '(început)'}\n\nPropune 3 replici scurte (max 14 cuvinte fiecare) pe care ${u} i le-ar putea scrie acum lui ${c.name}, ca ${u}, la persoana I. Variază: una curioasă, una jucăușă, una cu o acțiune între *asteriscuri*. Răspunde STRICT cu un array JSON de 3 texte.`}],
-      {max:300, signal:suggAbort.signal});
+      {max:300, signal:suggAbort.signal, cid:c.id});
     const a = out.indexOf('['), b = out.lastIndexOf(']');
     const arr = JSON.parse(out.slice(a, b + 1)).map(x => faraLiniute(String(x).trim())).filter(Boolean).slice(0, 3);
     if(chat !== ch) return;
     box.innerHTML = arr.map((x, k) => `<button type="button" data-s="${k}">${fmt(x)}</button>`).join('');
-    box.querySelectorAll('button').forEach(bt => bt.onclick = () => { $('#inp').value = arr[+bt.dataset.s]; autoSize(); box.innerHTML = ''; $('#inp').focus(); });
+    box.querySelectorAll('button').forEach(bt => bt.onclick = () => { $('#inp').value = arr[+bt.dataset.s]; autoSize(); updateComposer(); box.innerHTML = ''; $('#inp').focus(); });
   }catch(e){ if(e.name !== 'AbortError'){ box.innerHTML = ''; toast('Sugestiile n-au mers: ' + e.message, 3500); } }
+}
+
+/* memorie: fapte despre utilizator, per personaj */
+async function extractFacts(c, ch){
+  if(!aiReady()) return 0;
+  const u = S.userName.trim() || 'utilizatorul';
+  const recent = ch.msgs.slice(-14).filter(x => x.text && !x.err).map(x => (x.role === 'user' ? u : c.name) + ': ' + x.text).join('\n');
+  if(!recent) return 0;
+  const known = (c.facts || []).map(f => '- ' + f.t).join('\n') || '(nimic)';
+  try{
+    const out = await stream('Extragi informații factuale dintr-o conversație. Scrii în română, scurt.', [{role:'user', text:
+      `Ce știe deja ${c.name} despre ${u}:\n${known}\n\nConversația recentă:\n${recent}\n\nScrie fapte NOI și durabile despre ${u}, spuse de ${u} însuși (nume, job, oraș, familie, gusturi, planuri, lucruri importante povestite). Fără ce se știe deja, fără ce face doar în scenă, fără presupuneri. Fiecare fapt: o propoziție scurtă, max 12 cuvinte. Răspunde STRICT cu un array JSON (poate fi gol []).`}], {max:400, cid:c.id});
+    const a = out.indexOf('['), b = out.lastIndexOf(']');
+    const arr = JSON.parse(out.slice(a, b + 1)).map(x => faraLiniute(String(x).trim())).filter(Boolean).slice(0, 5);
+    if(!arr.length) return 0;
+    c.facts = (c.facts || []).concat(arr.map(t => ({t, ts:Date.now()}))).slice(-40);
+    await saveChars();
+    return arr.length;
+  }catch(e){ return 0; }
+}
+
+/* fire de conversație */
+function threadsSheet(){
+  const c = cur, ts = [...threadsOf(c)].sort((a, b) => (b.lastAt || 0) - (a.lastAt || 0));
+  openSheet(`<h4>🧵 Conversațiile cu ${esc(c.name)}</h4>` + ts.map(t => `<div class="thr">
+      <button class="opt" data-t="${esc(t.id)}"><i>${t.id === c.thread ? '●' : '○'}</i><span>${esc(t.title)}<small>${esc(t.last || 'goală')}</small></span></button>
+      <button class="ib" data-ren="${esc(t.id)}" aria-label="Redenumește">✏️</button>
+      ${ts.length > 1 ? `<button class="ib" data-del="${esc(t.id)}" aria-label="Șterge">🗑️</button>` : ''}</div>`).join('') +
+    `<div class="pad btns"><button class="btn pri" id="thNew">＋ Conversație nouă</button></div>`);
+  const sh = $('.sheet');
+  sh.querySelectorAll('[data-t]').forEach(b => b.onclick = () => { closeSheet(); if(b.dataset.t !== c.thread) openChat(c.id, false, b.dataset.t); });
+  sh.querySelectorAll('[data-ren]').forEach(b => b.onclick = () => renameThread(b.dataset.ren));
+  sh.querySelectorAll('[data-del]').forEach(b => b.onclick = () => deleteThread(b.dataset.del));
+  $('#thNew').onclick = () => { closeSheet(); newThread(); };
+}
+async function newThread(){
+  const c = cur, ts = threadsOf(c);
+  const t = {id:uid(), title:'Conversația ' + (ts.length + 1), lastAt:Date.now(), last:''};
+  ts.push(t); c.thread = t.id;
+  const ch = newChat(); ch.tid = t.id; if(c.greet) ch.msgs.push(greetMsg(c));
+  await saveChat(c, ch);
+  openChat(c.id, false, t.id);
+  toast('Conversație nouă. Celelalte rămân în 🧵.');
+}
+function renameThread(tid){
+  const t = threadsOf(cur).find(x => x.id === tid); if(!t) return;
+  openSheet(`<h4>Redenumește</h4><div class="pad"><input id="shTxt" value="${esc(t.title)}" maxlength="40">
+    <div class="btns"><button class="btn" data-close>Renunță</button><button class="btn pri" id="shOk">Salvează</button></div></div>`);
+  $('#shOk').onclick = async () => { const v = $('#shTxt').value.trim(); if(v){ t.title = v; await saveChars(); } closeSheet(); $('#chTag').textContent = tagLine(cur); };
+}
+function deleteThread(tid){
+  const c = cur, t = threadsOf(c).find(x => x.id === tid); if(!t) return;
+  confirmSheet(`Ștergi „${t.title}"? Mesajele și pozele din ea dispar.`, 'Șterge', async () => {
+    if(busy && live && live.c === c && (live.ch.tid || 'main') === tid) busy.abort();
+    const ch = await DB.get(chatKey(c.id, tid));
+    if(ch) for(const m of ch.msgs) if(m.img && m.img !== c.photo) await delImg(m.img);
+    await DB.del(chatKey(c.id, tid));
+    c.threads = c.threads.filter(x => x.id !== tid);
+    const next = [...c.threads].sort((a, b) => (b.lastAt || 0) - (a.lastAt || 0))[0];
+    c.thread = next.id; c.last = next.last; c.lastAt = next.lastAt;
+    await saveChars();
+    openChat(c.id, false, next.id);
+  });
+}
+async function allChats(c){
+  const out = [];
+  for(const t of threadsOf(c)){ const ch = await DB.get(chatKey(c.id, t.id)); if(ch) out.push(ch); }
+  return out;
+}
+
+/* consum */
+function priceFor(model){
+  const m = String(model || '').toLowerCase();
+  let p = m.includes('opus') ? [4, 20] : m.includes('haiku') ? [1, 5] : [2, 10];
+  if(S.prov !== 'anthropic') p = [0, 0];
+  const pin = parseFloat(String(S.pIn).replace(',', '.')), pout = parseFloat(String(S.pOut).replace(',', '.'));
+  if(!isNaN(pin)) p[0] = pin; if(!isNaN(pout)) p[1] = pout;
+  return p;
+}
+function imgPrice(){
+  const v = parseFloat(String(S.imgCost).replace(',', '.'));
+  if(!isNaN(v)) return v;
+  return {gemini:.04, fal:.035, worker:0}[S.imgProv] || 0;
+}
+let usageQ = Promise.resolve();
+function addUsage(cid, usd, kind){
+  usageQ = usageQ.then(async () => {
+    const u = await DB.get('usage') || {months:{}, chars:{}};
+    const mo = new Date().toISOString().slice(0, 7);
+    const M = u.months[mo] = u.months[mo] || {txt:0, img:0, n:0};
+    if(kind === 'img'){ M.img += usd; M.n++; } else M.txt += usd;
+    if(cid) u.chars[cid] = (u.chars[cid] || 0) + usd;
+    await DB.set('usage', u);
+  }).catch(() => {});
+}
+function recordTokens(cid, usage){
+  if(!usage) return;
+  const [pin, pout] = priceFor(S.prov === 'anthropic' ? S.model : S.oaModel);
+  const inp = usage.input_tokens || usage.prompt_tokens || 0, out = usage.output_tokens || usage.completion_tokens || 0;
+  const cw = usage.cache_creation_input_tokens || 0, cr = usage.cache_read_input_tokens || 0;
+  const usd = (inp * pin + cw * pin * 1.25 + cr * pin * .1 + out * pout) / 1e6;
+  addUsage(cid, usd, 'txt');
+}
+const usd = v => '$' + (v < 10 ? v.toFixed(3) : v.toFixed(2));
+async function renderCost(){
+  const u = await DB.get('usage') || {months:{}, chars:{}};
+  const mo = new Date().toISOString().slice(0, 7);
+  const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - 1);
+  const M = u.months[mo] || {txt:0, img:0, n:0}, P = u.months[d.toISOString().slice(0, 7)];
+  const top = Object.entries(u.chars).map(([id, v]) => [charById(id), v]).filter(x => x[0]).sort((a, b) => b[1] - a[1]).slice(0, 6);
+  $('#stCostMini').textContent = (M.txt + M.img) > 0 ? '· luna aceasta ' + usd(M.txt + M.img) : '';
+  $('#stCost').innerHTML = `<b>${usd(M.txt + M.img)}</b>luna aceasta · text ${usd(M.txt)} · poze ${usd(M.img)} (${M.n})
+    ${P ? `<div class="row2"><span>Luna trecută</span><span>${usd(P.txt + P.img)}</span></div>` : ''}
+    ${top.map(([c, v]) => `<div class="row2"><span>${esc(c.name)}</span><span>${usd(v)}</span></div>`).join('')}`;
 }
 
 /* voce */
@@ -851,44 +1103,65 @@ function say(t){
 /* profilul personajului */
 async function charProfile(id){
   const c = charById(id); if(!c) return;
-  const ch = await DB.get('chat:' + id);
-  const pics = ch ? ch.msgs.filter(m => m.img).map(m => m.img).reverse() : [];
+  const pics = (await allChats(c)).flatMap(ch => ch.msgs.filter(m => m.img).map(m => ({k:m.img, ts:m.ts}))).sort((a, b) => b.ts - a.ts).map(x => x.k);
+  const spent = ((await DB.get('usage') || {}).chars || {})[id] || 0;
+  const u = S.userName.trim() || 'tine';
   openSheet(`<div class="prof">
     <div class="hero">${c.photo ? `<img data-k="${esc(c.photo)}" data-view="${esc(c.photo)}" alt="">` : `<div class="ph" style="position:absolute;inset:0;display:grid;place-items:center;font-size:4rem;background:${colorFor(c)}">${esc(c.name[0])}</div>`}
       <div class="ov"><b>${esc(c.name)}</b>${c.tag ? `<small>${esc(c.tag)}</small>` : ''}</div></div>
     ${c.persona ? `<p>${esc(c.persona)}</p>` : ''}
+    <h5>🧠 Ce știe despre ${esc(u)} · ${(c.facts || []).length}</h5>
+    <ul class="facts" id="pfFacts"></ul>
+    <div class="addfact"><input id="pfFactIn" placeholder="Adaugă ceva ce să știe"><button class="btn sm" id="pfFactAdd">＋</button><button class="btn sm" id="pfFactScan" title="Caută fapte noi în conversație">🔄</button></div>
     ${pics.length ? `<h5>Galerie · ${pics.length}</h5><div class="gal">${pics.map(k => `<img data-k="${esc(k)}" data-view="${esc(k)}" alt="">`).join('')}</div>` : ''}
     <div class="btns">
       <button class="btn" id="pfFav">${c.fav ? '★ Scoate de la favorite' : '☆ Favorit'}</button>
       <button class="btn" id="pfEdit">✏️ Editează</button>
     </div>
+    <p style="text-align:center;font-size:.8rem;margin:10px 0 0">Cost estimat până acum: ${usd(spent)}</p>
     <div class="btns" style="margin-top:8px"><button class="btn pri" id="pfChat">💬 ${cur && cur.id === id ? 'Înapoi la conversație' : 'Conversație'}</button></div>
   </div>`);
   const sh = $('.sheet');
   hydrate(sh);
   sh.addEventListener('click', e => { const v = e.target.closest('[data-view]'); if(v) viewImg(v.dataset.view); });
+  const drawFacts = () => {
+    $('#pfFacts').innerHTML = (c.facts || []).length ? c.facts.map((f, k) => `<li><span>${esc(f.t)}</span><button data-fx="${k}" aria-label="Șterge">✕</button></li>`).join('')
+      : `<li><span style="color:var(--tx3)">Încă nimic. Se completează singur din conversații, la câteva mesaje.</span></li>`;
+    $('#pfFacts').querySelectorAll('[data-fx]').forEach(b => b.onclick = async () => { c.facts.splice(+b.dataset.fx, 1); await saveChars(); drawFacts(); });
+  };
+  drawFacts();
+  $('#pfFactAdd').onclick = async () => { const v = $('#pfFactIn').value.trim(); if(!v) return; c.facts = (c.facts || []).concat({t:v, ts:Date.now()}); $('#pfFactIn').value = ''; await saveChars(); drawFacts(); };
+  $('#pfFactScan').onclick = async () => {
+    const b = $('#pfFactScan'); b.disabled = true; b.innerHTML = '<span class="spin"></span>';
+    const ch = (chat && cur && cur.id === id) ? chat : await loadChat(c, c.thread || 'main');
+    const n = await extractFacts(c, ch); drawFacts(); toast(n ? n + ' lucruri noi reținute.' : 'Nimic nou de reținut.');
+    b.disabled = false; b.textContent = '🔄';
+  };
   $('#pfFav').onclick = async () => { c.fav = !c.fav; await saveChars(); closeSheet(); toast(c.fav ? '⭐ Adăugat la favorite' : 'Scos de la favorite'); if(!$('#vHome').hidden) renderHome(); };
   $('#pfEdit').onclick = () => { closeSheet(); openEditor(id); };
   $('#pfChat').onclick = () => { closeSheet(); if(!(cur && cur.id === id && !$('#vChat').hidden)) openChat(id); };
 }
 
-async function askPhoto(){
-  if(busy){ toast('Așteaptă să termine ' + (live ? live.c.name : '') + '.'); return; }
+async function askPhoto(spont){
+  if(busy){ if(!spont) toast('Așteaptă să termine ' + (live ? live.c.name : '') + '.'); return; }
   if(S.imgProv === 'none'){ toast('Pornește pozele din Setări.'); return; }
   const c = cur, ch = chat;
   const m = {id:uid(), role:'ai', text:'', pendingImg:true, ts:Date.now()};
+  if(spont === true) m.spont = true;
+  ch.sinceImg = 0;
   ch.msgs.push(m); renderMsgs(true);
   busy = new AbortController(); live = {c, ch, photo:true}; setBusyUI(true);
   $('#sugg').innerHTML = '';
   try{
     const recent = ch.msgs.slice(-9, -1).filter(x => x.text).map(x => (x.role === 'user' ? (S.userName || 'User') : c.name) + ': ' + x.text).join('\n');
     const scene = await stream('You are a photo director. Answer with one English sentence only.', [{role:'user', text:
-      `Character: ${c.name}. Appearance: ${c.look || c.aspect}\n\nRecent conversation:\n${recent || '(just started)'}\n\nDescribe, in ONE English sentence of max 45 words, the photo ${c.name} would send right now, matching the moment in the conversation. Start with the framing (selfie / mirror selfie / photo taken by a friend / close-up portrait), then setting, pose, outfit, facial expression, light and time of day. Keep the same person; do not describe the face again. Only the sentence.`}],
-      {max:160, signal:busy.signal});
+      `Character: ${c.name}. Appearance: ${c.look || c.aspect}\n${ch.scene ? 'Current scene (translate to English): ' + ch.scene + '\n' : ''}\nRecent conversation:\n${recent || '(just started)'}\n\nDescribe, in ONE English sentence of max 45 words, the photo ${c.name} would send right now, matching the moment in the conversation. Start with the framing (selfie / mirror selfie / photo taken by a friend / close-up portrait), then setting, pose, outfit, facial expression, light and time of day. Keep the same person; do not describe the face again. Only the sentence.`}],
+      {max:160, signal:busy.signal, cid:c.id});
     const prompt = [c.look || '', scene.trim(), STIL_TAG[c.stil || 'photo']].filter(Boolean).join('. ');
     const ref = c.photo ? await DB.get(c.photo) : null;
     const blob = await genImage(prompt, ref, busy.signal);
     m.img = await saveImg(blob); m.prompt = prompt;
+    addUsage(c.id, imgPrice(), 'img');
   }catch(e){ m.err = e.name === 'AbortError' ? 'Oprit.' : (e.message || 'Eroare la poză'); }
   delete m.pendingImg; busy = null; live = null;
   await saveChat(c, ch);
@@ -904,8 +1177,8 @@ async function summarizeIfNeeded(c, ch){
   const part = ch.msgs.slice(from, to).filter(m => m.text).map(m => (m.role === 'user' ? u : c.name) + ': ' + m.text).join('\n');
   try{
     const s = await stream('Rezumi conversații. Scrii în română, concis, la persoana a III-a.', [{role:'user', text:
-      `Rezumatul de până acum:\n${ch.summary || '(niciunul)'}\n\nMesaje noi:\n${part}\n\nScrie rezumatul actualizat, cel mult 220 de cuvinte: ce s-a întâmplat, fapte importante despre ${u}, promisiuni, cum a evoluat relația dintre ${c.name} și ${u}.`}], {max:700});
-    if(s.trim()){ ch.summary = s.trim(); ch.sumUpTo = to; await DB.set('chat:' + c.id, ch); }
+      `Rezumatul de până acum:\n${ch.summary || '(niciunul)'}\n\nMesaje noi:\n${part}\n\nScrie rezumatul actualizat, cel mult 220 de cuvinte: ce s-a întâmplat, fapte importante despre ${u}, promisiuni, cum a evoluat relația dintre ${c.name} și ${u}.`}], {max:700, cid:c.id});
+    if(s.trim()){ ch.summary = s.trim(); ch.sumUpTo = to; await DB.set(chatKey(c.id, ch.tid), ch); }
   }catch(e){ /* reîncearcă la mesajul următor */ }
 }
 
@@ -941,15 +1214,24 @@ function editMsg(i){
   };
 }
 function chatMenu(){
+  const n = threadsOf(cur).length;
   sheet([
-    ['✏️', 'Editează personajul', () => openEditor(cur.id)],
-    ['✨', 'Conversație nouă', () => confirmSheet('Începi de la zero cu ' + cur.name + '? Conversația actuală se șterge.', 'Începe de la zero', async () => {
-      if(busy) busy.abort();
-      for(const m of chat.msgs) if(m.img && m.img !== cur.photo) await delImg(m.img);
-      chat = newChat(); if(cur.greet) chat.msgs.push(greetMsg(cur));
-      await saveChat(); renderMsgs(true);
-    })],
+    ['🎬', chat.scene ? 'Scena: ' + chat.scene.slice(0, 32) + (chat.scene.length > 32 ? '…' : '') : 'Setează scena', editScene],
+    ['🧵', n > 1 ? `Conversații (${n})` : 'Conversații', threadsSheet],
+    ['👤', 'Profil, memorie și editare', () => charProfile(cur.id)],
+    ['⋯', 'Mai mult', moreMenu],
+  ]);
+}
+function moreMenu(){
+  sheet([
     ['⬇', 'Exportă conversația (.txt)', exportTxt],
+    ['🧹', 'Golește conversația asta', () => confirmSheet('Golești conversația curentă cu ' + cur.name + '? Mesajele și pozele din ea dispar.', 'Golește', async () => {
+      if(busy && live && live.ch === chat) busy.abort();
+      for(const m of chat.msgs) if(m.img && m.img !== cur.photo) await delImg(m.img);
+      const tid = chat.tid, scene = chat.scene;
+      chat = newChat(); chat.tid = tid; chat.scene = scene; if(cur.greet) chat.msgs.push(greetMsg(cur));
+      await saveChat(); renderMsgs(true);
+    }), 'dan'],
   ]);
 }
 function exportTxt(){
@@ -997,11 +1279,17 @@ function openEditor(id){
   $('#edAspect').value = c?.aspect || ''; $('#edPersona').value = c?.persona || '';
   $('#edSpeech').value = c?.speech || ''; $('#edGreet').value = c?.greet || '';
   $('#edLook').value = c?.look || ''; $('#edStil').value = c?.stil || 'photo';
+  ed.accent = c?.accent || ''; ed.bg = c?.bg || 'poza'; drawLook();
   $('#edDelWrap').hidden = !c;
   setEdStatus('');
   renderEdPhoto();
   show('vEdit');
   $('#vEdit .scroll').scrollTop = 0;
+}
+function drawLook(){
+  $('#edAcc').innerHTML = `<button type="button" data-a="" style="background:var(--grad)" class="${ed.accent ? '' : 'on'}" aria-label="Implicit"></button>` +
+    ACCENTS.map(a => `<button type="button" data-a="${a}" style="background:${a}" class="${ed.accent === a ? 'on' : ''}"></button>`).join('');
+  $$('#edBg button').forEach(b => b.classList.toggle('on', b.dataset.v === ed.bg));
 }
 async function renderEdPhoto(){
   const p = $('#edPhoto');
@@ -1075,12 +1363,13 @@ async function saveEditor(){
   if(ed.photoBlob){ const old = c.photo; c.photo = await saveImg(ed.photoBlob); if(old) await delImg(old); }
   const oldGreet = c.greet;
   Object.assign(c, {name, tag:$('#edTag').value.trim(), aspect:$('#edAspect').value.trim(), persona:$('#edPersona').value.trim(),
-    speech:$('#edSpeech').value.trim(), greet:$('#edGreet').value.trim(), look:$('#edLook').value.trim(), stil:$('#edStil').value});
+    speech:$('#edSpeech').value.trim(), greet:$('#edGreet').value.trim(), look:$('#edLook').value.trim(), stil:$('#edStil').value,
+    accent:ed.accent || '', bg:ed.bg || 'poza'});
   await saveChars();
   // dacă salutul s-a schimbat și conversația are doar salutul, îl înlocuim
   if(!isNew && oldGreet !== c.greet){
-    const ch = await DB.get('chat:' + c.id);
-    if(ch && ch.msgs.length <= 1){ ch.msgs = c.greet ? [greetMsg(c)] : []; await DB.set('chat:' + c.id, ch); }
+    const key = chatKey(c.id, c.thread), ch = await DB.get(key);
+    if(ch && ch.msgs.length <= 1){ ch.msgs = c.greet ? [greetMsg(c)] : []; await DB.set(key, ch); }
   }
   const fromChat = ed.fromChat; ed = null;
   if(fromChat){ history.back(); return; }      // popstate redeschide conversația, actualizată
@@ -1090,9 +1379,12 @@ async function saveEditor(){
 async function deleteChar(){
   const c = charById(ed.id); if(!c) return;
   confirmSheet(`Ștergi ${c.name} și toată conversația?`, 'Șterge', async () => {
-    const ch = await DB.get('chat:' + c.id);
-    if(ch) for(const m of ch.msgs) if(m.img) await delImg(m.img);
-    await delImg(c.photo); await DB.del('chat:' + c.id);
+    for(const t of threadsOf(c)){
+      const ch = await DB.get(chatKey(c.id, t.id));
+      if(ch) for(const m of ch.msgs) if(m.img) await delImg(m.img);
+      await DB.del(chatKey(c.id, t.id));
+    }
+    await delImg(c.photo);
     chars = chars.filter(x => x !== c); await saveChars();
     ed = null; cur = null; history.back();
   });
@@ -1101,20 +1393,26 @@ async function deleteChar(){
 /* ───────── SETĂRI ───────── */
 const aiReady = () => S.prov === 'anthropic' ? !!S.key.trim() : !!(S.oaBase && S.oaModel);
 const FIELDS = {stKey:'key', stModel:'model', stOaBase:'oaBase', stOaKey:'oaKey', stOaModel:'oaModel', stUser:'userName', stAbout:'userAbout',
-  stGemKey:'gemKey', stGemModel:'gemModel', stWkBase:'wkBase', stWkTok:'wkTok', stWkModel:'wkModel', stWkSize:'wkSize'};
-const SEGS = {stProv:'prov', stLen:'len', stFont:'font', stImg:'imgProv', stSugg:'sugg', stPro:'pro', stVoice:'voice'};
+  stGemKey:'gemKey', stGemModel:'gemModel', stWkBase:'wkBase', stWkTok:'wkTok', stWkModel:'wkModel', stWkSize:'wkSize',
+  stFalKey:'falKey', stFalModel:'falModel', stFalSize:'falSize', stImgCost:'imgCost', stPin:'pIn', stPout:'pOut'};
+const SEGS = {stProv:'prov', stLen:'len', stFont:'font', stImg:'imgProv', stImgAlt:'imgProv', stSugg:'sugg', stPro:'pro', stVoice:'voice', stSpont:'spont'};
 function openSettings(){
   for(const [id, k] of Object.entries(FIELDS)) $('#' + id).value = S[k] ?? '';
   syncSegs();
   $('#stWelcome').hidden = aiReady();
   $('#stTestRes').textContent = '';
   $('#stVer').textContent = 'Taifas ' + APP_VER;
+  renderCost();
   show('vSet');
 }
 function syncSegs(){
   for(const [id, k] of Object.entries(SEGS)) $$('#' + id + ' button').forEach(b => b.classList.toggle('on', b.dataset.v === String(S[k])));
-  $('#stAnt').hidden = S.prov !== 'anthropic'; $('#stOa').hidden = S.prov === 'anthropic';
-  $('#stGem').hidden = S.imgProv !== 'gemini'; $('#stWk').hidden = S.imgProv !== 'worker';
+  $('#stAnt').hidden = $('#stAntAdv').hidden = S.prov !== 'anthropic'; $('#stOa').hidden = S.prov === 'anthropic';
+  const alt = S.imgProv === 'fal' || S.imgProv === 'gemini';
+  $$('#stImg button').forEach(b => b.classList.toggle('on', b.dataset.v === (alt ? 'alt' : S.imgProv)));
+  $$('#stImgAlt button').forEach(b => b.classList.toggle('on', b.dataset.v === S.imgProv));
+  $('#stAltWrap').hidden = !alt;
+  $('#stGem').hidden = S.imgProv !== 'gemini'; $('#stWk').hidden = S.imgProv !== 'worker'; $('#stFal').hidden = S.imgProv !== 'fal';
   document.documentElement.style.fontSize = (+S.font || 16) + 'px';
 }
 async function testAI(){
@@ -1183,7 +1481,7 @@ function bind(){
   });
   // conversație
   $('#composer').onsubmit = e => { e.preventDefault(); if(busy) busy.abort(); else send(); };
-  $('#inp').addEventListener('input', autoSize);
+  $('#inp').addEventListener('input', () => { autoSize(); updateComposer(); });
   $('#inp').addEventListener('keydown', e => { if(e.key === 'Enter' && !e.shiftKey && !matchMedia('(pointer:coarse)').matches){ e.preventDefault(); $('#composer').requestSubmit(); } });
   $('#btnPhoto').onclick = askPhoto;
   $('#chMenu').onclick = chatMenu;
@@ -1229,10 +1527,17 @@ function bind(){
   $('#edDraft').onclick = runDraft;
   $('#edSave').onclick = saveEditor;
   $('#edDel').onclick = deleteChar;
+  $('#edAcc').addEventListener('click', e => { const b = e.target.closest('[data-a]'); if(!b) return; ed.accent = b.dataset.a; drawLook(); });
+  $$('#edBg button').forEach(b => b.onclick = () => { ed.bg = b.dataset.v; drawLook(); });
+  $('#sceneBar').onclick = editScene;
+  $('#stCostReset').onclick = () => confirmSheet('Resetezi contorul de consum?', 'Resetează', async () => { await DB.del('usage'); renderCost(); });
   // setări: salvare automată la orice schimbare
   for(const [id, k] of Object.entries(FIELDS)) $('#' + id).addEventListener('change', e => { S[k] = e.target.value.trim(); saveSettings(); });
   for(const [id, k] of Object.entries(SEGS)) $$('#' + id + ' button').forEach(b => b.onclick = () => {
-    S[k] = k === 'font' ? +b.dataset.v : b.dataset.v; saveSettings(); syncSegs();
+    let v = k === 'font' ? +b.dataset.v : b.dataset.v;
+    if(v === 'alt') v = (S.imgProv === 'fal' || S.imgProv === 'gemini') ? S.imgProv : (S.imgAlt || 'fal');
+    if(k === 'imgProv' && (v === 'fal' || v === 'gemini')) S.imgAlt = v;
+    S[k] = v; saveSettings(); syncSegs();
   });
   $('#stTest').onclick = () => { for(const [id, k] of Object.entries(FIELDS)) S[k] = $('#' + id).value.trim(); saveSettings(); testAI(); };
   $('#stExport').onclick = exportAll;
@@ -1245,7 +1550,9 @@ function bind(){
 /* ───────── pornire ───────── */
 async function init(){
   try{ await DB.open(); }catch(e){ document.body.innerHTML = '<p class="empty">Browserul nu permite stocarea locală (IndexedDB). Ieși din modul privat.</p>'; return; }
-  S = {...DEF, ...(await DB.get('settings') || {})};
+  const saved = await DB.get('settings');
+  S = {...DEF, ...(saved || {})};
+  if(saved && (S.sv || 0) < 25){ if(S.spont === 'off') S.spont = 'rar'; S.sv = 25; saveSettings(); }
   chars = (await DB.get('chars') || []).filter(c => c && c.id && c.name);
   syncSegs();
   bind();
