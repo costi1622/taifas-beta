@@ -440,6 +440,11 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
 @media (pointer:coarse){.viewer .vnav{display:none}}
 [data-theme=light] .cfront{background:var(--bg)}
 
+.tm .tick{font-style:normal;margin-left:4px;letter-spacing:-2px;font-weight:800}
+.tm .tick.seen{color:#7fd3ff}
+[data-theme=light] .tm .tick.seen{color:#2f86d6}
+.under [data-cont]{color:var(--acc);font-weight:700}
+
 /* ===== temă luminoasă ===== */
 :root[data-theme=light]{--bg:#f7f4fa;--bg2:#ffffff;--card:#f0eaf5;--line:#e4dcea;--tx:#1b1622;--tx2:#5e5569;--tx3:#968da1;--me:#ead9f8;--ai:#ffffff;color-scheme:light}
 :root[data-theme=dark]{color-scheme:dark}
@@ -750,7 +755,7 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
 
 <script>
 'use strict';
-const APP_VER = '3.5';
+const APP_VER = '3.6';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -1205,8 +1210,9 @@ function greetMsg(c){ return {id:uid(), role:'ai', text:c.greet, alts:[c.greet],
 
 function msgHTML(m, i, lastAi, anim){
   const me = m.role === 'user';
-  if(m.pending && !m.text) return '';                       // „scrie…” apare în bara de jos
-  const tm = `<span class="tm">${hhmm(m.ts)}</span>`;
+  if(m.pending && (!m.text || m.hold)) return '';            // „scrie…” apare în bara de jos
+  const seen = me && (m.seen || chat.msgs.slice(i + 1).some(x => x.role === 'ai' && !x.pending));
+  const tm = `<span class="tm">${hhmm(m.ts)}${me ? `<i class="tick${seen ? ' seen' : ''}">${seen ? '✓✓' : '✓'}</i>` : ''}</span>`;
   let inner, cls = me ? 'me' : 'ai';
   if(m.pendingImg){ inner = `<div class="picload">📷 ${esc(cur.name)} îți face o poză…</div>`; cls += ' picm'; }
   else if(m.err) inner = `<div class="bub err${m.errKind === 'flag' ? ' flag' : ''}">${m.errKind === 'flag' ? '🚫' : '⚠️'} ${esc(m.err)}</div>`;
@@ -1222,12 +1228,15 @@ function msgHTML(m, i, lastAi, anim){
     under = `<div class="under">
       ${n > 1 ? `<button data-alt="-1" ${m.alt <= 0 ? 'disabled' : ''}>‹</button><span>${(m.alt || 0) + 1}/${n}</span><button data-alt="1" ${m.alt >= n - 1 ? 'disabled' : ''}>›</button>` : ''}
       ${m.img || !m.alts ? '' : `<button data-regen>↻ Alt răspuns</button>`}
+      ${m.err ? '' : `<button data-cont>▶ Continuă</button>`}
       ${m.err ? `<button data-retry>${m.errKind === 'flag' ? '🎲 Încearcă altă scenă' : 'Reîncearcă'}</button>` : ''}
       ${S.voice !== 'off' && m.text && !m.err ? `<button data-say>🔊</button>` : ''}</div>`;
   }
   return `<div class="mw${anim ? ' anim' : ''}${m.react ? ' hasreact' : ''}" data-i="${i}"><div class="m ${cls}">${me ? '' : avatarHTML(cur)}${inner}</div>${under}</div>`;
 }
 const REACTS = ['❤️', '😂', '😮', '😢', '👍', '🔥'];
+const AI_REACT = /^\s*\[(❤️|❤|😂|😮|😢|👍|🔥|🥰)\]\s*/u;
+const stripReact = t => String(t || '').replace(AI_REACT, '');
 const reactHTML = m => m.react ? `<span class="react">${m.react}</span>` : '';
 function quoteHTML(m){
   if(!m.reply) return '';
@@ -1324,8 +1333,8 @@ function renderMsgs(toBottom){
   let html = heroHTML(), prevDay = '';
   chat.msgs.forEach((m, i) => {
     const d = new Date(m.ts || Date.now()).toDateString();
-    if(d !== prevDay && !(m.pending && !m.text)){ html += `<div class="day"><span>${dayLabel(m.ts || Date.now())}</span></div>`; prevDay = d; }
-    const show = !(m.pending && !m.text);
+    if(d !== prevDay && !(m.pending && (!m.text || m.hold))){ html += `<div class="day"><span>${dayLabel(m.ts || Date.now())}</span></div>`; prevDay = d; }
+    const show = !(m.pending && (!m.text || m.hold));
     const fresh = show && !seen.has(m.id);
     html += msgHTML(m, i, lastAi, fresh);
     if(fresh && !near && !toBottom && m.role === 'ai') jumpCount++;
@@ -1344,7 +1353,7 @@ function updateHead(){
 function liveUpdate(m){
   const i = chat.msgs.indexOf(m); if(i < 0 || cur == null) return;
   const el = $(`#msgs .mw[data-i="${i}"] .bub`); if(!el) return renderMsgs();
-  el.innerHTML = fmtMsg(m.text);
+  el.innerHTML = fmtMsg(stripReact(m.text));
   el.classList.toggle('typing', !!m.pending);
   const box = $('#msgs'); if(box.scrollHeight - box.scrollTop - box.clientHeight < 160) box.scrollTop = box.scrollHeight;
 }
@@ -1361,13 +1370,13 @@ function setBusyUI(on){
   $('#btnPlus').disabled = on;
   updateComposer();
   const tb = $('#typingBar');
-  if(on && live && cur && live.ch === chat){
+  if(on && live && cur && live.ch === chat && live.typing !== false){
     tb.hidden = false;
     $('#tbAv').innerHTML = avatarHTML(cur); hydrate(tb);
     $('#tbTxt').textContent = cur.name + (live.photo ? ' îți face o poză…' : ' scrie…');
   } else tb.hidden = true;
   const t = $('#chTag');
-  if(on && live && cur && live.ch === chat){ t.textContent = live.photo ? 'îți face o poză…' : 'scrie…'; t.classList.add('typing'); }
+  if(on && live && cur && live.ch === chat && live.typing !== false){ t.textContent = live.photo ? 'îți face o poză…' : 'scrie…'; t.classList.add('typing'); }
   else if(cur && chat){ t.innerHTML = statusLine(); t.classList.remove('typing'); }
 }
 
@@ -1393,6 +1402,8 @@ function systemFor(c, ch){
 - Lungime: ${LEN[S.len].t}.
 - Nu folosi liniuțe lungi (— sau –); folosește virgula sau punctul.
 - Variază formulările; nu repeta aceleași gesturi și expresii de la un mesaj la altul.
+- Ții cont de momentul zilei și de pauzele dintre mesaje, notate între paranteze în mesajele lui ${u}; nu le menționa ca note.
+- Dacă un mesaj al lui ${u} te amuză sau te emoționează, poți începe răspunsul cu o reacție scrisă exact așa: [❤️] [😂] [😮] [😢] [👍] [🔥] sau [🥰]. Cel mult o dată la câteva mesaje, nu de fiecare dată.
 ${canAutoPhoto(c)
   ? '- Poți trimite poze. Când vrei să-i trimiți una, încheie mesajul cu acțiunea *îți trimite o poză*; aplicația o atașează singură. Nu promite poze în alt fel.'
   : '- Nu poți trimite poze în această conversație. Nu spune că trimiți, că faci sau că ai trimis o poză.'}`
@@ -1401,11 +1412,13 @@ ${canAutoPhoto(c)
 function contextUpTo(idx){
   const from = Math.max(chat.sumUpTo || 0, idx - 40, 0);
   const sum = chat.summary ? [{role:'user', text:`(Rezumatul conversației de până acum, ca să-ți amintești: ${chat.summary})`}, {role:'assistant', text:'*dă din cap*'}] : [];
-  let react = '';
+  let react = '', prevTs = 0;
   const out = [];
   for(const m of chat.msgs.slice(from, idx).filter(m => !m.err && !m.pending && (m.text || m.img))){
+    const gap = prevTs && m.ts ? m.ts - prevTs : 0; prevTs = m.ts || prevTs;
     if(m.role === 'user'){
       let pre = '';
+      if(gap > 3 * 36e5) pre += `(au trecut ${gapText(gap)} de la mesajul anterior) `;
       if(react){ pre += `(am reacționat cu ${react} la mesajul tău) `; react = ''; }
       if(m.reply) pre += `(răspund la: „${m.reply.text}”) `;
       out.push({role:'user', text: pre + (m.img ? '[ți-am trimis o poză]' + (m.text ? ' ' + m.text : '') : m.text), _img: m.img || null});
@@ -1415,6 +1428,18 @@ function contextUpTo(idx){
     }
   }
   return sum.concat(out);
+}
+function gapText(ms){
+  const h = Math.round(ms / 36e5);
+  if(h < 24) return h === 1 ? 'o oră' : h + (h >= 20 ? ' de ore' : ' ore');
+  const d = Math.round(h / 24); return d === 1 ? 'o zi' : d + (d >= 20 ? ' de zile' : ' zile');
+}
+function nowNote(){
+  const d = new Date(), h = d.getHours();
+  const zi = d.toLocaleDateString('ro-RO', {weekday:'long'}), data = d.toLocaleDateString('ro-RO', {day:'numeric', month:'long'});
+  const parte = h < 5 ? 'noaptea târziu' : h < 11 ? 'dimineața' : h < 14 ? 'la prânz' : h < 18 ? 'după-amiaza' : h < 22 ? 'seara' : 'noaptea';
+  const wk = [0, 6].includes(d.getDay()) ? ', weekend' : '';
+  return `(acum e ${zi}, ${data}, ora ${hhmm(Date.now())}, ${parte}${wk})`;
 }
 // ultimele 2 poze trimise de utilizator merg ca imagini (personajul le vede); cele mai vechi rămân doar menționate
 async function attachUserImages(ctx){
@@ -1445,21 +1470,50 @@ async function reply(target, opts = {}){
   let m = target;
   $('#sugg').innerHTML = '';
   if(m){ m.alts = m.alts || [m.text]; m.alts.push(''); m.alt = m.alts.length - 1; m.text = ''; delete m.err; }
-  else { m = {id:uid(), role:'ai', text:'', alts:[''], alt:0, ts:Date.now()}; if(opts.pro){ m.pro = true; m.note = opts.note; } ch.msgs.push(m); }
-  m.pending = true; renderMsgs(true);
+  else {
+    m = {id:uid(), role:'ai', text:'', alts:[''], alt:0, ts:Date.now()};
+    if(opts.pro){ m.pro = true; m.note = opts.note; }
+    if(opts.cont){ m.cont = true; m.note = `(Nu ți-am răspuns încă. Continuă tu firesc cu un mesaj nou, ca într-un chat: adaugă ceva, schimbă subiectul sau întreabă-mă ceva. Nu repeta ce ai spus deja.)`; }
+    ch.msgs.push(m);
+  }
+  m.pending = true;
   const idx = ch.msgs.indexOf(m);
-  busy = new AbortController(); live = {c, ch}; setBusyUI(true);
+  // ritm realist: mesajul tău e „văzut”, apoi apare „scrie…”, apoi textul (cererea pleacă imediat, doar afișarea așteaptă)
+  const um = target ? null : [...ch.msgs.slice(0, idx)].reverse().find(x => x.role === 'user');
+  const fresh = um && !um.seen && !opts.pro && !opts.cont;
+  busy = new AbortController(); live = {c, ch, typing:!fresh}; setBusyUI(true); renderMsgs(true);
+  let showAt = 0, showT = null;
+  const draw = () => { if(Date.now() >= showAt){ delete m.hold; if(chat === ch) liveUpdate(m); } };
+  if(fresh){
+    m.hold = true;
+    const seenIn = 350 + Math.random() * 500;
+    showAt = Date.now() + seenIn + 650;
+    setTimeout(() => {
+      um.seen = true;
+      if(live && live.ch === ch){ live.typing = true; if(chat === ch){ setBusyUI(true); renderMsgs(); } }
+    }, seenIn);
+    showT = setTimeout(() => { if(m.pending && m.text) draw(); }, seenIn + 660);
+  }
   try{
     const ctx = await attachUserImages(contextUpTo(idx));
     if(m.note) ctx.push({role:'user', text:m.note});
+    // ora și ziua merg doar în ultimul mesaj al tău (nu în promptul de sistem, ca să rămână în cache)
+    const lastU = [...ctx].reverse().find(x => x.role === 'user');
+    if(lastU) lastU.text = nowNote() + ' ' + lastU.text;
     const full = await stream(systemFor(c, ch), ctx, {max:LEN[S.len].max, signal:busy.signal, cid:c.id,
-      onText: t => { m.text = t; if(chat === ch) liveUpdate(m); }});
+      onText: t => { m.text = t; draw(); }});
     m.text = faraLiniute(full.trim());
+    const rm = m.text.match(AI_REACT);
+    if(rm){ m.text = m.text.replace(AI_REACT, '').trim(); if(um && !target){ um.react = rm[1] === '❤' ? '❤️' : rm[1]; } }
     if(!m.text) throw new Error('Răspuns gol. Încearcă din nou.');
+    const wait = showAt - Date.now();
+    if(wait > 0) await sleep(wait);
   }catch(e){
-    if(e.name === 'AbortError' && m.text) m.text = faraLiniute(m.text.trim());
+    if(e.name === 'AbortError' && m.text) m.text = faraLiniute(stripReact(m.text).trim());
     else { m.err = e.name === 'AbortError' ? 'Oprit.' : (e.message || 'Eroare'); m.text = ''; }
   }
+  clearTimeout(showT); delete m.hold;
+  if(um) um.seen = true;
   m.alts[m.alt] = m.text; delete m.pending; m.ts = Date.now();
   busy = null; live = null;
   if(!m.err && !(chat === ch && !$('#vChat').hidden)) c.unread = (c.unread || 0) + 1;
@@ -1883,9 +1937,9 @@ function msgSheet(i){
 function retry(i){
   const m = chat.msgs[i];
   if(m.alts && m.alts.length > 1){ m.alts.pop(); m.alt = m.alts.length - 1; m.text = m.alts[m.alt]; delete m.err; reply(m); return; }
-  const wasPhoto = !m.alts, note = m.note;
+  const wasPhoto = !m.alts, note = m.note, cont = m.cont;
   chat.msgs.splice(i, 1);
-  wasPhoto ? askPhoto() : reply(null, note ? {pro:true, note} : {});
+  wasPhoto ? askPhoto() : reply(null, cont ? {cont:true} : note ? {pro:true, note} : {});
 }
 function editMsg(i){
   const m = chat.msgs[i];
@@ -2486,6 +2540,7 @@ function bind(){
     const i = +w.dataset.i, m = chat.msgs[i];
     if(e.target.closest('[data-regen]')){ if(!busy) reply(m); return; }
     if(e.target.closest('[data-say]')){ say(m.text); return; }
+    if(e.target.closest('[data-cont]')){ if(!busy) reply(null, {cont:true}); return; }
     if(e.target.closest('[data-retry]')){ if(!busy) retry(i); return; }
     const a = e.target.closest('[data-alt]');
     if(a){ m.alt = Math.max(0, Math.min(m.alts.length - 1, (m.alt || 0) + +a.dataset.alt)); m.text = m.alts[m.alt]; delete m.err; saveChat(); renderMsgs(); return; }
