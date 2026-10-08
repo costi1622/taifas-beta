@@ -373,6 +373,73 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
 .chathead small{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.3;font-size:.74rem}
 #chTop .chathead .ib{flex:none}
 
+/* ===== 3.5 ===== */
+/* tranziții între ecrane */
+.view.vin-f{animation:vinf .3s cubic-bezier(.2,.8,.2,1)}
+.view.vin-b{animation:vinb .3s cubic-bezier(.2,.8,.2,1)}
+@keyframes vinf{from{transform:translateX(30%);opacity:.3}}
+@keyframes vinb{from{transform:translateX(-22%);opacity:.3}}
+@media (prefers-reduced-motion:reduce){.view.vin-f,.view.vin-b,.step,.panel{animation:none!important}}
+/* setări */
+.scard{display:flex;align-items:center;gap:14px;padding:16px;margin-bottom:18px;border-radius:var(--r);background:var(--bg2)}
+.scard .av{width:54px;height:54px;font-size:1.3rem;background:var(--grad);color:#fff}
+.scard b{display:block;font-size:1.1rem}
+.scard small{display:block;color:var(--tx2);font-size:.82rem;margin-top:2px}
+.sgroup{margin-bottom:18px}
+.sgroup h4{margin:0 6px 8px;font-size:.74rem;text-transform:uppercase;letter-spacing:.08em;color:var(--tx3)}
+.sgroup>.srow{border-radius:0;background:var(--bg2)}
+.sgroup>.srow:first-of-type{border-radius:16px 16px 0 0}
+.sgroup>.srow:last-of-type{border-radius:0 0 16px 16px}
+.sgroup>.srow:only-of-type{border-radius:16px}
+.sgroup>.srow+.srow{border-top:1px solid var(--line)}
+.srow{display:flex;align-items:center;gap:13px;width:100%;padding:13px 14px;text-align:left}
+.srow:active{background:var(--card)!important}
+.srow i{font-style:normal;width:34px;height:34px;border-radius:10px;display:grid;place-items:center;font-size:1.05rem;flex:none}
+.srow span{flex:1;min-width:0}
+.srow b{display:block;font-size:.98rem;font-weight:650}
+.srow small{display:block;color:var(--tx2);font-size:.8rem;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.srow small .ok{color:var(--ok)}.srow small .bad{color:var(--err)}
+.srow em{font-style:normal;color:var(--tx3);font-size:1.3rem}
+.panel{animation:stepin .25s ease-out}
+/* lista de conversații */
+.crow{position:relative;overflow:hidden;border-radius:16px;margin-bottom:6px}
+.cact{position:absolute;inset:0 0 0 auto;display:flex}
+.cact button{width:76px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:1.1rem;color:#fff}
+.cact button span{font-size:.68rem;font-weight:700}
+.cact [data-pin]{background:#4f8cff}
+.cact [data-clr]{background:#ff4f6a}
+.cfront{position:relative;display:flex;align-items:center;gap:12px;width:100%;padding:11px 12px;background:var(--bg);text-align:left;transition:transform .22s cubic-bezier(.2,.8,.2,1)}
+.cfront:active{background:var(--bg2)}
+.cav{position:relative;flex:none}
+.cav .av{width:56px;height:56px;font-size:1.2rem}
+.cav .on{position:absolute;right:1px;bottom:1px;width:13px;height:13px;border-radius:50%;background:var(--ok);border:2.5px solid var(--bg)}
+.cmid{flex:1;min-width:0}
+.ctop{display:flex;align-items:baseline;gap:6px}
+.ctop b{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:1rem}
+.ctop time{font-size:.74rem;color:var(--tx3);flex:none}
+.ctop time.new{color:var(--acc);font-weight:700}
+.cbot{display:flex;align-items:center;gap:6px;margin-top:3px}
+.cbot small{flex:1;min-width:0;color:var(--tx2);font-size:.86rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cbot .badge{flex:none;min-width:20px;height:20px;padding:0 6px;border-radius:99px;background:var(--grad);color:#fff;font-size:.72rem;font-weight:800;display:grid;place-items:center}
+.cbot .thr{flex:none;font-size:.7rem;color:var(--tx3);background:var(--bg2);padding:2px 7px;border-radius:99px}
+.clabel{margin:12px 8px 6px;font-size:.74rem;text-transform:uppercase;letter-spacing:.08em;color:var(--tx3)}
+.card .fav,.card .when,.card .ubadge{z-index:2}
+.card .ubadge{position:absolute;top:8px;right:8px;min-width:22px;height:22px;padding:0 6px;border-radius:99px;background:var(--grad);color:#fff;font-size:.74rem;font-weight:800;display:grid;place-items:center;box-shadow:0 2px 8px #0006}
+.card.isfav .ubadge{right:30px}
+/* vizualizator */
+.viewer{touch-action:none;overflow:hidden;background:#000}
+.viewer .vbg{position:absolute;inset:-40px;background-size:cover;background-position:center;filter:blur(34px) brightness(.45) saturate(1.2);transition:background-image .2s}
+.viewer .vimg{position:absolute;inset:0;margin:auto;max-width:100%;max-height:100%;object-fit:contain;transform-origin:0 0;will-change:transform;user-select:none;-webkit-user-drag:none}
+.viewer .vtop{position:absolute;top:0;left:0;right:0;display:flex;align-items:center;justify-content:space-between;padding:calc(10px + var(--safe-t)) 12px 10px;background:linear-gradient(#0009,transparent);z-index:2;color:#fff}
+.viewer .vtop .ib{background:#0006;color:#fff}
+.viewer .vcount{font-size:.85rem;font-weight:700;padding:5px 11px;background:#0006;border-radius:99px}
+.viewer .vbar{position:absolute;left:0;right:0;bottom:0;display:flex;justify-content:center;gap:8px;padding:12px 12px calc(16px + var(--safe-b));background:linear-gradient(transparent,#0009);z-index:2}
+.viewer .vbar .btn{background:#ffffff1f;border-color:#ffffff33;color:#fff;backdrop-filter:blur(8px)}
+.viewer .vnav{position:absolute;top:50%;transform:translateY(-50%);z-index:2;background:#0006;color:#fff}
+.viewer .vnav.l{left:10px}.viewer .vnav.r{right:10px}
+@media (pointer:coarse){.viewer .vnav{display:none}}
+[data-theme=light] .cfront{background:var(--bg)}
+
 /* ===== temă luminoasă ===== */
 :root[data-theme=light]{--bg:#f7f4fa;--bg2:#ffffff;--card:#f0eaf5;--line:#e4dcea;--tx:#1b1622;--tx2:#5e5569;--tx3:#968da1;--me:#ead9f8;--ai:#ffffff;color-scheme:light}
 :root[data-theme=dark]{color-scheme:dark}
@@ -539,13 +606,29 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
 <section id="vSet" class="view" hidden>
   <header class="top">
     <button class="ib" data-back aria-label="Înapoi">‹</button>
-    <h2>Setări</h2>
+    <h2 id="stTitle">Setări</h2>
   </header>
-  <div class="scroll"><div class="form">
-    <div class="welcome" id="stWelcome" hidden><b>Bun venit în Taifas 👋</b>Lipește cheia Anthropic, scrie-ți numele și apasă „Testează". Gata, restul e opțional.</div>
+  <div class="scroll" id="stScroll"><div class="form">
+    <div id="setList">
+      <div class="scard"><span class="av" id="stMeAv">?</span><div><b id="stMeName">Tu</b><small id="stMeSub"></small></div></div>
+      <div class="sgroup"><h4>Cont</h4>
+        <button class="srow" data-p="ai"><i style="background:linear-gradient(135deg,#9b5cff,#6a4cff)">🧠</i><span><b>Inteligența (Claude)</b><small id="sum_ai"></small></span><em>›</em></button>
+        <button class="srow" data-p="me"><i style="background:linear-gradient(135deg,#4f8cff,#2f6bff)">👤</i><span><b>Despre tine</b><small id="sum_me"></small></span><em>›</em></button>
+      </div>
+      <div class="sgroup"><h4>Conversații</h4>
+        <button class="srow" data-p="img"><i style="background:linear-gradient(135deg,#ff4f9a,#ff6b4a)">🖼️</i><span><b>Poze</b><small id="sum_img"></small></span><em>›</em></button>
+        <button class="srow" data-p="chat"><i style="background:linear-gradient(135deg,#22c3a6,#16a085)">💬</i><span><b>Răspunsuri și voce</b><small id="sum_chat"></small></span><em>›</em></button>
+        <button class="srow" data-p="look"><i style="background:linear-gradient(135deg,#ffb020,#ff8a00)">🎨</i><span><b>Aspect</b><small id="sum_look"></small></span><em>›</em></button>
+      </div>
+      <div class="sgroup"><h4>Date</h4>
+        <button class="srow" data-p="cost"><i style="background:linear-gradient(135deg,#5fd39a,#2fa86d)">💰</i><span><b>Consum</b><small id="sum_cost"><span id="stCostMini"></span></small></span><em>›</em></button>
+        <button class="srow" data-p="data"><i style="background:linear-gradient(135deg,#8a8f9c,#5e6370)">💾</i><span><b>Backup și restaurare</b><small id="sum_data">Personaje, conversații, poze</small></span><em>›</em></button>
+      </div>
+      <div class="hint" style="text-align:center;margin-top:18px" id="stVer"></div>
+    </div>
 
-    <div class="sec">
-      <h3>Pornire</h3>
+    <div class="panel sec" data-panel="ai" data-title="Inteligența" hidden>
+      <div class="welcome" id="stWelcome" hidden><b>Bun venit în Taifas 👋</b>Lipește cheia Anthropic și apasă „Testează". Gata, restul e opțional.</div>
       <div id="stAnt">
         <label for="stKey">Cheie Anthropic</label>
         <input id="stKey" type="password" placeholder="sk-ant-…" autocomplete="off">
@@ -559,14 +642,25 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
         <input id="stOaModel" placeholder="ex. google/gemini-2.5-flash">
         <div class="hint">Pentru descrierea din poză, modelul trebuie să accepte imagini.</div>
       </div>
-      <label for="stUser">Cum să-ți spună personajele</label>
-      <input id="stUser" placeholder="ex. Costi">
       <div class="btns"><button type="button" class="btn" id="stTest">Testează</button></div>
       <div class="status" id="stTestRes"></div>
+      <h3 style="margin-top:20px">Model AI</h3>
+      <div class="seg" id="stProv"><button data-v="anthropic">Claude</button><button data-v="openai">Alt furnizor</button></div>
+      <div id="stAntAdv">
+        <label for="stModel">Model Claude</label>
+        <input id="stModel" list="dlModels" placeholder="claude-sonnet-5-5">
+        <datalist id="dlModels"><option value="claude-sonnet-5-5"><option value="claude-opus-5-5"><option value="claude-haiku-5-5"><option value="claude-sonnet-5"></datalist>
+      </div>
     </div>
 
-    <div class="sec">
-      <h3>Poze în conversație</h3>
+    <div class="panel sec" data-panel="me" data-title="Despre tine" hidden>
+      <label for="stUser">Cum să-ți spună personajele</label>
+      <input id="stUser" placeholder="ex. Costi">
+      <label for="stAbout">Despre tine (pentru toate personajele)</label>
+      <textarea id="stAbout" rows="3" placeholder="ce vrei să știe orice personaj despre tine"></textarea>
+    </div>
+
+    <div class="panel sec" data-panel="img" data-title="Poze" hidden>
       <div class="seg" id="stImg"><button data-v="none">Oprite</button><button data-v="worker">Worker-ul meu</button><button data-v="alt">Altă sursă…</button></div>
       <div id="stWk" hidden>
         <label for="stWkBase">Adresa Worker-ului (se termină în /v1)</label>
@@ -606,49 +700,40 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
           <div class="hint">Cere facturare activă la Google.</div>
         </div>
       </div>
+      <h3 style="margin-top:20px">Automat</h3>
+      <label>Poze spontane (doar personajele cu portret generat cu 🎨)</label>
+      <div class="seg" id="stSpont"><button data-v="off">Niciodată</button><button data-v="rar">Rar</button><button data-v="des">Des</button></div>
+      <label for="stImgCost">Cost estimat pe poză ($)</label>
+      <input id="stImgCost" inputmode="decimal" placeholder="automat">
     </div>
 
-    <details class="sec" id="stAdv">
-      <summary>Avansat <span id="stCostMini" style="font-weight:400;color:var(--tx3)"></span></summary>
-
-      <h3 style="margin-top:14px">Model AI</h3>
-      <div class="seg" id="stProv"><button data-v="anthropic">Claude</button><button data-v="openai">Alt furnizor</button></div>
-      <div id="stAntAdv">
-        <label for="stModel">Model Claude</label>
-        <input id="stModel" list="dlModels" placeholder="claude-sonnet-5-5">
-        <datalist id="dlModels"><option value="claude-sonnet-5-5"><option value="claude-opus-5-5"><option value="claude-haiku-5-5"><option value="claude-sonnet-5"></datalist>
-      </div>
-      <label for="stAbout">Despre tine (pentru toate personajele)</label>
-      <textarea id="stAbout" rows="2" placeholder="ce vrei să știe orice personaj despre tine"></textarea>
-
-      <h3 style="margin-top:22px">Răspunsuri</h3>
-      <label>Lungime</label>
+    <div class="panel sec" data-panel="chat" data-title="Răspunsuri și voce" hidden>
+      <label>Lungimea răspunsurilor</label>
       <div class="seg" id="stLen"><button data-v="scurt">Scurte</button><button data-v="mediu">Medii</button><button data-v="lung">Lungi</button></div>
-      <label>Temă</label>
-      <div class="seg" id="stTheme"><button data-v="auto">Automat</button><button data-v="dark">Întunecată</button><button data-v="light">Luminoasă</button></div>
-      <label>Mărime text</label>
-      <div class="seg" id="stFont"><button data-v="15">Mic</button><button data-v="16">Normal</button><button data-v="18">Mare</button></div>
       <label>Sugestii de răspuns</label>
       <div class="seg" id="stSugg"><button data-v="off">Doar la 💡</button><button data-v="auto">După fiecare mesaj</button></div>
       <label>Personajul îți scrie primul după 8 ore de pauză</label>
       <div class="seg" id="stPro"><button data-v="off">Nu</button><button data-v="on">Da</button></div>
       <label>Citire cu voce (vocea telefonului, fără *acțiuni*)</label>
       <div class="seg" id="stVoice"><button data-v="off">Oprit</button><button data-v="tap">La 🔊</button><button data-v="auto">Automat</button></div>
+    </div>
 
-      <h3 style="margin-top:22px">Poze</h3>
-      <label>Poze spontane (personajul trimite singur)</label>
-      <div class="seg" id="stSpont"><button data-v="off">Niciodată</button><button data-v="rar">Rar</button><button data-v="des">Des</button></div>
-      <label for="stImgCost">Cost estimat pe poză ($)</label>
-      <input id="stImgCost" inputmode="decimal" placeholder="automat">
+    <div class="panel sec" data-panel="look" data-title="Aspect" hidden>
+      <label>Temă</label>
+      <div class="seg" id="stTheme"><button data-v="auto">Automat</button><button data-v="dark">Întunecată</button><button data-v="light">Luminoasă</button></div>
+      <label>Mărime text</label>
+      <div class="seg" id="stFont"><button data-v="15">Mic</button><button data-v="16">Normal</button><button data-v="18">Mare</button></div>
+    </div>
 
-      <h3 style="margin-top:22px">Consum</h3>
+    <div class="panel sec" data-panel="cost" data-title="Consum" hidden>
       <div class="cost" id="stCost"></div>
       <label for="stPin">Preț $/1M tokeni: intrare · ieșire</label>
       <div style="display:flex;gap:8px"><input id="stPin" inputmode="decimal" placeholder="auto"><input id="stPout" inputmode="decimal" placeholder="auto"></div>
       <div class="hint">Gol = automat după model (Sonnet 5.5: 2 · 10; Opus 5.5: 4 · 20; Haiku: 1 · 5). Estimare, nu factura oficială.</div>
       <div class="btns"><button type="button" class="btn sm" id="stCostReset">Resetează contorul</button></div>
+    </div>
 
-      <h3 style="margin-top:22px">Date</h3>
+    <div class="panel sec" data-panel="data" data-title="Backup și restaurare" hidden>
       <div class="btns" style="margin-top:0">
         <button type="button" class="btn" id="stExport">⬇ Backup</button>
         <button type="button" class="btn" id="stImport">⬆ Restaurează</button>
@@ -656,8 +741,7 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
       <input type="file" id="stImpFile" accept=".json,application/json" hidden>
       <div class="hint">Backup-ul conține personajele, conversațiile și pozele. Cheile API nu intră în backup.</div>
       <div class="btns"><button type="button" class="btn dan" id="stWipe">Șterge tot</button></div>
-    </details>
-    <div class="hint" style="text-align:center" id="stVer"></div>
+    </div>
   </div></div>
 </section>
 
@@ -666,7 +750,7 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
 
 <script>
 'use strict';
-const APP_VER = '3.4';
+const APP_VER = '3.5';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -985,15 +1069,26 @@ async function genImage(prompt, ref, signal){
 
 /* ───────── navigare ───────── */
 const VIEWS = ['vHome', 'vChat', 'vEdit', 'vSet', 'vWelcome'];
-function show(id, push = true){
+function show(id, push = true, dir){
+  const was = VIEWS.find(v => !$('#' + v).hidden);
   VIEWS.forEach(v => $('#' + v).hidden = v !== id);
+  const el = $('#' + id);
+  if(was && was !== id){
+    el.classList.remove('vin-f', 'vin-b'); void el.offsetWidth;
+    el.classList.add((dir || (push ? 'f' : (id === 'vHome' ? 'b' : 'f'))) === 'f' ? 'vin-f' : 'vin-b');
+    setTimeout(() => el.classList.remove('vin-f', 'vin-b'), 350);
+  }
   if(push && id !== 'vHome') history.pushState({v:id}, '');
 }
-function back(){ if(history.state && history.state.v) history.back(); else goHome(); }
+function back(){
+  if(!$('#vSet').hidden && setPanel && !setPanelPushed){ closeSetPanel(); return; }
+  if(history.state && history.state.v) history.back(); else goHome();
+}
 window.addEventListener('popstate', () => {
   if($('.scrim,.viewer')){ closeSheet(); history.pushState(history.state, ''); return; }
   const v = history.state && history.state.v;
-  if(v === 'vChat' && cur && charById(cur.id)) openChat(cur.id, false);
+  if(!$('#vSet').hidden && setPanel){ closeSetPanel(); return; }
+  if(v === 'vChat' && cur && charById(cur.id)) openChat(cur.id, false, undefined, 'b');
   else goHome();
 });
 function goHome(){ cur = null; chat = null; show('vHome', false); renderHome(); }
@@ -1009,13 +1104,26 @@ function renderHome(){
   const q = $('#search').value.trim().toLowerCase();
   const shown = q ? sorted.filter(c => (c.name + ' ' + (c.tag || '')).toLowerCase().includes(q)) : sorted;
   $('#homeChars').innerHTML = (!chars.length ? `<button class="card empty" data-new><b>Niciun personaj încă</b>Apasă ＋ jos ca să creezi primul personaj, din poză sau din imaginație.</button>` : '') +
-    shown.map(c => `<button class="card${c.fav ? ' isfav' : ''}" data-open="${c.id}">${c.fav ? '<span class="fav">⭐</span>' : ''}${c.lastAt && c.last ? `<span class="when">${when(c.lastAt)}</span>` : ''}
+    shown.map(c => `<button class="card${c.fav ? ' isfav' : ''}" data-open="${c.id}">${c.fav ? '<span class="fav">⭐</span>' : ''}${c.unread ? `<span class="ubadge">${c.unread > 9 ? '9+' : c.unread}</span>` : ''}${c.lastAt && c.last ? `<span class="when">${when(c.lastAt)}</span>` : ''}
       ${c.photo ? `<img data-k="${esc(c.photo)}" alt="">` : `<div class="ph" style="background:${colorFor(c)}">${esc(c.name[0] || '?')}</div>`}
       <div class="ov"><b>${esc(c.name)}</b>${c.tag ? `<small>${esc(c.tag)}</small>` : ''}${c.last ? `<em class="lm">${esc(c.last)}</em>` : ''}</div></button>`).join('');
-  const withChat = sorted.filter(c => c.last);
-  $('#homeChats').innerHTML = withChat.length ? withChat.map(c => `<button class="row" data-open="${c.id}">
-      ${avatarHTML(c)}<div class="t"><b>${esc(c.name)}</b><small>${esc(c.last)}</small></div><time>${when(c.lastAt)}</time></button>`).join('')
-    : `<div class="empty">Nicio conversație încă.<br>Alege un personaj din „Personaje".</div>`;
+  const withChat = chars.filter(c => c.last).sort((a, b) => (b.lastAt || 0) - (a.lastAt || 0));
+  const pinned = withChat.filter(c => c.pinned), rest = withChat.filter(c => !c.pinned);
+  const crow = c => {
+    const online = c.lastAt && Date.now() - c.lastAt < 10 * 60e3, n = threadsOf(c).length;
+    const prev = esc(c.last).replace(/^Tu: /, '<b style="font-weight:600;color:var(--tx3)">Tu:</b> ');
+    return `<div class="crow" data-c="${c.id}">
+      <div class="cact"><button data-pin>${c.pinned ? '📍' : '📌'}<span>${c.pinned ? 'Scoate' : 'Fixează'}</span></button><button data-clr>🧹<span>Golește</span></button></div>
+      <button class="cfront" data-open="${c.id}">
+        <span class="cav">${avatarHTML(c)}${online ? '<i class="on"></i>' : ''}</span>
+        <span class="cmid"><span class="ctop"><b>${c.pinned ? '📌 ' : ''}${esc(c.name)}</b><time class="${c.unread ? 'new' : ''}">${when(c.lastAt)}</time></span>
+        <span class="cbot"><small>${prev}</small>${n > 1 ? `<span class="thr">🧵 ${n}</span>` : ''}${c.unread ? `<span class="badge">${c.unread > 9 ? '9+' : c.unread}</span>` : ''}</span></span>
+      </button></div>`;
+  };
+  $('#homeChats').innerHTML = withChat.length
+    ? (pinned.length ? '<div class="clabel">Fixate</div>' + pinned.map(crow).join('') + (rest.length ? '<div class="clabel">Recente</div>' : '') : '') + rest.map(crow).join('')
+      + '<div class="hint" style="text-align:center;margin:14px 0">Glisează spre stânga pe o conversație ca s-o fixezi sau s-o golești.</div>'
+    : `<div class="empty">Nicio conversație încă.<br>Alege un personaj din „Acasă".</div>`;
   hydrate($('#vHome'));
 }
 function when(ts){
@@ -1026,7 +1134,7 @@ function when(ts){
 }
 
 /* ───────── CONVERSAȚIE ───────── */
-async function openChat(id, push = true, tid){
+async function openChat(id, push = true, tid, dir){
   cur = charById(id); if(!cur) return;
   threadsOf(cur);
   tid = tid || cur.thread || 'main';
@@ -1042,7 +1150,8 @@ async function openChat(id, push = true, tid){
   applyLook(cur);
   renderScene();
   updateComposer();
-  show('vChat', push);
+  show('vChat', push, dir);
+  if(cur.unread){ cur.unread = 0; saveChars(); }
   renderMsgs(true);
   hydrate($('#vChat'));
   setBusyUI(!!(busy && live && live.ch === chat));
@@ -1353,7 +1462,9 @@ async function reply(target, opts = {}){
   }
   m.alts[m.alt] = m.text; delete m.pending; m.ts = Date.now();
   busy = null; live = null;
+  if(!m.err && !(chat === ch && !$('#vChat').hidden)) c.unread = (c.unread || 0) + 1;
   await saveChat(c, ch);
+  if(!$('#vHome').hidden) renderHome();
   if(chat === ch){ setBusyUI(false); renderMsgs(); if(!m.err && navigator.vibrate && !document.hidden) try{ navigator.vibrate(12); }catch(e){} }
   if(!m.err){
     summarizeIfNeeded(c, ch);
@@ -1505,7 +1616,7 @@ async function renderCost(){
   const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - 1);
   const M = u.months[mo] || {txt:0, img:0, n:0}, P = u.months[d.toISOString().slice(0, 7)];
   const top = Object.entries(u.chars).map(([id, v]) => [charById(id), v]).filter(x => x[0]).sort((a, b) => b[1] - a[1]).slice(0, 6);
-  $('#stCostMini').textContent = (M.txt + M.img) > 0 ? '· luna aceasta ' + usd(M.txt + M.img) : '';
+  $('#stCostMini').textContent = 'Luna aceasta: ' + usd(M.txt + M.img);
   $('#stCost').innerHTML = `<b>${usd(M.txt + M.img)}</b>luna aceasta · text ${usd(M.txt)} · poze ${usd(M.img)} (${M.n})
     ${P ? `<div class="row2"><span>Luna trecută</span><span>${usd(P.txt + P.img)}</span></div>` : ''}
     ${top.map(([c, v]) => `<div class="row2"><span>${esc(c.name)}</span><span>${usd(v)}</span></div>`).join('')}`;
@@ -1684,7 +1795,7 @@ async function charProfile(id){
   </div>`);
   const sh = $('.sheet');
   hydrate(sh);
-  sh.addEventListener('click', e => { const v = e.target.closest('[data-view]'); if(v) viewImg(v.dataset.view); });
+  sh.addEventListener('click', e => { const v = e.target.closest('[data-view]'); if(v) viewImg(v.dataset.view, pics.includes(v.dataset.view) ? pics : null); });
   const drawFacts = () => {
     $('#pfFacts').innerHTML = (c.facts || []).length ? c.facts.map((f, k) => `<li><span>${esc(f.t)}</span><button data-fx="${k}" aria-label="Șterge">✕</button></li>`).join('')
       : `<li><span style="color:var(--tx3)">Încă nimic. Se completează singur din conversații, la câteva mesaje.</span></li>`;
@@ -1732,7 +1843,9 @@ async function askPhoto(spont){
     else m.err = msg || 'Eroare la poză';
   }
   delete m.pendingImg; busy = null; live = null;
+  if(!m.err && !(chat === ch && !$('#vChat').hidden)) c.unread = (c.unread || 0) + 1;
   await saveChat(c, ch);
+  if(!$('#vHome').hidden) renderHome();
   if(chat === ch){ setBusyUI(false); renderMsgs(true); if(!m.err && navigator.vibrate) try{ navigator.vibrate(12); }catch(e){} }
 }
 
@@ -1831,15 +1944,87 @@ function confirmSheet(text, okLabel, fn){
   openSheet(`<h4>${esc(text)}</h4><div class="pad btns"><button class="btn" data-close>Renunță</button><button class="btn pri" id="shOk">${esc(okLabel)}</button></div>`);
   $('#shOk').onclick = () => { closeSheet(); fn(); };
 }
-async function viewImg(k){
-  const u = await imgUrl(k); if(!u) return;
+async function viewImg(k, list){
+  if(!list) list = (chat && !$('#vChat').hidden) ? chat.msgs.filter(m => m.img && !m.err).map(m => m.img) : [k];
+  if(!list.includes(k)) list = [k];
+  let idx = list.indexOf(k);
   const v = document.createElement('div'); v.className = 'viewer';
-  v.innerHTML = `<img src="${u}" alt=""><button class="ib x" aria-label="Închide">✕</button><div class="dl" style="display:flex;gap:8px"><button class="btn" id="vwSave">⬇ Salvează</button>${canShareFiles() ? '<button class="btn" id="vwShare">↗️ Trimite</button>' : ''}</div>`;
-  v.querySelector('.x').onclick = () => v.remove();
-  v.querySelector('img').onclick = () => v.remove();
-  v.querySelector('#vwSave').onclick = () => saveImage(k);
-  const sh = v.querySelector('#vwShare'); if(sh) sh.onclick = () => shareImage(k);
+  v.innerHTML = `<div class="vbg"></div><img class="vimg" alt="" draggable="false">
+    <div class="vtop"><span class="vcount"></span><button class="ib x" aria-label="Închide">✕</button></div>
+    <button class="ib vnav l" aria-label="Înapoi">‹</button><button class="ib vnav r" aria-label="Înainte">›</button>
+    <div class="vbar"><button class="btn" id="vwSave">⬇ Salvează</button>${canShareFiles() ? '<button class="btn" id="vwShare">↗️ Trimite</button>' : ''}</div>`;
   document.body.appendChild(v);
+  const img = v.querySelector('.vimg'), bg = v.querySelector('.vbg');
+  let sc = 1, tx = 0, ty = 0;
+  const apply = (anim) => { img.style.transition = anim ? 'transform .25s ease' : 'none'; img.style.transform = `translate(${tx}px,${ty}px) scale(${sc})`; };
+  const fit = () => { const r = img.getBoundingClientRect(); return r; };
+  async function load(i, dir){
+    idx = (i + list.length) % list.length;
+    const u = await imgUrl(list[idx]); if(!u) return;
+    img.style.transition = 'none'; img.style.opacity = '0';
+    img.src = u; bg.style.backgroundImage = `url("${u}")`;
+    sc = 1; tx = dir ? dir * 60 : 0; ty = 0; apply();
+    await img.decode?.().catch(() => {});
+    // centrăm: originea transformării e colțul stânga-sus al imaginii afișate
+    requestAnimationFrame(() => { img.style.transition = 'transform .25s ease, opacity .2s'; img.style.opacity = '1'; tx = 0; apply(true); });
+    v.querySelector('.vcount').textContent = list.length > 1 ? `${idx + 1} / ${list.length}` : '';
+    v.querySelectorAll('.vnav').forEach(b => b.hidden = list.length < 2);
+  }
+  const close = () => v.remove();
+  v.querySelector('.x').onclick = close;
+  v.querySelector('.vnav.l').onclick = () => load(idx - 1, -1);
+  v.querySelector('.vnav.r').onclick = () => load(idx + 1, 1);
+  v.querySelector('#vwSave').onclick = () => saveImage(list[idx]);
+  const sh = v.querySelector('#vwShare'); if(sh) sh.onclick = () => shareImage(list[idx]);
+  // gesturi: ciupit = zoom, tras = mutare (cu zoom) / glisare între poze (fără zoom), tras în jos = închide, dublu-tap = zoom 2,5×
+  const pts = new Map(); let start = null, lastTap = 0;
+  // poziția de bază (fără transformare) a imaginii; valabilă cât timp tx/ty sunt cele aplicate în DOM
+  const base = () => { const r = img.getBoundingClientRect(); return {l:r.left - tx, t:r.top - ty}; };
+  const zoomFrom = (st, b, ns, cx, cy) => {
+    ns = Math.max(1, Math.min(5, ns));
+    const ox = (cx - (b.l + st.tx)) / st.sc, oy = (cy - (b.t + st.ty)) / st.sc;     // punctul de sub degete, în coordonatele imaginii
+    sc = ns; tx = cx - b.l - ox * ns; ty = cy - b.t - oy * ns;
+    if(sc === 1){ tx = 0; ty = 0; }
+  };
+  img.addEventListener('pointerdown', e => {
+    img.setPointerCapture(e.pointerId); pts.set(e.pointerId, {x:e.clientX, y:e.clientY});
+    if(pts.size === 1){
+      const now = Date.now();
+      if(now - lastTap < 280){ zoomFrom({sc, tx, ty}, base(), sc > 1 ? 1 : 2.5, e.clientX, e.clientY); apply(true); lastTap = 0; start = null; return; }
+      lastTap = now;
+      start = {x:e.clientX, y:e.clientY, tx, ty, sc};
+    } else if(pts.size === 2){
+      const [a, b] = [...pts.values()];
+      start = {pinch:true, d:Math.hypot(a.x - b.x, a.y - b.y), sc, cx:(a.x + b.x) / 2, cy:(a.y + b.y) / 2, tx, ty, b:base()};
+    }
+  });
+  img.addEventListener('pointermove', e => {
+    if(!pts.has(e.pointerId) || !start) return;
+    pts.set(e.pointerId, {x:e.clientX, y:e.clientY});
+    if(start.pinch && pts.size >= 2){
+      const [a, b] = [...pts.values()], d = Math.hypot(a.x - b.x, a.y - b.y);
+      zoomFrom(start, start.b, start.sc * d / start.d, start.cx, start.cy); apply();
+    } else if(!start.pinch){
+      const dx = e.clientX - start.x, dy = e.clientY - start.y;
+      if(sc > 1){ tx = start.tx + dx; ty = start.ty + dy; }
+      else if(Math.abs(dx) > Math.abs(dy)){ tx = dx; ty = 0; }
+      else { ty = Math.max(0, dy); tx = 0; v.style.background = `rgba(0,0,0,${Math.max(.3, 1 - ty / 400)})`; }
+      apply();
+    }
+  });
+  const end = e => {
+    pts.delete(e.pointerId);
+    if(!start) return;
+    if(start.pinch){ if(pts.size < 2){ start = null; if(sc <= 1.02){ sc = 1; tx = 0; ty = 0; apply(true); } } return; }
+    const dx = e.clientX - start.x, dy = e.clientY - start.y; start = null;
+    v.style.background = '';
+    if(sc > 1) return;
+    if(Math.abs(dx) > 70 && Math.abs(dx) > Math.abs(dy) && list.length > 1){ load(idx + (dx < 0 ? 1 : -1), dx < 0 ? 1 : -1); return; }
+    if(dy > 120){ close(); return; }
+    tx = 0; ty = 0; apply(true);
+  };
+  img.addEventListener('pointerup', end); img.addEventListener('pointercancel', end);
+  load(idx);
 }
 
 /* ───────── EDITOR ───────── */
@@ -2016,6 +2201,7 @@ const FIELDS = {stKey:'key', stModel:'model', stOaBase:'oaBase', stOaKey:'oaKey'
   stGemKey:'gemKey', stGemModel:'gemModel', stWkBase:'wkBase', stWkTok:'wkTok', stWkModel:'wkModel', stWkSize:'wkSize',
   stFalKey:'falKey', stFalModel:'falModel', stFalSize:'falSize', stImgCost:'imgCost', stPin:'pIn', stPout:'pOut'};
 const SEGS = {stTheme:'theme', stProv:'prov', stLen:'len', stFont:'font', stImg:'imgProv', stImgAlt:'imgProv', stSugg:'sugg', stPro:'pro', stVoice:'voice', stSpont:'spont'};
+let setPanel = null, setPanelPushed = false;
 function openSettings(){
   for(const [id, k] of Object.entries(FIELDS)) $('#' + id).value = S[k] ?? '';
   syncSegs();
@@ -2024,11 +2210,47 @@ function openSettings(){
   $('#stVer').textContent = 'Taifas ' + APP_VER;
   renderCost();
   loadNeurons();
+  closeSetPanel(true);
   show('vSet');
+  if(!aiReady()) openSetPanel('ai', false);
+}
+function openSetPanel(p, push = true){
+  setPanel = p; setPanelPushed = push;
+  $('#setList').hidden = true;
+  $$('#vSet .panel').forEach(x => x.hidden = x.dataset.panel !== p);
+  const el = $(`#vSet .panel[data-panel="${p}"]`);
+  $('#stTitle').textContent = el ? el.dataset.title : 'Setări';
+  $('#stScroll').scrollTop = 0;
+  if(p === 'img') loadNeurons();
+  if(p === 'cost') renderCost();
+  if(push) history.pushState({v:'vSet', p}, '');
+}
+function closeSetPanel(silent){
+  setPanel = null;
+  $$('#vSet .panel').forEach(x => x.hidden = true);
+  $('#setList').hidden = false;
+  $('#stTitle').textContent = 'Setări';
+  if(!silent) renderSetSummary();
+  else renderSetSummary();
+}
+function renderSetSummary(){
+  const nm = S.userName.trim();
+  $('#stMeAv').textContent = (nm || '?')[0].toUpperCase();
+  $('#stMeName').textContent = nm || 'Tu';
+  $('#stMeSub').innerHTML = aiReady() ? `<span style="color:var(--ok)">● conectat</span> · ${chars.length} ${chars.length === 1 ? 'personaj' : 'personaje'}` : '<span style="color:var(--err)">● lipsește cheia</span>';
+  $('#sum_ai').innerHTML = S.prov === 'anthropic'
+    ? (S.key ? `<span class="ok">✓</span> Claude · ${esc(S.model || DEF.model)}` : '<span class="bad">lipsește cheia</span>')
+    : (aiReady() ? `<span class="ok">✓</span> ${esc(S.oaModel)}` : '<span class="bad">necompletat</span>');
+  $('#sum_me').textContent = nm ? nm + (S.userAbout.trim() ? ' · ' + S.userAbout.trim() : '') : 'Cum să-ți spună personajele';
+  const ip = {none:'Oprite', worker:'Worker Cloudflare · ' + (S.wkModel || 'eco'), fal:'fal.ai', gemini:'Gemini'}[S.imgProv] || '';
+  $('#sum_img').textContent = ip;
+  $('#sum_chat').textContent = {scurt:'Răspunsuri scurte', mediu:'Răspunsuri medii', lung:'Răspunsuri lungi'}[S.len] + ' · voce ' + {off:'oprită', tap:'la 🔊', auto:'automată'}[S.voice];
+  $('#sum_look').textContent = {auto:'Temă automată', dark:'Temă întunecată', light:'Temă luminoasă'}[S.theme] + ' · text ' + {15:'mic', 16:'normal', 18:'mare'}[S.font];
 }
 function syncSegs(){
   for(const [id, k] of Object.entries(SEGS)) $$('#' + id + ' button').forEach(b => b.classList.toggle('on', b.dataset.v === String(S[k])));
-  $('#stAnt').hidden = $('#stAntAdv').hidden = S.prov !== 'anthropic'; $('#stOa').hidden = S.prov === 'anthropic';
+  $('#stAnt').hidden = $('#stAntAdv').hidden = S.prov !== 'anthropic';
+  if(!$('#vSet').hidden) renderSetSummary(); $('#stOa').hidden = S.prov === 'anthropic';
   const alt = S.imgProv === 'fal' || S.imgProv === 'gemini';
   $$('#stImg button').forEach(b => b.classList.toggle('on', b.dataset.v === (alt ? 'alt' : S.imgProv)));
   $$('#stImgAlt button').forEach(b => b.classList.toggle('on', b.dataset.v === S.imgProv));
@@ -2150,6 +2372,41 @@ function bind(){
   $('#btnSettings').onclick = openSettings;
   $$('#nav [data-tab]').forEach(b => b.onclick = () => { homeTab = b.dataset.tab; renderHome(); $('#homeScroll').scrollTop = 0; });
   $('#obStart').onclick = () => openSettings();
+  // lista de conversații: glisare spre stânga = Fixează / Golește
+  let rx = 0, ry = 0, rEl = null, rLock = null, rOpen = null;
+  const closeRow = () => { if(rOpen){ rOpen.querySelector('.cfront').style.transform = ''; rOpen = null; } };
+  $('#homeChats').addEventListener('touchstart', e => { const r = e.target.closest('.crow'); rEl = r; rLock = null; if(!r) return; rx = e.touches[0].clientX; ry = e.touches[0].clientY; if(rOpen && rOpen !== r) closeRow(); }, {passive:true});
+  $('#homeChats').addEventListener('touchmove', e => {
+    if(!rEl) return; const dx = e.touches[0].clientX - rx, dy = e.touches[0].clientY - ry;
+    if(rLock === null && (Math.abs(dx) > 8 || Math.abs(dy) > 8)) rLock = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
+    if(rLock !== 'x') return;
+    const base = rOpen === rEl ? -152 : 0;
+    const f = rEl.querySelector('.cfront'); f.style.transition = 'none'; f.style.transform = `translateX(${Math.max(-170, Math.min(0, base + dx))}px)`;
+  }, {passive:true});
+  $('#homeChats').addEventListener('touchend', e => {
+    if(!rEl) return; const r = rEl; rEl = null; const f = r.querySelector('.cfront'); f.style.transition = '';
+    if(rLock !== 'x'){ return; }
+    const dx = e.changedTouches[0].clientX - rx, base = rOpen === r ? -152 : 0;
+    if(base + dx < -70){ f.style.transform = 'translateX(-152px)'; rOpen = r; } else { f.style.transform = ''; if(rOpen === r) rOpen = null; }
+    r.dataset.swiped = '1'; setTimeout(() => delete r.dataset.swiped, 350);
+  });
+  $('#homeChats').addEventListener('click', async e => {
+    const r = e.target.closest('.crow'); if(!r) return;
+    const c = charById(r.dataset.c); if(!c) return;
+    if(e.target.closest('[data-pin]')){ e.stopPropagation(); c.pinned = !c.pinned; await saveChars(); rOpen = null; renderHome(); toast(c.pinned ? '📌 Fixată sus' : 'Nu mai e fixată'); return; }
+    if(e.target.closest('[data-clr]')){
+      e.stopPropagation(); closeRow();
+      confirmSheet(`Golești conversația curentă cu ${c.name}? Mesajele și pozele din ea dispar.`, 'Golește', async () => {
+        const tid = c.thread || 'main', ch = await DB.get(chatKey(c.id, tid));
+        if(ch) for(const m of ch.msgs) if(m.img && m.img !== c.photo) await delImg(m.img);
+        const nc = newChat(); nc.tid = tid; nc.scene = ch?.scene || ''; if(c.greet) nc.msgs.push(greetMsg(c));
+        c.unread = 0; await saveChat(c, nc); renderHome();
+      });
+      return;
+    }
+    if(r.dataset.swiped || rOpen === r){ e.stopPropagation(); closeRow(); }
+  }, true);
+  $('#setList').addEventListener('click', e => { const r = e.target.closest('[data-p]'); if(r) openSetPanel(r.dataset.p); });
   $('#edSteps').addEventListener('click', e => { const b = e.target.closest('[data-s]'); if(b) edGo(+b.dataset.s); });
   $('#edBack').onclick = () => edGo(edStep - 1);
   $('#edNext').onclick = () => edStep < 3 ? edGo(edStep + 1) : saveEditor();
@@ -2254,7 +2511,7 @@ function bind(){
   $('#sceneBar').onclick = editScene;
   $('#stCostReset').onclick = () => confirmSheet('Resetezi contorul de consum?', 'Resetează', async () => { await DB.del('usage'); renderCost(); });
   // setări: salvare automată la orice schimbare
-  for(const [id, k] of Object.entries(FIELDS)) $('#' + id).addEventListener('change', e => { S[k] = e.target.value.trim(); saveSettings(); if(k === 'wkBase' || k === 'wkTok' || k === 'wkModel' || k === 'wkSize') loadNeurons(); drawWkEst(); });
+  for(const [id, k] of Object.entries(FIELDS)) $('#' + id).addEventListener('change', e => { S[k] = e.target.value.trim(); saveSettings(); if(k === 'wkBase' || k === 'wkTok' || k === 'wkModel' || k === 'wkSize') loadNeurons(); drawWkEst(); renderSetSummary(); });
   for(const [id, k] of Object.entries(SEGS)) $$('#' + id + ' button').forEach(b => b.onclick = () => {
     let v = k === 'font' ? +b.dataset.v : b.dataset.v;
     if(v === 'alt') v = (S.imgProv === 'fal' || S.imgProv === 'gemini') ? S.imgProv : (S.imgAlt || 'fal');
