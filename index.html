@@ -160,6 +160,28 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
 .viewer img{max-width:100%;max-height:100%;object-fit:contain}
 .viewer .x{position:absolute;top:calc(10px + var(--safe-t));right:12px;background:#0008}
 .viewer .dl{position:absolute;bottom:calc(16px + var(--safe-b));left:50%;transform:translateX(-50%)}
+/* 2.3 */
+.search{margin:0 12px 10px;display:flex;align-items:center;gap:8px;background:var(--bg2);border:1px solid var(--line);border-radius:14px;padding:0 12px}
+.search input{border:0!important;background:transparent!important;padding:10px 0!important}
+.card .fav{position:absolute;top:8px;right:8px;font-size:.9rem;filter:drop-shadow(0 1px 2px #000)}
+#sugg{display:flex;gap:6px;overflow-x:auto;padding:0 10px 2px;position:relative;z-index:2;flex:none;scrollbar-width:none}
+#sugg:empty{display:none}
+#sugg button{flex:none;max-width:78vw;padding:8px 13px;border-radius:16px;background:#2a2235e6;border:1px solid #4a3a5e;font-size:.88rem;text-align:left;line-height:1.3;white-space:normal}
+#sugg button em{color:#c9b8dc}
+#sugg .spin{margin:8px 12px}
+#btnSugg{width:44px;height:44px;border-radius:50%;background:var(--bg2);font-size:1.1rem;display:grid;place-items:center;flex:none;border:1px solid var(--line)}
+.chathead small.typing{color:var(--acc)}
+.prof{padding:0 6px}
+.prof .hero{position:relative;border-radius:18px;overflow:hidden;aspect-ratio:3/4;max-height:52vh;width:100%;background:var(--card)}
+.prof .hero img{width:100%;height:100%;object-fit:cover}
+.prof .hero .ov{position:absolute;inset:auto 0 0 0;padding:50px 16px 14px;background:linear-gradient(transparent,#000d)}
+.prof .hero b{font-size:1.5rem;display:block}
+.prof .hero small{color:#e6dfee}
+.prof p{margin:12px 6px;color:var(--tx2);line-height:1.5;font-size:.92rem}
+.gal{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin:6px 0}
+.gal img{width:100%;aspect-ratio:3/4;object-fit:cover;border-radius:8px;cursor:zoom-in}
+.prof h5{margin:14px 6px 6px;font-size:.78rem;text-transform:uppercase;letter-spacing:.08em;color:var(--tx3)}
+.swipe{transition:transform .15s}
 #toast{position:fixed;left:50%;bottom:calc(90px + var(--safe-b));transform:translateX(-50%);background:#2a2433;border:1px solid var(--line);padding:10px 16px;border-radius:12px;z-index:99;max-width:90vw;font-size:.9rem;box-shadow:0 6px 20px #0008;transition:opacity .2s;pointer-events:none}
 #toast:empty{opacity:0}
 </style>
@@ -177,6 +199,7 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
     <button data-tab="chats">Conversații</button>
   </nav>
   <div class="scroll">
+    <div class="search" id="searchWrap" hidden>🔎<input id="search" placeholder="Caută un personaj" autocomplete="off"></div>
     <div id="homeChars" class="grid"></div>
     <div id="homeChats" class="list" hidden></div>
   </div>
@@ -191,9 +214,11 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
     <button class="ib" id="chMenu" aria-label="Meniu">⋯</button>
   </header>
   <div id="msgs"></div>
+  <div id="sugg"></div>
   <form id="composer" autocomplete="off">
     <button type="button" id="btnPhoto" aria-label="Cere o poză">📷</button>
-    <textarea id="inp" rows="1" placeholder="Scrie un mesaj…  (*acțiune* între asteriscuri)"></textarea>
+    <button type="button" id="btnSugg" aria-label="Sugestii de răspuns">💡</button>
+    <textarea id="inp" rows="1" placeholder="Scrie un mesaj…"></textarea>
     <button type="submit" id="btnSend" aria-label="Trimite">➤</button>
   </form>
 </section>
@@ -292,6 +317,17 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
     </div>
 
     <div class="sec">
+      <h3>Ca în Botify</h3>
+      <label>Sugestii de răspuns după fiecare mesaj</label>
+      <div class="seg" id="stSugg"><button data-v="off">Doar la 💡</button><button data-v="auto">Automat</button></div>
+      <label>Personajul îți scrie primul dacă n-ai mai intrat de 8 ore</label>
+      <div class="seg" id="stPro"><button data-v="off">Nu</button><button data-v="on">Da</button></div>
+      <label>Citire cu voce</label>
+      <div class="seg" id="stVoice"><button data-v="off">Oprit</button><button data-v="tap">La 🔊</button><button data-v="auto">Automat</button></div>
+      <div class="hint">Vocea e cea a telefonului (română, dacă e instalată). Se citesc doar replicile, fără *acțiuni*.</div>
+    </div>
+
+    <div class="sec">
       <h3>Poze în conversație (opțional)</h3>
       <div class="seg" id="stImg"><button data-v="none">Oprit</button><button data-v="gemini">Gemini</button><button data-v="worker">Worker propriu</button></div>
       <div id="stGem" hidden>
@@ -334,7 +370,7 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
 
 <script>
 'use strict';
-const APP_VER = '2.2';
+const APP_VER = '2.3';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -371,7 +407,8 @@ const DEF = {
   oaBase:'https://openrouter.ai/api/v1', oaKey:'', oaModel:'',
   userName:'', userAbout:'', len:'mediu', font:16,
   imgProv:'none', gemKey:'', gemModel:'gemini-2.5-flash-image',
-  wkBase:'', wkTok:'', wkModel:'ancorat', wkSize:'576x768'
+  wkBase:'', wkTok:'', wkModel:'ancorat', wkSize:'576x768',
+  sugg:'off', pro:'on', voice:'tap'
 };
 let S = {...DEF};
 let chars = [];            // [{id,name,tag,photo,aspect,look,stil,persona,speech,greet,created,lastAt,last}]
@@ -556,7 +593,11 @@ Păstrează tot ce am scris și dezvoltă natural. Răspunde STRICT cu JSON:
 }
 
 /* ───────── generare poze ───────── */
-const STIL_TAG = {photo:'photorealistic smartphone photo, natural light, detailed skin', anime:'anime style, clean lineart', illustration:'digital illustration', '3d':'3d render, soft lighting'};
+const STIL_TAG = {
+  photo:'candid photo taken with a recent smartphone, photorealistic, natural skin texture with pores, soft natural light, shallow depth of field, sharp focus on the eyes, true-to-life colors, no text, no watermark',
+  anime:'high quality anime illustration, clean lineart, soft cel shading, detailed eyes, no text',
+  illustration:'polished digital illustration, painterly lighting, detailed face, no text',
+  '3d':'high quality 3d render, soft global illumination, detailed face, no text'};
 async function genImage(prompt, ref, signal){
   if(S.imgProv === 'gemini'){
     if(!S.gemKey) throw new Error('Lipsește cheia Google în Setări → Poze.');
@@ -610,9 +651,12 @@ function renderHome(){
   $$('.tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === homeTab));
   $('#homeChars').hidden = homeTab !== 'chars';
   $('#homeChats').hidden = homeTab !== 'chats';
-  const sorted = [...chars].sort((a, b) => (b.lastAt || b.created || 0) - (a.lastAt || a.created || 0));
-  $('#homeChars').innerHTML = `<button class="card new" id="btnNew"><div><span>＋</span><em>Personaj nou</em></div></button>` +
-    sorted.map(c => `<button class="card" data-open="${c.id}">
+  const sorted = [...chars].sort((a, b) => (b.fav ? 1 : 0) - (a.fav ? 1 : 0) || (b.lastAt || b.created || 0) - (a.lastAt || a.created || 0));
+  $('#searchWrap').hidden = homeTab !== 'chars' || chars.length < 5;
+  const q = $('#search').value.trim().toLowerCase();
+  const shown = q ? sorted.filter(c => (c.name + ' ' + (c.tag || '')).toLowerCase().includes(q)) : sorted;
+  $('#homeChars').innerHTML = (q ? '' : `<button class="card new" id="btnNew"><div><span>＋</span><em>Personaj nou</em></div></button>`) +
+    shown.map(c => `<button class="card" data-open="${c.id}">${c.fav ? '<span class="fav">⭐</span>' : ''}
       ${c.photo ? `<img data-k="${esc(c.photo)}" alt="">` : `<div class="ph" style="background:${colorFor(c)}">${esc(c.name[0] || '?')}</div>`}
       <div class="ov"><b>${esc(c.name)}</b>${c.tag ? `<small>${esc(c.tag)}</small>` : ''}</div></button>`).join('');
   const withChat = sorted.filter(c => c.last);
@@ -643,6 +687,19 @@ async function openChat(id, push = true){
   renderMsgs(true);
   hydrate($('#vChat'));
   setBusyUI(!!(busy && live && live.c === cur));
+  $('#sugg').innerHTML = '';
+  maybeProactive();
+}
+const PRO_H = 8;
+function maybeProactive(){
+  if(S.pro !== 'on' || busy || !aiReady() || !chat.msgs.length) return;
+  const last = chat.msgs[chat.msgs.length - 1];
+  if(last.err || last.pro) return;
+  const h = (Date.now() - (last.ts || Date.now())) / 36e5;
+  if(h < PRO_H) return;
+  const u = S.userName.trim() || 'utilizatorul';
+  const ore = h < 48 ? Math.round(h) + ' de ore' : Math.round(h / 24) + ' zile';
+  reply(null, {pro:true, note:`(Notă de regie, nu o menționa ca atare: au trecut ${ore} de la ultimul mesaj. Acum e ${new Date().toLocaleTimeString('ro-RO', {hour:'2-digit', minute:'2-digit'})}. Scrie-i tu primul lui ${u}, natural, ca și cum reiei legătura după pauza asta.)`});
 }
 function newChat(){ return {msgs:[], summary:'', sumUpTo:0}; }
 function greetMsg(c){ return {id:uid(), role:'ai', text:c.greet, alts:[c.greet], alt:0, ts:Date.now()}; }
@@ -661,7 +718,8 @@ function msgHTML(m, i, lastAi){
     under = `<div class="under">
       ${n > 1 ? `<button data-alt="-1" ${m.alt <= 0 ? 'disabled' : ''}>‹</button><span>${(m.alt || 0) + 1}/${n}</span><button data-alt="1" ${m.alt >= n - 1 ? 'disabled' : ''}>›</button>` : ''}
       ${m.img || !m.alts ? '' : `<button data-regen>↻ Alt răspuns</button>`}
-      ${m.err ? `<button data-retry>Reîncearcă</button>` : ''}</div>`;
+      ${m.err ? `<button data-retry>Reîncearcă</button>` : ''}
+      ${S.voice !== 'off' && m.text && !m.err ? `<button data-say>🔊</button>` : ''}</div>`;
   }
   return `<div class="mw" data-i="${i}"><div class="m ${me ? 'me' : 'ai'}">${me ? '' : avatarHTML(cur)}${inner}</div>${under}</div>`;
 }
@@ -685,6 +743,9 @@ function setBusyUI(on){
   const b = $('#btnSend'); b.classList.toggle('stop', on); b.textContent = on ? '■' : '➤';
   b.setAttribute('aria-label', on ? 'Oprește' : 'Trimite');
   $('#btnPhoto').disabled = on;
+  const t = $('#chTag');
+  if(on && live && cur && live.c === cur){ t.textContent = live.photo ? 'îți face o poză…' : 'scrie…'; t.classList.add('typing'); }
+  else if(cur){ t.textContent = cur.tag || ''; t.classList.remove('typing'); }
 }
 
 const LEN = {scurt:{t:'1-2 fraze scurte', max:350}, mediu:{t:'un paragraf, cel mult două', max:800}, lung:{t:'2-4 paragrafe bogate', max:1500}};
@@ -721,16 +782,19 @@ async function send(){
   await saveChat(); renderMsgs(true);
   await reply();
 }
-async function reply(target){
+async function reply(target, opts = {}){
   const c = cur, ch = chat;
   let m = target;
+  $('#sugg').innerHTML = '';
   if(m){ m.alts = m.alts || [m.text]; m.alts.push(''); m.alt = m.alts.length - 1; m.text = ''; delete m.err; }
-  else { m = {id:uid(), role:'ai', text:'', alts:[''], alt:0, ts:Date.now()}; ch.msgs.push(m); }
+  else { m = {id:uid(), role:'ai', text:'', alts:[''], alt:0, ts:Date.now()}; if(opts.pro){ m.pro = true; m.note = opts.note; } ch.msgs.push(m); }
   m.pending = true; renderMsgs(true);
   const idx = ch.msgs.indexOf(m);
   busy = new AbortController(); live = {c, ch}; setBusyUI(true);
   try{
-    const full = await stream(systemFor(c), contextUpTo(idx), {max:LEN[S.len].max, signal:busy.signal,
+    const ctx = contextUpTo(idx);
+    if(m.note) ctx.push({role:'user', text:m.note});
+    const full = await stream(systemFor(c), ctx, {max:LEN[S.len].max, signal:busy.signal,
       onText: t => { m.text = t; if(chat === ch) liveUpdate(m); }});
     m.text = faraLiniute(full.trim());
     if(!m.text) throw new Error('Răspuns gol. Încearcă din nou.');
@@ -742,7 +806,70 @@ async function reply(target){
   busy = null; live = null;
   await saveChat(c, ch);
   if(chat === ch){ setBusyUI(false); renderMsgs(); }
-  if(!m.err) summarizeIfNeeded(c, ch);
+  if(!m.err){
+    summarizeIfNeeded(c, ch);
+    if(chat === ch && S.voice === 'auto') say(m.text);
+    if(chat === ch && S.sugg === 'auto') suggest();
+  }
+}
+
+/* sugestii de răspuns (ca în Botify) */
+let suggAbort = null;
+async function suggest(){
+  if(busy || !aiReady() || !cur) return;
+  const c = cur, ch = chat, box = $('#sugg');
+  if(suggAbort) suggAbort.abort();
+  suggAbort = new AbortController();
+  box.innerHTML = '<span class="spin"></span>';
+  const u = S.userName.trim() || 'utilizatorul';
+  const recent = ch.msgs.slice(-10).filter(x => x.text && !x.err).map(x => (x.role === 'user' ? u : c.name) + ': ' + x.text).join('\n');
+  try{
+    const out = await stream('Ajuți un utilizator să continue o conversație. Scrii în română corectă, cu diacritice.', [{role:'user', text:
+      `Personaj: ${c.name}${c.tag ? ' (' + c.tag + ')' : ''}.\n\nUltimele mesaje:\n${recent || '(început)'}\n\nPropune 3 replici scurte (max 14 cuvinte fiecare) pe care ${u} i le-ar putea scrie acum lui ${c.name}, ca ${u}, la persoana I. Variază: una curioasă, una jucăușă, una cu o acțiune între *asteriscuri*. Răspunde STRICT cu un array JSON de 3 texte.`}],
+      {max:300, signal:suggAbort.signal});
+    const a = out.indexOf('['), b = out.lastIndexOf(']');
+    const arr = JSON.parse(out.slice(a, b + 1)).map(x => faraLiniute(String(x).trim())).filter(Boolean).slice(0, 3);
+    if(chat !== ch) return;
+    box.innerHTML = arr.map((x, k) => `<button type="button" data-s="${k}">${fmt(x)}</button>`).join('');
+    box.querySelectorAll('button').forEach(bt => bt.onclick = () => { $('#inp').value = arr[+bt.dataset.s]; autoSize(); box.innerHTML = ''; $('#inp').focus(); });
+  }catch(e){ if(e.name !== 'AbortError'){ box.innerHTML = ''; toast('Sugestiile n-au mers: ' + e.message, 3500); } }
+}
+
+/* voce */
+function say(t){
+  if(!('speechSynthesis' in window) || !t) return;
+  speechSynthesis.cancel();
+  const clean = String(t).replace(/\*[^*]*\*/g, ' ').replace(/\s+/g, ' ').trim();
+  if(!clean) return;
+  const u = new SpeechSynthesisUtterance(clean);
+  u.lang = 'ro-RO';
+  const v = speechSynthesis.getVoices().find(x => /^ro/i.test(x.lang));
+  if(v) u.voice = v;
+  speechSynthesis.speak(u);
+}
+
+/* profilul personajului */
+async function charProfile(id){
+  const c = charById(id); if(!c) return;
+  const ch = await DB.get('chat:' + id);
+  const pics = ch ? ch.msgs.filter(m => m.img).map(m => m.img).reverse() : [];
+  openSheet(`<div class="prof">
+    <div class="hero">${c.photo ? `<img data-k="${esc(c.photo)}" data-view="${esc(c.photo)}" alt="">` : `<div class="ph" style="position:absolute;inset:0;display:grid;place-items:center;font-size:4rem;background:${colorFor(c)}">${esc(c.name[0])}</div>`}
+      <div class="ov"><b>${esc(c.name)}</b>${c.tag ? `<small>${esc(c.tag)}</small>` : ''}</div></div>
+    ${c.persona ? `<p>${esc(c.persona)}</p>` : ''}
+    ${pics.length ? `<h5>Galerie · ${pics.length}</h5><div class="gal">${pics.map(k => `<img data-k="${esc(k)}" data-view="${esc(k)}" alt="">`).join('')}</div>` : ''}
+    <div class="btns">
+      <button class="btn" id="pfFav">${c.fav ? '★ Scoate de la favorite' : '☆ Favorit'}</button>
+      <button class="btn" id="pfEdit">✏️ Editează</button>
+    </div>
+    <div class="btns" style="margin-top:8px"><button class="btn pri" id="pfChat">💬 ${cur && cur.id === id ? 'Înapoi la conversație' : 'Conversație'}</button></div>
+  </div>`);
+  const sh = $('.sheet');
+  hydrate(sh);
+  sh.addEventListener('click', e => { const v = e.target.closest('[data-view]'); if(v) viewImg(v.dataset.view); });
+  $('#pfFav').onclick = async () => { c.fav = !c.fav; await saveChars(); closeSheet(); toast(c.fav ? '⭐ Adăugat la favorite' : 'Scos de la favorite'); if(!$('#vHome').hidden) renderHome(); };
+  $('#pfEdit').onclick = () => { closeSheet(); openEditor(id); };
+  $('#pfChat').onclick = () => { closeSheet(); if(!(cur && cur.id === id && !$('#vChat').hidden)) openChat(id); };
 }
 
 async function askPhoto(){
@@ -751,11 +878,12 @@ async function askPhoto(){
   const c = cur, ch = chat;
   const m = {id:uid(), role:'ai', text:'', pendingImg:true, ts:Date.now()};
   ch.msgs.push(m); renderMsgs(true);
-  busy = new AbortController(); live = {c, ch}; setBusyUI(true);
+  busy = new AbortController(); live = {c, ch, photo:true}; setBusyUI(true);
+  $('#sugg').innerHTML = '';
   try{
     const recent = ch.msgs.slice(-9, -1).filter(x => x.text).map(x => (x.role === 'user' ? (S.userName || 'User') : c.name) + ': ' + x.text).join('\n');
     const scene = await stream('You are a photo director. Answer with one English sentence only.', [{role:'user', text:
-      `Character: ${c.name}. Appearance: ${c.look || c.aspect}\n\nRecent conversation:\n${recent || '(just started)'}\n\nIn ONE English sentence, describe the photo ${c.name} would take of themselves right now: setting, pose, outfit, expression, lighting. Only the sentence.`}],
+      `Character: ${c.name}. Appearance: ${c.look || c.aspect}\n\nRecent conversation:\n${recent || '(just started)'}\n\nDescribe, in ONE English sentence of max 45 words, the photo ${c.name} would send right now, matching the moment in the conversation. Start with the framing (selfie / mirror selfie / photo taken by a friend / close-up portrait), then setting, pose, outfit, facial expression, light and time of day. Keep the same person; do not describe the face again. Only the sentence.`}],
       {max:160, signal:busy.signal});
     const prompt = [c.look || '', scene.trim(), STIL_TAG[c.stil || 'photo']].filter(Boolean).join('. ');
     const ref = c.photo ? await DB.get(c.photo) : null;
@@ -787,6 +915,7 @@ function msgSheet(i){
   const me = m.role === 'user';
   const opts = [];
   if(m.text) opts.push(['📋', 'Copiază', () => { navigator.clipboard?.writeText(m.text); toast('Copiat'); }]);
+  if(m.text && !me) opts.push(['🔊', 'Citește cu voce', () => say(m.text)]);
   if(m.text && !busy) opts.push(['✏️', me ? 'Editează și retrimite' : 'Editează', () => editMsg(i)]);
   if(m.img) opts.push(['🖼️', 'Fă-o poză de profil', async () => { cur.photo = m.img; await saveChars(); toast('Poză de profil schimbată'); openChat(cur.id); }]);
   if(!busy) opts.push(['🗑️', 'Șterge mesajul', async () => { chat.msgs.splice(i, 1); await saveChat(); renderMsgs(); }, 'dan']);
@@ -796,9 +925,9 @@ function msgSheet(i){
 function retry(i){
   const m = chat.msgs[i];
   if(m.alts && m.alts.length > 1){ m.alts.pop(); m.alt = m.alts.length - 1; m.text = m.alts[m.alt]; delete m.err; reply(m); return; }
-  const wasPhoto = !m.alts;
+  const wasPhoto = !m.alts, note = m.note;
   chat.msgs.splice(i, 1);
-  wasPhoto ? askPhoto() : reply();
+  wasPhoto ? askPhoto() : reply(null, note ? {pro:true, note} : {});
 }
 function editMsg(i){
   const m = chat.msgs[i];
@@ -973,7 +1102,7 @@ async function deleteChar(){
 const aiReady = () => S.prov === 'anthropic' ? !!S.key.trim() : !!(S.oaBase && S.oaModel);
 const FIELDS = {stKey:'key', stModel:'model', stOaBase:'oaBase', stOaKey:'oaKey', stOaModel:'oaModel', stUser:'userName', stAbout:'userAbout',
   stGemKey:'gemKey', stGemModel:'gemModel', stWkBase:'wkBase', stWkTok:'wkTok', stWkModel:'wkModel', stWkSize:'wkSize'};
-const SEGS = {stProv:'prov', stLen:'len', stFont:'font', stImg:'imgProv'};
+const SEGS = {stProv:'prov', stLen:'len', stFont:'font', stImg:'imgProv', stSugg:'sugg', stPro:'pro', stVoice:'voice'};
 function openSettings(){
   for(const [id, k] of Object.entries(FIELDS)) $('#' + id).value = S[k] ?? '';
   syncSegs();
@@ -1058,12 +1187,35 @@ function bind(){
   $('#inp').addEventListener('keydown', e => { if(e.key === 'Enter' && !e.shiftKey && !matchMedia('(pointer:coarse)').matches){ e.preventDefault(); $('#composer').requestSubmit(); } });
   $('#btnPhoto').onclick = askPhoto;
   $('#chMenu').onclick = chatMenu;
-  $('#chWho').onclick = () => openEditor(cur.id);
+  $('#chWho').onclick = () => charProfile(cur.id);
+  $('#btnSugg').onclick = () => { if(!aiReady()){ toast('Adaugă cheia în Setări.'); return; } if(busy){ toast('Așteaptă răspunsul.'); return; } suggest(); };
+  $('#search').addEventListener('input', renderHome);
+  // apăsare lungă pe card → profil
+  let lpT = null, lpFired = false;
+  $('#vHome').addEventListener('pointerdown', e => { const o = e.target.closest('[data-open]'); if(!o) return; lpFired = false; lpT = setTimeout(() => { lpFired = true; charProfile(o.dataset.open); }, 480); });
+  ['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => $('#vHome').addEventListener(ev, () => clearTimeout(lpT)));
+  $('#vHome').addEventListener('scroll', () => clearTimeout(lpT), true);
+  $('#vHome').addEventListener('contextmenu', e => { if(e.target.closest('[data-open]')) e.preventDefault(); });
+  $('#vHome').addEventListener('click', e => { if(lpFired){ e.stopImmediatePropagation(); lpFired = false; } }, true);
+  // glisare pe ultimul răspuns → variante (ca în Botify)
+  let sx = 0, sy = 0, sEl = null;
+  $('#msgs').addEventListener('touchstart', e => { const b = e.target.closest('.mw'); sEl = null; if(!b || busy) return; const m = chat.msgs[+b.dataset.i]; if(!m || m.role !== 'ai' || !b.querySelector('.under')) return; sEl = b; sx = e.touches[0].clientX; sy = e.touches[0].clientY; }, {passive:true});
+  $('#msgs').addEventListener('touchmove', e => { if(!sEl) return; const dx = e.touches[0].clientX - sx; if(Math.abs(dx) > Math.abs(e.touches[0].clientY - sy)) sEl.querySelector('.m').style.transform = `translateX(${Math.max(-80, Math.min(80, dx * .5))}px)`; }, {passive:true});
+  $('#msgs').addEventListener('touchend', e => {
+    if(!sEl) return; const el = sEl; sEl = null;
+    const mm = el.querySelector('.m'); mm.classList.add('swipe'); mm.style.transform = ''; setTimeout(() => mm.classList.remove('swipe'), 200);
+    const dx = e.changedTouches[0].clientX - sx, dy = e.changedTouches[0].clientY - sy;
+    if(Math.abs(dx) < 70 || Math.abs(dy) > 50) return;
+    const i = +el.dataset.i, m = chat.msgs[i]; if(!m.alts || m.img) return;
+    if(dx < 0){ if((m.alt || 0) < m.alts.length - 1){ m.alt++; m.text = m.alts[m.alt]; saveChat(); renderMsgs(); } else reply(m); }
+    else if((m.alt || 0) > 0){ m.alt--; m.text = m.alts[m.alt]; saveChat(); renderMsgs(); }
+  });
   $('#msgs').addEventListener('click', e => {
     const v = e.target.closest('[data-view]'); if(v){ viewImg(v.dataset.view); return; }
     const w = e.target.closest('.mw'); if(!w) return;
     const i = +w.dataset.i, m = chat.msgs[i];
     if(e.target.closest('[data-regen]')){ if(!busy) reply(m); return; }
+    if(e.target.closest('[data-say]')){ say(m.text); return; }
     if(e.target.closest('[data-retry]')){ if(!busy) retry(i); return; }
     const a = e.target.closest('[data-alt]');
     if(a){ m.alt = Math.max(0, Math.min(m.alts.length - 1, (m.alt || 0) + +a.dataset.alt)); m.text = m.alts[m.alt]; delete m.err; saveChat(); renderMsgs(); return; }

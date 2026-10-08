@@ -1,7 +1,7 @@
 /* Taifas 2 — service worker
    Pagina vine din rețea întâi (versiunea nouă se vede imediat), cache-ul e doar plasă offline.
    API-urile și orice alt domeniu trec direct la rețea. */
-const CACHE = 'taifas2-v3';   // ↑ crește la fiecare versiune
+const CACHE = 'taifas2-v4';   // ↑ crește la fiecare versiune
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './icon-512-maskable.png', './icon-180.png'];
 
 self.addEventListener('install', e => {
