@@ -718,6 +718,9 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
       </div>
       <div class="btns"><button type="button" class="btn" id="stTest">Testează</button></div>
       <div class="status" id="stTestRes"></div>
+      <label>Model mic pentru sarcini de fundal (sugestii, memorie, rezumat, jurnal, scene foto)</label>
+      <div class="seg" id="stAux"><button data-v="on">Haiku (ieftin)</button><button data-v="off">Modelul principal</button></div>
+      <div class="hint">Personajul răspunde mereu cu modelul principal; doar sarcinile din spate folosesc modelul mic.</div>
       <h3 style="margin-top:20px">Model AI</h3>
       <div class="seg" id="stProv"><button data-v="anthropic">Claude</button><button data-v="openai">Alt furnizor</button></div>
       <div id="stAntAdv">
@@ -784,6 +787,8 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
     <div class="panel sec" data-panel="chat" data-title="Răspunsuri și voce" hidden>
       <label>Lungimea răspunsurilor</label>
       <div class="seg" id="stLen"><button data-v="scurt">Scurte</button><button data-v="mediu">Medii</button><button data-v="lung">Lungi</button></div>
+      <label>Câte mesaje recente primește personajul (restul e în rezumat)</label>
+      <div class="seg" id="stCtx"><button data-v="20">Economic · 20</button><button data-v="30">Normal · 30</button><button data-v="60">Mare · 60</button></div>
       <label>Sugestii de răspuns</label>
       <div class="seg" id="stSugg"><button data-v="off">Doar la 💡</button><button data-v="auto">După fiecare mesaj</button></div>
       <label>Personajul îți scrie primul după 8 ore de pauză</label>
@@ -828,7 +833,7 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
 
 <script>
 'use strict';
-const APP_VER = '3.9';
+const APP_VER = '4.0';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -866,7 +871,7 @@ const DEF = {
   userName:'', userAbout:'', len:'mediu', font:16,
   imgProv:'none', gemKey:'', gemModel:'gemini-2.5-flash-image',
   wkBase:'', wkTok:'', wkModel:'eco', wkSize:'768x1024',
-  sugg:'off', pro:'on', voice:'tap', theme:'dark', vmsg:'rar', jrn:'on',
+  sugg:'off', pro:'on', voice:'tap', theme:'dark', vmsg:'rar', jrn:'on', aux:'on', ctxN:'30',
   falKey:'', falModel:'fal-ai/flux-pulid', falSize:'576x768', spont:'rar', imgAlt:'fal', sv:34, imgCost:'', pIn:'', pOut:''
 };
 let S = {...DEF};
@@ -969,12 +974,15 @@ function provMsgs(msgs){
   const out = [];
   for(const m of msgs){
     const last = out[out.length - 1];
-    if(last && last.role === m.role && !m.image && !last.image){ last.text += '\n\n' + m.text; continue; }
+    if(last && last.role === m.role && !m.image && !last.image){ last.text += '\n\n' + m.text; if(m._cache) last._cache = true; continue; }
     out.push({...m});
   }
   if(!out.length || out[0].role !== 'user') out.unshift({role:'user', text:'(Începe conversația.)'});
+  // punct de cache pe istoric: tot ce e până la mesajul marcat se citește din cache la ~10% din preț la răspunsul următor
+  const cc = m => m._cache ? {cache_control:{type:'ephemeral'}} : {};
   if(S.prov === 'anthropic') return out.map(m => ({role:m.role, content: m.image
-    ? [{type:'image', source:{type:'base64', media_type:'image/jpeg', data:m.image}}, {type:'text', text:m.text}] : m.text}));
+    ? [{type:'image', source:{type:'base64', media_type:'image/jpeg', data:m.image}}, {type:'text', text:m.text, ...cc(m)}]
+    : (m._cache ? [{type:'text', text:m.text, ...cc(m)}] : m.text)}));
   return out.map(m => ({role:m.role, content: m.image
     ? [{type:'image_url', image_url:{url:'data:image/jpeg;base64,' + m.image}}, {type:'text', text:m.text}] : m.text}));
 }
@@ -986,15 +994,32 @@ async function errText(r){
   return `${r.status}: ${t}`;
 }
 // trimite și primește bucată cu bucată; întoarce textul complet
-async function stream(sys, msgs, {max = 700, signal, onText, cid} = {}){
+// model mic pentru sarcinile de fundal (sugestii, memorie, rezumat, scenă foto, nume, jurnal)
+const AUX_DEF = 'claude-haiku-5-5';
+let auxBroken = false;
+function modelFor(aux){
+  if(S.prov !== 'anthropic') return S.oaModel;
+  if(aux && S.aux !== 'off' && !auxBroken) return (S.auxModel || AUX_DEF).trim();
+  return S.model || DEF.model;
+}
+async function stream(sys, msgs, opts = {}){
+  try{ return await streamOnce(sys, msgs, opts); }
+  catch(e){
+    // dacă modelul mic nu e disponibil pe cont, revenim o dată la modelul principal
+    if(opts.aux && S.prov === 'anthropic' && !auxBroken && /model|not_found|404/i.test(e.message || '')){ auxBroken = true; return await streamOnce(sys, msgs, {...opts, aux:false}); }
+    throw e;
+  }
+}
+async function streamOnce(sys, msgs, {max = 700, signal, onText, cid, aux} = {}){
   const A = S.prov === 'anthropic';
+  const model = modelFor(aux);
   if(A && !S.key) throw new Error('Lipsește cheia Anthropic. Deschide Setări.');
   if(!A && !(S.oaBase && S.oaModel)) throw new Error('Completează adresa și modelul în Setări.');
   const res = A
     ? await fetch('https://api.anthropic.com/v1/messages', {method:'POST', signal, headers:{
         'content-type':'application/json', 'x-api-key':S.key.trim(), 'anthropic-version':'2023-06-01',
         'anthropic-dangerous-direct-browser-access':'true'},
-        body: JSON.stringify({model:S.model || DEF.model, max_tokens:max, stream:true,
+        body: JSON.stringify({model, max_tokens:max, stream:true,
           system:[{type:'text', text:sys, cache_control:{type:'ephemeral'}}], messages:provMsgs(msgs)})})
     : await fetch(S.oaBase.replace(/\/+$/, '') + '/chat/completions', {method:'POST', signal, headers:{
         'content-type':'application/json', ...(S.oaKey ? {authorization:'Bearer ' + S.oaKey.trim()} : {})},
@@ -1023,7 +1048,7 @@ async function stream(sys, msgs, {max = 700, signal, onText, cid} = {}){
       if(piece){ full += piece; onText && onText(full); }
     }
   }
-  } finally { recordTokens(cid, usage); }
+  } finally { recordTokens(cid, usage, model); }
   return full;
 }
 function parseJSON(t){
@@ -1238,7 +1263,7 @@ async function openChat(id, push = true, tid, dir){
   $('#sugg').innerHTML = '';
   clearReply(); jumpCount = 0;
   maybeProactive();
-  setTimeout(() => maybeJournal(cur), 2500);
+  { const jc = cur; setTimeout(() => maybeJournal(jc), 2500); }
 }
 function tagLine(c){
   const ts = threadsOf(c);
@@ -1513,7 +1538,9 @@ ${canAutoPhoto(c)
   ].filter(Boolean).join('\n\n');
 }
 function contextUpTo(idx){
-  const from = Math.max(chat.sumUpTo || 0, idx - 40, 0);
+  // fereastra pornește din 20 în 20 de mesaje (nu se mută la fiecare răspuns), ca începutul conversației să rămână identic și să fie citit din cache
+  const span = +S.ctxN || 30, raw = idx - span;
+  const from = Math.max(chat.sumUpTo || 0, raw <= 0 ? 0 : Math.floor(raw / 20) * 20);
   const sum = chat.summary ? [{role:'user', text:`(Rezumatul conversației de până acum, ca să-ți amintești: ${chat.summary})`}, {role:'assistant', text:'*dă din cap*'}] : [];
   let react = '', prevTs = 0;
   const out = [];
@@ -1543,7 +1570,7 @@ async function writeJournal(c, day, force){
   const log = msgs.slice(-60).map(m => (m.role === 'user' ? u : c.name) + ': ' + (m.img && !m.text ? '[poză]' : plain(m.text))).join('\n').slice(-9000);
   const date = new Date(day + 'T12:00').toLocaleDateString('ro-RO', {weekday:'long', day:'numeric', month:'long'});
   const out = await stream(systemFor(c, null), [{role:'user', text:
-    `(Ieșim din conversație.) Scrie, ca ${c.name}, o intrare scurtă în jurnalul tău personal despre ziua de ${date}, pe baza conversației noastre de mai jos. 4-7 propoziții, la persoana I, sincer, cu ce ai simțit și ce ți-a rămas în minte despre ${u}. Fără *acțiuni*, fără titlu, fără dată.\n\nConversația:\n${log}`}], {max:500, cid:c.id});
+    `(Ieșim din conversație.) Scrie, ca ${c.name}, o intrare scurtă în jurnalul tău personal despre ziua de ${date}, pe baza conversației noastre de mai jos. 4-7 propoziții, la persoana I, sincer, cu ce ai simțit și ce ți-a rămas în minte despre ${u}. Fără *acțiuni*, fără titlu, fără dată.\n\nConversația:\n${log}`}], {max:500, cid:c.id, aux:true});
   const text = faraLiniute(plain(out)).trim();
   if(!text) return null;
   c.journal = c.journal.filter(j => j.day !== day).concat({day, text, ts:Date.now()}).sort((a, b) => a.day < b.day ? 1 : -1).slice(0, 120);
@@ -1552,6 +1579,7 @@ async function writeJournal(c, day, force){
 }
 // la deschiderea unei conversații: scrie intrarea pentru cea mai recentă zi trecută care n-are încă una
 async function maybeJournal(c){
+  if(!c) return;
   if(S.jrn !== 'on' || !aiReady()) return;
   const today = dayKey(Date.now());
   const days = [...new Set((await allChats(c)).flatMap(ch => ch.msgs).filter(m => m.ts && !m.err).map(m => dayKey(m.ts)))].filter(d => d < today).sort().reverse();
@@ -1648,7 +1676,12 @@ async function reply(target, opts = {}){
     // ora și ziua merg doar în ultimul mesaj al tău (nu în promptul de sistem, ca să rămână în cache)
     const lastU = [...ctx].reverse().find(x => x.role === 'user');
     const ar = antiRepeat(ch, idx);
-    if(lastU) lastU.text = nowNote() + ' ' + lastU.text + (ar ? '\n\n' + ar : '');
+    if(lastU){
+      // punctul de cache: ultimul mesaj al personajului dinaintea mesajului tău nou (istoricul de până acolo nu se mai schimbă)
+      const li = ctx.lastIndexOf(lastU);
+      for(let k = li - 1; k >= 0; k--) if(ctx[k].role === 'assistant'){ ctx[k]._cache = true; break; }
+      lastU.text = nowNote() + ' ' + lastU.text + (ar ? '\n\n' + ar : '');
+    }
     const full = await stream(systemFor(c, ch), ctx, {max:LEN[S.len].max, signal:busy.signal, cid:c.id,
       onText: t => { m.text = t; draw(); }});
     m.text = faraLiniute(full.trim());
@@ -1708,7 +1741,7 @@ async function suggest(){
   try{
     const out = await stream('Ajuți un utilizator să continue o conversație. Scrii în română corectă, cu diacritice.', [{role:'user', text:
       `Personaj: ${c.name}${c.tag ? ' (' + c.tag + ')' : ''}.\n\nUltimele mesaje:\n${recent || '(început)'}\n\nPropune 3 replici scurte (max 14 cuvinte fiecare) pe care ${u} i le-ar putea scrie acum lui ${c.name}, ca ${u}, la persoana I. Variază: una curioasă, una jucăușă, una cu o acțiune între *asteriscuri*. Răspunde STRICT cu un array JSON de 3 texte.`}],
-      {max:300, signal:suggAbort.signal, cid:c.id});
+      {max:300, signal:suggAbort.signal, cid:c.id, aux:true});
     const a = out.indexOf('['), b = out.lastIndexOf(']');
     const arr = JSON.parse(out.slice(a, b + 1)).map(x => faraLiniute(String(x).trim())).filter(Boolean).slice(0, 3);
     if(chat !== ch) return;
@@ -1726,7 +1759,7 @@ async function extractFacts(c, ch){
   const known = (c.facts || []).map(f => '- ' + f.t).join('\n') || '(nimic)';
   try{
     const out = await stream('Extragi informații factuale dintr-o conversație. Scrii în română, scurt.', [{role:'user', text:
-      `Ce știe deja ${c.name} despre ${u}:\n${known}\n\nConversația recentă:\n${recent}\n\nScrie fapte NOI și durabile despre ${u}, spuse de ${u} însuși (nume, job, oraș, familie, gusturi, planuri, lucruri importante povestite). Fără ce se știe deja, fără ce face doar în scenă, fără presupuneri. Fiecare fapt: o propoziție scurtă, max 12 cuvinte. Răspunde STRICT cu un array JSON (poate fi gol []).`}], {max:400, cid:c.id});
+      `Ce știe deja ${c.name} despre ${u}:\n${known}\n\nConversația recentă:\n${recent}\n\nScrie fapte NOI și durabile despre ${u}, spuse de ${u} însuși (nume, job, oraș, familie, gusturi, planuri, lucruri importante povestite). Fără ce se știe deja, fără ce face doar în scenă, fără presupuneri. Fiecare fapt: o propoziție scurtă, max 12 cuvinte. Răspunde STRICT cu un array JSON (poate fi gol []).`}], {max:400, cid:c.id, aux:true});
     const a = out.indexOf('['), b = out.lastIndexOf(']');
     const arr = JSON.parse(out.slice(a, b + 1)).map(x => faraLiniute(String(x).trim())).filter(Boolean).slice(0, 5);
     if(!arr.length) return 0;
@@ -1800,23 +1833,24 @@ function imgPrice(){
   return {gemini:.04, fal:.035, worker:0}[S.imgProv] || 0;
 }
 let usageQ = Promise.resolve();
-function addUsage(cid, usd, kind){
+function addUsage(cid, usd, kind, tok){
   usageQ = usageQ.then(async () => {
     const u = await DB.get('usage') || {months:{}, chars:{}};
     const mo = new Date().toISOString().slice(0, 7);
     const M = u.months[mo] = u.months[mo] || {txt:0, img:0, n:0};
     if(kind === 'img'){ M.img += usd; M.n++; } else M.txt += usd;
+    if(tok){ for(const k of ['inp', 'cw', 'cr', 'out', 'saved']) M[k] = (M[k] || 0) + (tok[k] || 0); M.calls = (M.calls || 0) + 1; }
     if(cid) u.chars[cid] = (u.chars[cid] || 0) + usd;
     await DB.set('usage', u);
   }).catch(() => {});
 }
-function recordTokens(cid, usage){
+function recordTokens(cid, usage, model){
   if(!usage) return;
-  const [pin, pout] = priceFor(S.prov === 'anthropic' ? S.model : S.oaModel);
+  const [pin, pout] = priceFor(model || (S.prov === 'anthropic' ? S.model : S.oaModel));
   const inp = usage.input_tokens || usage.prompt_tokens || 0, out = usage.output_tokens || usage.completion_tokens || 0;
   const cw = usage.cache_creation_input_tokens || 0, cr = usage.cache_read_input_tokens || 0;
   const usd = (inp * pin + cw * pin * 1.25 + cr * pin * .1 + out * pout) / 1e6;
-  addUsage(cid, usd, 'txt');
+  addUsage(cid, usd, 'txt', {inp, cw, cr, out, saved: cr * pin * .9 / 1e6});
 }
 const usd = v => '$' + (v < 10 ? v.toFixed(3) : v.toFixed(2));
 async function renderCost(){
@@ -1826,7 +1860,9 @@ async function renderCost(){
   const M = u.months[mo] || {txt:0, img:0, n:0}, P = u.months[d.toISOString().slice(0, 7)];
   const top = Object.entries(u.chars).map(([id, v]) => [charById(id), v]).filter(x => x[0]).sort((a, b) => b[1] - a[1]).slice(0, 6);
   $('#stCostMini').textContent = 'Luna aceasta: ' + usd(M.txt + M.img);
+  const totIn = (M.inp || 0) + (M.cw || 0) + (M.cr || 0), pc = totIn ? Math.round((M.cr || 0) / totIn * 100) : 0;
   $('#stCost').innerHTML = `<b>${usd(M.txt + M.img)}</b>luna aceasta · text ${usd(M.txt)} · poze ${usd(M.img)} (${M.n})
+    ${totIn ? `<div class="row2"><span>Context citit din cache</span><span>${pc}%</span></div><div class="row2"><span>Economisit prin cache</span><span style="color:var(--ok)">${usd(M.saved || 0)}</span></div><div class="row2"><span>Cost mediu pe mesaj</span><span>${usd(M.txt / Math.max(1, M.calls || 1))}</span></div>` : ''}
     ${P ? `<div class="row2"><span>Luna trecută</span><span>${usd(P.txt + P.img)}</span></div>` : ''}
     ${top.map(([c, v]) => `<div class="row2"><span>${esc(c.name)}</span><span>${usd(v)}</span></div>`).join('')}`;
 }
@@ -2072,7 +2108,7 @@ async function askPhoto(spont){
     const recent = ch.msgs.slice(-9, -1).filter(x => x.text).map(x => (x.role === 'user' ? (S.userName || 'User') : c.name) + ': ' + x.text).join('\n');
     const scene = await stream('You are a photo director. Answer with one English sentence only.', [{role:'user', text:
       `Character: ${c.name}. Appearance: ${c.look || c.aspect}\n${ch.scene ? 'Current scene (translate to English): ' + ch.scene + '\n' : ''}\nRecent conversation:\n${recent || '(just started)'}\n\nDescribe, in ONE English sentence of max 45 words, the photo ${c.name} would send right now, matching the moment in the conversation. Start with the framing (selfie / mirror selfie / photo taken by a friend / close-up portrait), then setting, pose, outfit, facial expression, light and time of day. Keep the same person; do not describe the face again. Only the sentence.`}],
-      {max:160, signal:busy.signal, cid:c.id});
+      {max:160, signal:busy.signal, cid:c.id, aux:true});
     const prompt = [c.look || '', scene.trim(), STIL_TAG[c.stil || 'photo']].filter(Boolean).join('. ');
     const ref = c.photo ? await DB.get(c.photo) : null;
     let blob = await genImage(prompt, ref, busy.signal);
@@ -2102,7 +2138,7 @@ async function summarizeIfNeeded(c, ch){
   const part = ch.msgs.slice(from, to).filter(m => m.text).map(m => (m.role === 'user' ? u : c.name) + ': ' + m.text).join('\n');
   try{
     const s = await stream('Rezumi conversații. Scrii în română, concis, la persoana a III-a.', [{role:'user', text:
-      `Rezumatul de până acum:\n${ch.summary || '(niciunul)'}\n\nMesaje noi:\n${part}\n\nScrie rezumatul actualizat, cel mult 220 de cuvinte: ce s-a întâmplat, fapte importante despre ${u}, promisiuni, cum a evoluat relația dintre ${c.name} și ${u}.`}], {max:700, cid:c.id});
+      `Rezumatul de până acum:\n${ch.summary || '(niciunul)'}\n\nMesaje noi:\n${part}\n\nScrie rezumatul actualizat, cel mult 220 de cuvinte: ce s-a întâmplat, fapte importante despre ${u}, promisiuni, cum a evoluat relația dintre ${c.name} și ${u}.`}], {max:700, cid:c.id, aux:true});
     if(s.trim()){ ch.summary = s.trim(); ch.sumUpTo = to; await DB.set(chatKey(c.id, ch.tid), ch); }
   }catch(e){ /* reîncearcă la mesajul următor */ }
 }
@@ -2367,7 +2403,7 @@ async function runNames(){
     const ctx = [$('#edAspect').value.trim() && 'Aspect: ' + $('#edAspect').value.trim(), $('#edTag').value.trim() && 'Pe scurt: ' + $('#edTag').value.trim(),
       $('#edPersona').value.trim() && 'Personalitate: ' + $('#edPersona').value.trim().slice(0, 600)].filter(Boolean).join('\n') || '(nimic încă: propune nume variate, frumoase)';
     const out = await stream('Propui nume de personaje. Răspunzi doar cu JSON.', [{role:'user', text:
-      `Propune 6 prenume pentru un personaj dintr-o aplicație de conversație, potrivite cu ce știm despre el:\n${ctx}\n\nVariază: românești, internaționale, unul mai neobișnuit. Fără nume de persoane celebre. Răspunde STRICT cu un array JSON de 6 texte.`}], {max:200});
+      `Propune 6 prenume pentru un personaj dintr-o aplicație de conversație, potrivite cu ce știm despre el:\n${ctx}\n\nVariază: românești, internaționale, unul mai neobișnuit. Fără nume de persoane celebre. Răspunde STRICT cu un array JSON de 6 texte.`}], {max:200, aux:true});
     const a = out.indexOf('['), b = out.lastIndexOf(']');
     const list = JSON.parse(out.slice(a, b + 1)).map(x => String(x).trim()).filter(x => x && x.length < 30).slice(0, 6);
     if(list.length){ drawNames(list); if(!$('#edName').value.trim()){ $('#edName').value = list[0]; drawNames(list); } }
@@ -2509,7 +2545,7 @@ const aiReady = () => S.prov === 'anthropic' ? !!S.key.trim() : !!(S.oaBase && S
 const FIELDS = {stKey:'key', stModel:'model', stOaBase:'oaBase', stOaKey:'oaKey', stOaModel:'oaModel', stUser:'userName', stAbout:'userAbout',
   stGemKey:'gemKey', stGemModel:'gemModel', stWkBase:'wkBase', stWkTok:'wkTok', stWkModel:'wkModel', stWkSize:'wkSize',
   stFalKey:'falKey', stFalModel:'falModel', stFalSize:'falSize', stImgCost:'imgCost', stPin:'pIn', stPout:'pOut'};
-const SEGS = {stVmsg:'vmsg', stJrn:'jrn', stTheme:'theme', stProv:'prov', stLen:'len', stFont:'font', stImg:'imgProv', stImgAlt:'imgProv', stSugg:'sugg', stPro:'pro', stVoice:'voice', stSpont:'spont'};
+const SEGS = {stAux:'aux', stCtx:'ctxN', stVmsg:'vmsg', stJrn:'jrn', stTheme:'theme', stProv:'prov', stLen:'len', stFont:'font', stImg:'imgProv', stImgAlt:'imgProv', stSugg:'sugg', stPro:'pro', stVoice:'voice', stSpont:'spont'};
 let setPanel = null, setPanelPushed = false;
 function openSettings(){
   for(const [id, k] of Object.entries(FIELDS)) $('#' + id).value = S[k] ?? '';
