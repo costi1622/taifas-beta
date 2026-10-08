@@ -885,7 +885,7 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
 
 <script>
 'use strict';
-const APP_VER = '4.5';
+const APP_VER = '4.7';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -1399,6 +1399,8 @@ function msgHTML(m, i, lastAi, anim){
     const n = m.alts?.length || 1;
     under = `<div class="under">
       ${n > 1 ? `<button data-alt="-1" ${m.alt <= 0 ? 'disabled' : ''}>‹</button><span>${(m.alt || 0) + 1}/${n}</span><button data-alt="1" ${m.alt >= n - 1 ? 'disabled' : ''}>›</button>` : ''}
+      ${m.img && m.imgAlts && m.imgAlts.length > 1 ? `<button data-ia="-1" ${m.ia <= 0 ? 'disabled' : ''}>‹</button><span>${m.ia + 1}/${m.imgAlts.length}</span><button data-ia="1" ${m.ia >= m.imgAlts.length - 1 ? 'disabled' : ''}>›</button>` : ''}
+      ${m.img && !m.err ? `<button data-rephoto>🎲 Altă poză</button>` : ''}
       ${m.img || !m.alts ? '' : `<button data-regen>↻ Altul</button>`}
       ${m.err ? '' : `<button data-cont>▶ Continuă</button>`}
       ${m.err ? `<button data-retry>${m.errKind === 'flag' ? '🎲 Încearcă altă scenă' : 'Reîncearcă'}</button>` : ''}
@@ -2470,23 +2472,45 @@ function profScroll(){
   $('#vProf .pfTop').classList.toggle('solid', !!h && y > h.offsetHeight - 120);
 }
 
-async function askPhoto(spont){
+// target = mesajul-poză de refăcut; mode: 'same' (aceeași scenă, altă variantă) sau 'new' (altă scenă)
+async function askPhoto(spont, target, mode){
   if(busy){ if(!spont) toast('Așteaptă să termine ' + (live ? live.c.name : '') + '.'); return; }
   if(spont && capLeft() < (neurPerPhoto() || 5000)) return;   // limita zilnică atinsă: fără poze spontane
   if(S.imgProv === 'none'){ toast('Pornește pozele din Setări.'); return; }
   const c = cur, ch = chat;
-  const m = {id:uid(), role:'ai', text:'', pendingImg:true, ts:Date.now()};
-  if(spont === true) m.spont = true;
-  ch.sinceImg = 0;
-  ch.msgs.push(m); renderMsgs(true);
+  let m;
+  if(target){ m = target; m.pendingImg = true; delete m.err; delete m.errKind; renderMsgs(); }
+  else {
+    m = {id:uid(), role:'ai', text:'', pendingImg:true, ts:Date.now()};
+    if(spont === true) m.spont = true;
+    ch.sinceImg = 0;
+    ch.msgs.push(m); renderMsgs(true);
+  }
   busy = new AbortController(); live = {c, ch, photo:true}; setBusyUI(true);
   $('#sugg').innerHTML = '';
   try{
-    const recent = ch.msgs.slice(-9, -1).filter(x => x.text).map(x => (x.role === 'user' ? (S.userName || 'User') : c.name) + ': ' + stripMood(x.text)).join('\n');
+    const u = S.userName || 'User';
+    const hist = ch.msgs.filter(x => x !== m && x.text && !x.err && !x.pending);
+    const recent = hist.slice(-12).map(x => (x.role === 'user' ? u : c.name) + ': ' + plain(stripMood(x.text)) + (x.text.match(/\*[^*]+\*/g) ? ' [actions: ' + x.text.match(/\*[^*]+\*/g).join(' ') + ']' : '')).join('\n');
+    const lastU = [...hist].reverse().find(x => x.role === 'user'), lastC = [...hist].reverse().find(x => x.role === 'ai');
     // pozele trimise deja: regizorul trebuie să aleagă altceva (altă încadrare, alt loc, altă poză)
-    const prevShots = ch.msgs.filter(x => x.img && x.scene).slice(-3).map(x => '- ' + x.scene).join('\n');
-    const scene = await stream('You are a photo director. Answer with one English sentence only.', [{role:'user', text:
-      `Character: ${c.name}. Appearance: ${c.look || c.aspect}\n${ch.scene ? 'Current scene (translate to English): ' + ch.scene + '\n' : ''}\nRecent conversation:\n${recent || '(just started)'}\n\nDescribe, in ONE English sentence of max 45 words, the photo ${c.name} would send right now, matching the moment in the conversation. Start with the framing (selfie / mirror selfie / photo taken by a friend / close-up portrait / full body), then setting, pose, outfit, facial expression, light and time of day. Base it on what is happening in the conversation right now (where they are, what they are doing, what was asked for). Keep the same person; do not describe the face again.${prevShots ? '\nPhotos already sent (the new one must be clearly different: other framing, place, pose or outfit):\n' + prevShots : ''}\nOnly the sentence.`}],
+    const prevShots = ch.msgs.filter(x => x.img && x.scene && x !== m).slice(-3).map(x => '- ' + x.scene).join('\n');
+    const h = new Date().getHours(), tod = h < 5 ? 'late night (dark outside, indoor lamp light)' : h < 11 ? 'morning' : h < 14 ? 'midday' : h < 18 ? 'afternoon' : h < 22 ? 'evening (sunset or indoor warm light)' : 'night (dark outside, indoor lamp light)';
+    const scene = (target && mode === 'same' && target.scene) ? target.scene : await stream('You are the photo director for a chat app. You decide what photo the character sends, strictly based on the conversation. Answer with one English sentence only.', [{role:'user', text:
+      `Character: ${c.name}. ${c.persona ? 'About the character: ' + plain(c.persona).slice(0, 400) : ''}
+Local time now: ${tod}.
+${ch.scene ? 'Current scene set by the user (translate to English, it has priority): ' + ch.scene + '\n' : ''}
+Recent conversation (oldest first):
+${recent || '(just started)'}
+
+${lastU ? `What ${u} said last: "${plain(lastU.text)}"\n` : ''}${lastC ? `What ${c.name} said/did last: "${plain(stripMood(lastC.text))}" ${lastC.text.match(/\*[^*]+\*/g) ? '(actions: ' + lastC.text.match(/\*[^*]+\*/g).join(' ') + ')' : ''}\n` : ''}
+Rules:
+1. If ${u} asked for a specific photo (a place, an activity, an outfit, a pose), show exactly that.
+2. Otherwise show what ${c.name} is doing right now according to the last messages and actions: the same place, the same activity, the same clothes mentioned.
+3. Only if the conversation says nothing about place or activity, infer the most plausible one for the local time (for example at night: at home, indoor lamp light). Never put an outdoor sunny scene at night.
+4. Do not describe the face or body. Do not invent anything that contradicts the conversation.${prevShots ? `\n5. Photos already sent (the new one must differ in framing or pose, unless the conversation asks for the same place):\n${prevShots}` : ''}
+
+Write ONE English sentence, max 45 words: framing (selfie / mirror selfie / photo taken by someone / close-up / full body), place, activity and pose, clothing, expression, light matching the local time.`}],
       {max:160, signal:busy.signal, cid:c.id, aux:true});
     const shot = scene.trim().replace(/^["„]|["”]$/g, '');
     const ref = c.photo ? await DB.get(c.photo) : null;
@@ -2497,7 +2521,15 @@ async function askPhoto(spont){
       : [c.look || '', shot, STIL_TAG[c.stil || 'photo']].filter(Boolean).join('. ');
     let blob = await genImage(prompt, ref, busy.signal);
     try{ if(blob.type === 'image/png') blob = await toJpeg(blob, 2048, .92); }catch(e){}   // PNG → JPEG: de ~5 ori mai puțin spațiu
-    m.img = await saveImg(blob); m.prompt = prompt; m.scene = shot;
+    const k = await saveImg(blob);
+    if(target){
+      // variantele rămân pe mesaj: le poți compara cu ‹ › și păstra pe cea mai bună (cel mult 5)
+      m.imgAlts = m.imgAlts || (m.img ? [m.img] : []);
+      m.imgAlts.push(k);
+      while(m.imgAlts.length > 5){ const old = m.imgAlts.shift(); if(old !== cur?.photo) DB.del(old).catch(() => {}); }
+      m.ia = m.imgAlts.length - 1;
+    }
+    m.img = k; m.prompt = prompt; m.scene = shot;
     addUsage(c.id, imgPrice(), 'img');
     if(S.imgProv === 'worker') setTimeout(() => loadNeurons(true), 1500);
   }catch(e){
@@ -2537,12 +2569,19 @@ function msgSheet(i){
   if(m.text) opts.push(['📋', 'Copiază', () => { navigator.clipboard?.writeText(m.text); toast('Copiat'); }]);
   if(m.text && !me) opts.push(['🔊', 'Citește cu voce', () => say(m.text, m)]);
   if(m.text && !busy) opts.push(['✏️', me ? 'Editează și retrimite' : 'Editează', () => editMsg(i)]);
+  if(m.img && !me && !busy && S.imgProv !== 'none'){ opts.push(['🎲', 'Altă variantă (aceeași scenă)', () => askPhoto(false, m, 'same')]); opts.push(['🔄', 'Altă poză (altă scenă)', () => askPhoto(false, m, 'new')]); }
+  if(m.img && m.scene && !me) opts.push(['📝', 'Ce scenă a ales', () => openSheet(`<h4>Scena pozei</h4><div class="pad"><p style="color:var(--tx2);line-height:1.5">${esc(m.scene)}</p></div>`)]);
   if(m.img) opts.push(['💾', 'Salvează poza în telefon', () => saveImage(m.img)]);
   if(m.img && canShareFiles()) opts.push(['↗️', 'Trimite poza în altă aplicație', () => shareImage(m.img)]);
   if(m.img && !me) opts.push(['🖼️', 'Fă-o poză de profil', async () => { cur.photo = m.img; await saveChars(); toast('Poză de profil schimbată'); openChat(cur.id); }]);
   if(!busy) opts.push(['🗑️', 'Șterge mesajul', async () => { chat.msgs.splice(i, 1); await saveChat(); renderMsgs(); }, 'dan']);
   if(!busy && i < chat.msgs.length - 1) opts.push(['⤺', 'Șterge tot de aici în jos', async () => { chat.msgs.splice(i); await saveChat(); renderMsgs(); }, 'dan']);
   sheet(opts);
+}
+function rephotoMenu(i){
+  const m = chat.msgs[i]; if(!m || busy) return;
+  if(S.imgProv === 'none'){ toast('Pornește pozele din Setări.'); return; }
+  sheet([['🎲', 'Altă variantă, aceeași scenă', () => askPhoto(false, m, 'same')], ['🔄', 'Altă poză, altă scenă', () => askPhoto(false, m, 'new')]]);
 }
 function retry(i){
   const m = chat.msgs[i];
@@ -2616,7 +2655,7 @@ async function viewImg(k, list){
   v.innerHTML = `<div class="vbg"></div><img class="vimg" alt="" draggable="false">
     <div class="vtop"><span class="vcount"></span><button class="ib x" aria-label="Închide">✕</button></div>
     <button class="ib vnav l" aria-label="Înapoi">‹</button><button class="ib vnav r" aria-label="Înainte">›</button>
-    <div class="vbar"><button class="btn" id="vwSave">⬇ Salvează</button>${canShareFiles() ? '<button class="btn" id="vwShare">↗️ Trimite</button>' : ''}</div>`;
+    <div class="vbar"><button class="btn" id="vwSave">⬇ Salvează</button>${canShareFiles() ? '<button class="btn" id="vwShare">↗️ Trimite</button>' : ''}<button class="btn" id="vwRe" hidden>🎲 Alta</button></div>`;
   document.body.appendChild(v);
   const img = v.querySelector('.vimg'), bg = v.querySelector('.vbg');
   let sc = 1, tx = 0, ty = 0;
@@ -2632,6 +2671,7 @@ async function viewImg(k, list){
     // centrăm: originea transformării e colțul stânga-sus al imaginii afișate
     requestAnimationFrame(() => { img.style.transition = 'transform .25s ease, opacity .2s'; img.style.opacity = '1'; tx = 0; apply(true); });
     v.querySelector('.vcount').textContent = list.length > 1 ? `${idx + 1} / ${list.length}` : '';
+    v.querySelector('#vwRe').hidden = !(S.imgProv !== 'none' && !busy && aiPicIdx() >= 0);
     v.querySelectorAll('.vnav').forEach(b => b.hidden = list.length < 2);
   }
   const close = () => v.remove();
@@ -2639,6 +2679,9 @@ async function viewImg(k, list){
   v.querySelector('.vnav.l').onclick = () => load(idx - 1, -1);
   v.querySelector('.vnav.r').onclick = () => load(idx + 1, 1);
   v.querySelector('#vwSave').onclick = () => saveImage(list[idx]);
+  // 🎲 doar pentru pozele trimise de personaj în conversația deschisă
+  const aiPicIdx = () => (chat && !$('#vChat').hidden) ? chat.msgs.findIndex(m => m.role === 'ai' && m.img === list[idx]) : -1;
+  const reBtn = v.querySelector('#vwRe'); reBtn.onclick = () => { const i = aiPicIdx(); if(i < 0) return; close(); rephotoMenu(i); };
   const sh = v.querySelector('#vwShare'); if(sh) sh.onclick = () => shareImage(list[idx]);
   // gesturi: ciupit = zoom, tras = mutare (cu zoom) / glisare între poze (fără zoom), tras în jos = închide, dublu-tap = zoom 2,5×
   const pts = new Map(); let start = null, lastTap = 0;
@@ -3265,6 +3308,9 @@ function bind(){
     if(e.target.closest('[data-vtr]')){ const b = e.target.closest('.bub'); const t = b.querySelector('.vtxt'); t.hidden = !t.hidden; e.target.textContent = t.hidden ? 'Transcriere' : 'Ascunde transcrierea'; return; }
     if(e.target.closest('[data-cont]')){ if(!busy) reply(null, {cont:true}); return; }
     if(e.target.closest('[data-retry]')){ if(!busy) retry(i); return; }
+    const ia = e.target.closest('[data-ia]');
+    if(ia){ m.ia = Math.max(0, Math.min(m.imgAlts.length - 1, m.ia + +ia.dataset.ia)); m.img = m.imgAlts[m.ia]; saveChat(); renderMsgs(); return; }
+    if(e.target.closest('[data-rephoto]')){ rephotoMenu(i); return; }
     const a = e.target.closest('[data-alt]');
     if(a){ m.alt = Math.max(0, Math.min(m.alts.length - 1, (m.alt || 0) + +a.dataset.alt)); m.text = m.alts[m.alt]; delete m.err; saveChat(); renderMsgs(); return; }
     const q = e.target.closest('[data-q]');
