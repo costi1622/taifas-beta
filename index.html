@@ -297,8 +297,10 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
       <div id="stGem" hidden>
         <label for="stGemKey">Cheie Google AI Studio</label>
         <input id="stGemKey" type="password" placeholder="AIza…" autocomplete="off">
-        <label for="stGemModel">Model</label>
-        <input id="stGemModel" placeholder="gemini-2.5-flash-image">
+        <div class="lblrow"><label for="stGemModel">Model</label><button type="button" class="btn sm" id="stGemList">🔎 Caută modelele</button></div>
+        <input id="stGemModel" list="dlGem" placeholder="gemini-2.5-flash-image">
+        <datalist id="dlGem"></datalist>
+        <div class="status" id="stGemRes"></div>
       </div>
       <div id="stWk" hidden>
         <label for="stWkBase">Adresa Worker-ului (se termină în /v1)</label>
@@ -332,7 +334,7 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
 
 <script>
 'use strict';
-const APP_VER = '2.1';
+const APP_VER = '2.2';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -658,7 +660,7 @@ function msgHTML(m, i, lastAi){
     const n = m.alts?.length || 1;
     under = `<div class="under">
       ${n > 1 ? `<button data-alt="-1" ${m.alt <= 0 ? 'disabled' : ''}>‹</button><span>${(m.alt || 0) + 1}/${n}</span><button data-alt="1" ${m.alt >= n - 1 ? 'disabled' : ''}>›</button>` : ''}
-      ${m.img ? '' : `<button data-regen>↻ Alt răspuns</button>`}
+      ${m.img || !m.alts ? '' : `<button data-regen>↻ Alt răspuns</button>`}
       ${m.err ? `<button data-retry>Reîncearcă</button>` : ''}</div>`;
   }
   return `<div class="mw" data-i="${i}"><div class="m ${me ? 'me' : 'ai'}">${me ? '' : avatarHTML(cur)}${inner}</div>${under}</div>`;
@@ -994,6 +996,27 @@ async function testAI(){
     $('#stWelcome').hidden = true;
   }catch(e){ r.className = 'status err'; r.textContent = '✗ ' + e.message; }
 }
+async function listGemModels(){
+  const key = $('#stGemKey').value.trim(), r = $('#stGemRes');
+  if(!key){ r.className = 'status err'; r.textContent = 'Pune întâi cheia Google.'; return; }
+  r.className = 'status'; r.innerHTML = '<span class="spin"></span> Întreb Google…';
+  try{
+    const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models?pageSize=1000&key=' + encodeURIComponent(key));
+    if(!res.ok) throw new Error(await errText(res));
+    const d = await res.json();
+    const ids = (d.models || []).filter(m => /image/i.test(m.name) && !/imagen/i.test(m.name) && (m.supportedGenerationMethods || []).includes('generateContent'))
+      .map(m => ({id:m.name.replace(/^models\//, ''), label:m.displayName || ''}));
+    if(!ids.length) throw new Error('Cheia nu are acces la niciun model de imagine.');
+    $('#dlGem').innerHTML = ids.map(x => `<option value="${esc(x.id)}">${esc(x.label)}</option>`).join('');
+    openSheet(`<h4>Modele de imagine disponibile pentru cheia ta</h4>` + ids.map((x, k) =>
+      `<button class="opt" data-k="${k}"><i>${x.id === S.gemModel ? '✓' : '🖼️'}</i><span>${esc(x.id)}<br><small style="color:var(--tx3)">${esc(x.label)}</small></span></button>`).join(''));
+    $$('.sheet .opt').forEach(b => b.onclick = () => {
+      S.gemModel = ids[+b.dataset.k].id; $('#stGemModel').value = S.gemModel; saveSettings(); closeSheet();
+      r.className = 'status ok'; r.textContent = '✓ Model ales: ' + S.gemModel;
+    });
+    r.className = 'status ok'; r.textContent = ids.length + ' modele găsite. Alege unul.';
+  }catch(e){ r.className = 'status err'; r.textContent = '✗ ' + e.message; }
+}
 async function exportAll(){
   toast('Pregătesc backup-ul…');
   const out = {app:'taifas2', v:APP_VER, date:new Date().toISOString(), data:{}};
@@ -1061,6 +1084,7 @@ function bind(){
   });
   $('#stTest').onclick = () => { for(const [id, k] of Object.entries(FIELDS)) S[k] = $('#' + id).value.trim(); saveSettings(); testAI(); };
   $('#stExport').onclick = exportAll;
+  $('#stGemList').onclick = () => { S.gemKey = $('#stGemKey').value.trim(); saveSettings(); listGemModels(); };
   $('#stImport').onclick = () => $('#stImpFile').click();
   $('#stImpFile').onchange = e => { if(e.target.files[0]) importAll(e.target.files[0]); e.target.value = ''; };
   $('#stWipe').onclick = () => confirmSheet('Ștergi TOATE personajele, conversațiile și setările?', 'Șterge tot', async () => { await DB.clear(); location.reload(); });
