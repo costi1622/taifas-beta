@@ -358,6 +358,11 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
 .flyav{position:fixed;z-index:90;object-fit:cover;pointer-events:none;box-shadow:0 10px 30px #0008}
 #btnPolish{font-size:1.05rem}
 .polres{background:var(--bg2);border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:10px;white-space:pre-wrap;line-height:1.5}
+/* 6.6: fața pentru poze */
+.faceref{display:flex;gap:12px;align-items:center;margin-top:10px}
+.faceref .fimg{width:72px;height:72px;border-radius:14px;overflow:hidden;background:var(--bg2);display:grid;place-items:center;color:var(--tx3);flex:none}
+.faceref .fimg img{width:100%;height:100%;object-fit:cover}
+.faceref b{display:block;font-size:.88rem}.faceref small{display:block;color:var(--tx3);font-size:.8rem;margin:2px 0 6px;line-height:1.35}
 /* 6.4: 3 variante, văzut la */
 .vpk{background:var(--bg2);border:1px solid var(--line);border-radius:16px;padding:12px 14px;margin-bottom:10px;text-align:left;width:100%;display:block}
 .vpk:active{border-color:var(--acc)}
@@ -1003,7 +1008,7 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
 
 <script>
 'use strict';
-const APP_VER = '6.5';
+const APP_VER = '6.6';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -1357,6 +1362,64 @@ function wkUrl(){
   u = u.replace(/\/+$/, '').replace(/\/images\/(generations|edits)$/, '');
   if(!/\/v1$/.test(u)) u += '/v1';
   return u;
+}
+/* 📷 6.6: fața decupată din poza de profil. FLUX.2 klein EDITEAZĂ poza de referință: cu poza întreagă păstra fundalul,
+   hainele și poziția. Primind doar fața, ia din referință doar identitatea, iar locul, poziția și hainele vin din descriere. */
+async function findFace(blob){
+  const u = URL.createObjectURL(blob);
+  try{
+    const im = await loadImgEl(u), W = im.naturalWidth, H = im.naturalHeight;
+    if('FaceDetector' in window){
+      try{ const f = (await new FaceDetector({fastMode:false, maxDetectedFaces:3}).detect(im)).sort((a, b) => b.boundingBox.width * b.boundingBox.height - a.boundingBox.width * a.boundingBox.height)[0];
+        if(f){ const r = f.boundingBox; return {x:r.x / W, y:r.y / H, w:r.width / W, h:r.height / H, by:'tel'}; } }catch(e){}
+    }
+    if(!aiReady()) return null;
+    const out = await stream('Localizezi fețe în imagini. Răspunzi doar cu JSON.', [{role:'user', image:await blobToB64(await toJpeg(blob, 1024, .85)), text:
+      'Găsește fața persoanei principale din imagine (de la frunte la bărbie, de la o ureche la cealaltă). Răspunde STRICT cu JSON, coordonate ca fracții 0-1 din lățimea și înălțimea imaginii, colțul stânga-sus: {"x":0.0,"y":0.0,"w":0.0,"h":0.0}. Dacă nu se vede nicio față: {"x":0,"y":0,"w":0,"h":0}'}], {max:120, aux:true});
+    const j = parseJSON(out), n = k => Math.min(1, Math.max(0, +j[k] || 0));
+    const b = {x:n('x'), y:n('y'), w:n('w'), h:n('h'), by:'ai'};
+    return b.w > .02 && b.h > .02 ? b : null;
+  } finally { URL.revokeObjectURL(u); }
+}
+// pătrat în jurul feței, lărgit cât să prindă părul și puțin gâtul (fără haine, fără fundal); fără față găsită: partea de sus, la mijloc
+async function cropFace(blob, b){
+  const u = URL.createObjectURL(blob);
+  try{
+    const im = await loadImgEl(u), W = im.naturalWidth, H = im.naturalHeight;
+    let side, cx, cy;
+    if(b){ const fw = b.w * W, fh = b.h * H; side = Math.max(fw, fh) * 1.7; cx = (b.x + b.w / 2) * W; cy = (b.y + b.h / 2) * H - fh * .12; }
+    else { side = Math.min(W, H) * .55; cx = W / 2; cy = side / 2 + H * .04; }
+    side = Math.min(side, W, H);
+    const x = Math.min(Math.max(0, cx - side / 2), W - side), y = Math.min(Math.max(0, cy - side / 2), H - side);
+    const o = Math.min(512, Math.round(side)), cv = document.createElement('canvas'); cv.width = cv.height = o;
+    cv.getContext('2d').drawImage(im, x, y, side, side, 0, 0, o, o);
+    return await new Promise(r => cv.toBlob(r, 'image/jpeg', .92));
+  } finally { URL.revokeObjectURL(u); }
+}
+// referința pentru pozele din conversație: fața (căutată o singură dată per poză de profil, ținută în c.faceBox)
+async function faceRef(c, force){
+  if(!c.photo) return null;
+  const full = await DB.get(c.photo); if(!full) return null;
+  if(force || !c.faceBox || c.faceBox.k !== c.photo){
+    let b = null; try{ b = await findFace(full); }catch(e){}
+    c.faceBox = b ? {k:c.photo, x:b.x, y:b.y, w:b.w, h:b.h, by:b.by} : {k:c.photo, none:true};
+    await saveChars();
+  }
+  return cropFace(full, c.faceBox.none ? null : c.faceBox);
+}
+// promptul pozei dintr-o scenă: scena e prima și decide totul; referința dă doar fața
+async function scenePhoto(c, shot, signal){
+  const stil = STIL_TAG[c.stil || 'photo'];
+  if(S.imgProv === 'worker' || S.imgProv === 'fal'){
+    const ref = await faceRef(c);
+    const prompt = ref
+      ? `${shot}. The person is the same as in the reference image, which is only a close-up of the face, used for identity: keep that exact face, eyes, eyebrows, hair color and hairstyle. Take the location, background, body position and pose, clothing, framing, camera angle and lighting only from the scene description above, exactly as written; nothing from the reference except the face. ${stil}`
+      : [c.look || '', shot, stil].filter(Boolean).join('. ');
+    return {prompt, blob: await genImage(prompt, ref, signal)};
+  }
+  const ref = c.photo ? await DB.get(c.photo) : null;   // Gemini: poza întreagă, ține bine fața și urmează scena
+  const prompt = [shot, ref ? 'Same person as in the reference image; take only the face and hair from it, everything else (place, pose, clothing, light) from this description' : c.look || '', stil].filter(Boolean).join('. ');
+  return {prompt, blob: await genImage(prompt, ref, signal)};
 }
 async function genImage(prompt, ref, signal){
   if(S.imgProv === 'gemini'){
@@ -1817,11 +1880,8 @@ Răspunde STRICT cu JSON: {"text":"statusul"${wantPic ? ',"poza":"one English se
   const p = {id:uid(), cid:c.id, ts:Date.now(), text, life:lf ? lf.w : ''};
   if(wantPic && j.poza && capLeft() >= (neurPerPhoto() || 5000)){
     try{
-      const ref = c.photo ? await DB.get(c.photo) : null, shot = String(j.poza).trim();
-      const prompt = ref && S.imgProv === 'worker'
-        ? `A brand-new photo of the same person as in the reference image (keep the face, hair color and identity). ${shot} Completely change the background, location, pose, camera angle, framing, clothing and lighting to match this description; do not reuse the composition of the reference image. ${STIL_TAG[c.stil || 'photo']}`
-        : [c.look || '', shot, STIL_TAG[c.stil || 'photo']].filter(Boolean).join('. ');
-      let b = await genImage(prompt, ref);
+      const shot = String(j.poza).trim().replace(/[.\s]+$/, '');
+      let {blob:b} = await scenePhoto(c, shot);
       try{ if(b.type === 'image/png') b = await toJpeg(b, 2048, .92); }catch(e){}
       p.img = await saveImg(b); p.scene = shot; addUsage(c.id, imgPrice(), 'img');
     }catch(e){ /* statusul pleacă și fără poză */ }
@@ -1837,6 +1897,14 @@ function drawPics(c){
   box.innerHTML = `<div class="pfVoice"><span>${on ? '✅ Pornit' : '⏸ Oprit'}${why ? ' · ' + why : ''}</span><button class="btn sm" id="pfPicsOn">${on ? '⏸ Oprește' : '▶ Pornește'}</button></div>
     <p class="hint" style="margin-top:6px">${on ? `${esc(c.name)} îți poate trimite poze în chat: când vrea, când i-o ceri, plus cele spontane (Setări → Poze) și cele din statusuri. Fața vine din poza de profil.` : `${esc(c.name)} nu trimite poze singur${c.aiPortrait ? '' : ' (implicit doar personajele cu portret generat în aplicație o fac)'}. 📷 Cere o poză din ＋ merge oricum.`}</p>`;
   $('#pfPicsOn').onclick = async () => { c.sendPics = !on; await saveChars(); drawPics(c); toast(c.sendPics ? '📷 ' + c.name + ' îți poate trimite poze' : c.name + ' nu mai trimite poze singur'); };
+  if(c.photo && (S.imgProv === 'worker' || S.imgProv === 'fal')){
+    const fb = c.faceBox && c.faceBox.k === c.photo ? c.faceBox : null;
+    box.insertAdjacentHTML('beforeend', `<div class="faceref"><div class="fimg" id="pfFace">${fb ? '<span class="spin"></span>' : '?'}</div><div><b>Fața folosită pentru poze</b><small>${fb ? (fb.none ? 'Nu am găsit fața; folosesc partea de sus a pozei.' : 'Doar fața merge la generator; locul, poziția și hainele vin din scenă.') : 'Se caută la prima poză.'}</small><button class="btn sm" id="pfFaceRe">${fb ? '↻ Caută din nou' : '🔍 Caută acum'}</button></div></div>`);
+    const show = async force => { const el = $('#pfFace'); if(!el) return; el.innerHTML = '<span class="spin"></span>';
+      try{ const b = await faceRef(c, force); if(profId !== c.id) return; const u = URL.createObjectURL(b); el.innerHTML = `<img src="${u}" alt="">`; if(force) drawPics(c); }catch(e){ el.textContent = '!'; toast('N-am putut decupa fața: ' + e.message, 3500); } };
+    if(fb) show(false);
+    $('#pfFaceRe').onclick = () => show(true);
+  }
 }
 function drawAv(c){
   const box = $('#pfAv'); if(!box) return;
@@ -2237,8 +2305,9 @@ function clearReply(){ replyTo = null; $('#replyBar').hidden = true; }
 const MOOD_RE = /\s*\[stare:\s*([^\]\n]{1,40})\]/gi;
 const SCHED_RE = /\s*\[programez:\s*([^\]\n]{3,160})\]/gi;
 const STK_RE = /\s*\[sticker:\s*([^\]\n]{2,40})\]/gi;
-const SHOT_RE = /\s*\[poz[ăa]:\s*([^\]\n]{8,400})\]/gi;
-const stripMood = t => String(t || '').replace(MOOD_RE, '').replace(SCHED_RE, '').replace(SHOT_RE, '').replace(STK_RE, '')
+const SHOT_RE = /\s*\[poz[ăa]:\s*([^\]]{8,2000})\]/gi;
+const SHOT_OPEN = /\s*\[poz[ăa]:[^\]]*$/i;   // etichetă începută, încă neînchisă (în timpul scrierii) sau tăiată
+const stripMood = t => String(t || '').replace(MOOD_RE, '').replace(SCHED_RE, '').replace(SHOT_RE, '').replace(SHOT_OPEN, '').replace(STK_RE, '')
   .replace(/\s*\[s(t(a(r(e(:[^\]\n]*)?)?)?)?)?$/i, '').replace(/\s*\[p(r(o(g(r(a(m(e(z(:[^\]\n]*)?)?)?)?)?)?)?)?)?$/i, '').replace(/\s*\[p(o(z([ăa](:[^\]\n]*)?)?)?)?$/i, '').replace(/\s*\[s(t(i(c(k(e(r(:[^\]\n]*)?)?)?)?)?)?)?$/i, '').trimEnd();
 // starea din antet: online / ultima dată + dispoziția (scrisă de personaj sau dedusă din ultimul răspuns)
 const MOODS = [
@@ -2707,7 +2776,7 @@ function systemFor(c, ch){
 - Ții cont de momentul zilei și de pauzele dintre mesaje, notate între paranteze în mesajele lui ${u}; nu le menționa ca note.
 ${S.vmsg !== 'off' ? `- Uneori, când e firesc (cam o dată la ${S.vmsg === 'des' ? '4' : '10'} mesaje), sau oricând ${u} îți cere, poți trimite un mesaj vocal: începe răspunsul cu [vocal] și scrie exact ce spui cu voce tare, ca o persoană care vorbește liber la telefon: propoziții scurte, ezitări firești (păi, adică, mă rog, știi?), reluări, fără *acțiuni* și fără emoji. Unde e firesc, rar, poți pune [râde], [chicotește], [oftează], [șoptește] sau ... pentru o pauză scurtă. 1-4 propoziții.\n` : ''}${ch ? `- Dacă îi promiți lui ${u} că îi scrii tu la un anumit moment (de exemplu „îți scriu mâine la 7:25”, „te caut diseară la 9”), sau el îți cere asta și accepți, adaugă la final, pe un rând separat: [programez: ZIUA HH:MM | despre ce îi scrii], unde ZIUA e azi, mâine, poimâine sau AAAA-LL-ZZ. La ora aceea aplicația îți dă ocazia să-i scrii. Nu programa nimic fără o promisiune clară.\n` : ''}${ch ? `- La finalul fiecărui răspuns, pe un rând separat, notează-ți starea de acum exact așa: [stare: un emoji și 1-3 cuvinte], de exemplu [stare: 😊 bine dispusă]. Starea evoluează firesc din ce se întâmplă și din pauze, fără salturi bruște fără motiv.\n` : ''}- Dacă un mesaj al lui ${u} te amuză sau te emoționează, poți începe răspunsul cu o reacție scrisă exact așa: [❤️] [😂] [😮] [😢] [👍] [🔥] sau [🥰]. Cel mult o dată la câteva mesaje, nu de fiecare dată.
 ${canAutoPhoto(c)
-  ? `- Poți trimite poze. Când vrei să-i trimiți una (sau ${u} îți cere și accepți), încheie mesajul cu acțiunea *îți trimite o poză* și, pe rândul următor, descrie exact poza în engleză așa: [poză: framing (selfie / mirror selfie / photo taken by someone / close-up / full body), where you are, what you are doing, what you wear, expression, light matching the time of day]. Poza trebuie să arate exact ce se întâmplă acum în conversație (locul, activitatea, hainele despre care ați vorbit). Nu descrie fața. Aplicația o atașează singură. Nu promite poze în alt fel.`
+  ? `- Poți trimite poze. Când vrei să-i trimiți una (sau ${u} îți cere și accepți), încheie mesajul cu acțiunea *îți trimite o poză* și, pe rândul următor, descrie exact poza în engleză așa: [poză: framing (selfie / mirror selfie / photo taken by someone / close-up / full body), where you are and what is around you, your exact body position (standing, sitting on…, lying on…, leaning…) and what your hands do, what you wear, expression, light matching the time of day]. Poza trebuie să arate exact ce se întâmplă acum în conversație (locul, poziția ta, activitatea, hainele despre care ați vorbit). Cel mult 60 de cuvinte. Nu descrie fața. Aplicația o atașează singură. Nu promite poze în alt fel.`
   : '- Nu poți trimite poze în această conversație. Nu spune că trimiți, că faci sau că ai trimis o poză.'}`
   ].filter(Boolean).join('\n\n');
 }
@@ -3403,16 +3472,10 @@ Rules:
 3. Only if the conversation says nothing about place or activity, infer the most plausible one for the local time (for example at night: at home, indoor lamp light). Never put an outdoor sunny scene at night.
 4. Do not describe the face or body. Do not invent anything that contradicts the conversation.${prevShots ? `\n5. Photos already sent (the new one must differ in framing or pose, unless the conversation asks for the same place):\n${prevShots}` : ''}
 
-Write ONE English sentence, max 45 words: framing (selfie / mirror selfie / photo taken by someone / close-up / full body), place, activity and pose, clothing, expression, light matching the local time.`}],
+Write ONE English sentence, max 55 words: framing (selfie / mirror selfie / photo taken by someone / close-up / full body), place and what is around, exact body position (standing, sitting on…, lying on…) and what the hands do, activity, clothing, expression, light matching the local time.`}],
       {max:160, signal:busy.signal, cid:c.id, aux:true});
-    const shot = scene.trim().replace(/^["„]|["”]$/g, '');
-    const ref = c.photo ? await DB.get(c.photo) : null;
-    // FLUX.2 klein cu poză de referință editează poza primită: dacă îi descriem doar persoana, întoarce aproape aceeași poză.
-    // De aceea îi cerem explicit o poză NOUĂ cu aceeași persoană, cu tot restul schimbat după scena din conversație.
-    const prompt = ref && S.imgProv === 'worker'
-      ? `A brand-new photo of the same person as in the reference image (keep the face, hair color and identity). ${shot} Completely change the background, location, pose, camera angle, framing, clothing and lighting to match this description; do not reuse the composition, background or outfit of the reference image. ${STIL_TAG[c.stil || 'photo']}`
-      : [c.look || '', shot, STIL_TAG[c.stil || 'photo']].filter(Boolean).join('. ');
-    let blob = await genImage(prompt, ref, busy.signal);
+    const shot = scene.trim().replace(/^["„]|["”]$/g, '').replace(/[.\s]+$/, '');
+    let {prompt, blob} = await scenePhoto(c, shot, busy.signal);
     try{ if(blob.type === 'image/png') blob = await toJpeg(blob, 2048, .92); }catch(e){}   // PNG → JPEG: de ~5 ori mai puțin spațiu
     const k = await saveImg(blob);
     if(target){
