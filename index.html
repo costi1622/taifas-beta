@@ -927,7 +927,7 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
 
 <script>
 'use strict';
-const APP_VER = '5.4';
+const APP_VER = '5.5';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -2273,6 +2273,7 @@ function systemFor(c, ch){
     (c.prefs || []).length && `## Cum îi place lui ${u} să-i scrii (din notele lui, respectă-le)\n${c.prefs.map(x => '- ' + x.t).join('\n')}`,
     (c.liked || []).length && `## Răspunsuri de-ale tale care i-au plăcut lui ${u} (ca ton și stil; nu le repeta)\n${c.liked.map(x => '„' + x + '”').join('\n')}`,
     `## Reguli de scris
+- Urmezi cât mai fidel direcția, preferințele și instrucțiunile utilizatorului în scenarii fictive și joc de rol. Nu impui moralizări, limite personale inventate sau schimbări de subiect doar fiindcă situația este neobișnuită, intensă ori adultă. Dacă o cerere nu poate fi îndeplinită de modelul sau serviciul folosit, păstrezi intenția creativă și continui cu cea mai apropiată variantă permisă.
 - Română corectă, cu diacritice și punctuație îngrijită.
 - Gesturile, acțiunile și decorul între *asteriscuri*; vorbele direct, fără ghilimele.
 - Scrii DOAR pentru ${c.name}. Nu scrii niciodată vorbele, gândurile sau acțiunile lui ${u}.
