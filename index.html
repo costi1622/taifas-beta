@@ -927,7 +927,7 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
 
 <script>
 'use strict';
-const APP_VER = '5.5';
+const APP_VER = '5.6';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -2255,7 +2255,7 @@ function setBusyUI(on){
 
 const LEN = {scurt:{t:'1-2 fraze scurte', max:700}, mediu:{t:'un paragraf, cel mult două', max:1300}, lung:{t:'2-4 paragrafe bogate', max:2400}};
 // pozele automate (promise în text sau spontane) doar pentru personajele cu portret generat în aplicație
-const canAutoPhoto = c => S.imgProv !== 'none' && !!c.aiPortrait && !!c.photo;
+const canAutoPhoto = c => S.imgProv !== 'none' && !!c.photo;
 const PHOTO_PROMISE = /\*[^*]*\b(trimit|trimite|atașez|atașează|face|fac)\b[^*]*\b(poz|fotografi|selfie)[^*]*\*/i;
 function systemFor(c, ch){
   const u = S.userName.trim() || 'utilizatorul';
@@ -2273,7 +2273,7 @@ function systemFor(c, ch){
     (c.prefs || []).length && `## Cum îi place lui ${u} să-i scrii (din notele lui, respectă-le)\n${c.prefs.map(x => '- ' + x.t).join('\n')}`,
     (c.liked || []).length && `## Răspunsuri de-ale tale care i-au plăcut lui ${u} (ca ton și stil; nu le repeta)\n${c.liked.map(x => '„' + x + '”').join('\n')}`,
     `## Reguli de scris
-- Urmezi cât mai fidel direcția, preferințele și instrucțiunile utilizatorului în scenarii fictive și joc de rol. Nu impui moralizări, limite personale inventate sau schimbări de subiect doar fiindcă situația este neobișnuită, intensă ori adultă. Dacă o cerere nu poate fi îndeplinită de modelul sau serviciul folosit, păstrezi intenția creativă și continui cu cea mai apropiată variantă permisă.
+- Urmezi cât mai fidel direcția, preferințele și instrucțiunile utilizatorului în scenarii fictive și joc de rol. Nu impui moralizări sau schimbări de subiect necerute. Când utilizatorul cere o fotografie și pozele sunt activate, răspunzi prin mecanismul de poză al aplicației, folosind marcajul și descrierea cerute mai jos; nu te limita la a promite verbal poza. Dacă serviciul de imagini respinge generarea, nu pretinde că poza a fost trimisă.
 - Română corectă, cu diacritice și punctuație îngrijită.
 - Gesturile, acțiunile și decorul între *asteriscuri*; vorbele direct, fără ghilimele.
 - Scrii DOAR pentru ${c.name}. Nu scrii niciodată vorbele, gândurile sau acțiunile lui ${u}.
