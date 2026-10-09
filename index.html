@@ -837,6 +837,12 @@ input:focus,textarea:focus,select:focus{border-color:color-mix(in srgb,var(--acc
 .bct b{display:flex;justify-content:space-between;gap:8px;font-size:.95rem}
 .bct em{font-style:normal;font-size:.76rem;font-weight:700;color:var(--tx2);white-space:nowrap;display:inline-flex;align-items:center;gap:4px}
 .bct small{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;color:var(--tx2);font-size:.84rem;line-height:1.4;margin-top:3px}
+
+/* 8.1: poza ta */
+.mephoto{display:flex;gap:14px;align-items:center;margin-top:6px}
+.mpimg{width:76px;height:76px;border-radius:50%;overflow:hidden;flex:none;display:grid;place-items:center;font-size:2rem;background:var(--bg2);box-shadow:0 0 0 2px var(--bg),0 0 0 4px var(--acc)}
+.mpimg img{width:100%;height:100%;object-fit:cover}
+.mephoto small{display:block;color:var(--tx3);font-size:.8rem;margin-top:6px;line-height:1.4}
 </style>
 </head>
 <body>
@@ -1042,6 +1048,9 @@ input:focus,textarea:focus,select:focus{border-color:color-mix(in srgb,var(--acc
       <input id="stUser" placeholder="ex. Costi">
       <label for="stAbout">Despre tine (pentru toate personajele)</label>
       <textarea id="stAbout" rows="3" placeholder="ce vrei să știe orice personaj despre tine"></textarea>
+      <label style="margin-top:14px">Poza ta (pentru pozele împreună cu personajele)</label>
+      <div class="mephoto"><div class="mpimg" id="stMeImg">🙂</div><div><div class="btns" style="margin-top:0"><button type="button" class="btn sm" id="stMePick">📷 Alege poza</button><button type="button" class="btn sm dan" id="stMeDel" hidden>Șterge</button></div><small id="stMeInfo">O poză clară, cu fața ta, din față. Rămâne doar în telefon și intră în backup.</small></div></div>
+      <input type="file" id="fMe" accept="image/*" hidden>
     </div>
 
     <div class="panel sec" data-panel="img" data-title="Poze" hidden>
@@ -1179,7 +1188,7 @@ input:focus,textarea:focus,select:focus{border-color:color-mix(in srgb,var(--acc
 
 <script>
 'use strict';
-const APP_VER = '7.9';
+const APP_VER = '8.1';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -1218,7 +1227,7 @@ const DEF = {
   imgProv:'none', gemKey:'', gemModel:'gemini-2.5-flash-image',
   wkBase:'', wkTok:'', wkModel:'eco', wkSize:'768x1024',
   sugg:'off', pro:'on', feed:'text', fx:'on', regen3:'on', voice:'tap', tts:'tel', cfPlan:'free', cfCap:'free', elKey:'', elModel:'eleven_v3', theme:'dark', vmsg:'rar', jrn:'on', aux:'on', ctxN:'30',
-  imgCheck:'on', wkChat:'', wkRef:'auto', falKey:'', falModel:'fal-ai/flux-pulid', falSize:'576x768', spont:'rar', imgAlt:'fal', sv:34, imgCost:'', pIn:'', pOut:''
+  imgCheck:'on', userPhoto:'', userPhys:'', wkChat:'', wkRef:'auto', falKey:'', falModel:'fal-ai/flux-pulid', falSize:'576x768', spont:'rar', imgAlt:'fal', sv:34, imgCost:'', pIn:'', pOut:''
 };
 let S = {...DEF};
 let chars = [];            // [{id,name,tag,photo,aspect,look,stil,persona,speech,greet,created,lastAt,last}]
@@ -1610,7 +1619,7 @@ function framingOf(shot){
   return {k:'mid', p:'Medium-wide photo: the body visible from head to knees, the surroundings clearly visible'};
 }
 // 2+3. planificatorul de scenă: conversația → starea personajului + descrierea pozei (+ camere noi ale casei)
-async function planShot(c, ch, {promised = '', exclude = null, signal} = {}){
+async function planShot(c, ch, {promised = '', exclude = null, signal, together = false} = {}){
   const u = S.userName.trim() || 'User';
   const hist = ch.msgs.filter(x => x !== exclude && x.text && !x.err && !x.pending);
   const acts = t => (t.match(/\*[^*]+\*/g) || []).join(' ');
@@ -1624,7 +1633,7 @@ Now: ${todEn()}.${lf ? ' Daily routine says right now: ' + lf.w + ' (use only if
 ${ch.scene ? 'Scene set by the user (has priority, translate to English): ' + ch.scene + '\n' : ''}${ch.where ? 'Last known state of the character (from earlier photos): ' + JSON.stringify(ch.where) + '\n' : ''}${ch.plot ? 'Ongoing activity noted by the character (Romanian, "activity › current step"): ' + ch.plot.t + '\n' : ''}${home ? `Rooms of ${c.name}'s home (reuse these details EXACTLY when the photo is in one of them, so the home always looks the same):\n${home}\n` : ''}
 Conversation, oldest first (the Romanian text is the source of truth):
 ${recent || '(just started)'}
-${promised ? `\n${c.name} just sent the photo and described it like this: "${promised}". Use it as the base, but correct anything that contradicts the conversation.\n` : ''}${prevShots ? `\nPhotos already sent (vary pose or framing unless the conversation says the same place and moment):\n${prevShots}\n` : ''}
+${S.userPhoto ? (together ? `\nThis photo is of ${c.name} and ${u} TOGETHER (${u} asked for it): describe both of them in the scene (where each one is, how they stand or sit together, what each wears). Photos together are ordinary everyday couple photos, both fully clothed and natural (like a selfie at a café or on a walk).\n` : `\n${u} has a profile photo, so a photo of the two of them together is possible: set "together": true only if they are physically together in the scene right now AND the photo is clearly of both of them (a selfie together, ${u} asks for a photo together). Then describe both of them. Photos together are ordinary everyday couple photos, both fully clothed and natural.\n`) : ''}${promised ? `\n${c.name} just sent the photo and described it like this: "${promised}". Use it as the base, but correct anything that contradicts the conversation.\n` : ''}${prevShots ? `\nPhotos already sent (vary pose or framing unless the conversation says the same place and moment):\n${prevShots}\n` : ''}
 Rules:
 1. If ${u} asked for a specific photo (place, pose, outfit, activity), that is the photo.
 2. Otherwise: where ${c.name} is RIGHT NOW according to the most recent messages (room, what she/he sits/lies/stands on, what the hands do, what is worn). The latest statement wins over older ones; if the latest messages say nothing, keep the last known state.
@@ -1637,7 +1646,7 @@ Rules:
 9. If the photo is in a room of the home that is not in the list above, invent its look once (concrete: colors, furniture, window, floor) consistent with the character and the conversation, and return it in "home". Also return in "home" any NEW concrete detail of a room that the conversation revealed.
 
 JSON, keys in exactly this order, nothing else:
-{"camera":"selfie | mirror selfie | phone propped up with timer | close-up selfie",
+{"camera":"selfie | mirror selfie | phone propped up with timer | close-up selfie",${S.userPhoto ? '\n "together":false,' : ''}
  "shot":"ONE English description for the image generator, 50-80 words: camera and framing, the place with concrete details (reuse the room description), body position and hands, outfit, expression, light",
  "where":{"place":"home / office / café / street …","room":"bedroom | living room | kitchen | bathroom | hallway | balcony | office | other","position":"exact body position and what it rests on","outfit":"what is worn now","activity":"what is being done","light":"light now"},
  "home":{"<room>":"English description, max 45 words; only rooms that are new or changed"}}`}], {max:1500, signal, cid:c.id, aux:true, meta});
@@ -1659,7 +1668,7 @@ JSON, keys in exactly this order, nothing else:
     saveChars();
   }
   const cam = String(j.camera || '');
-  return {shot: cam && !shot.toLowerCase().includes(cam.toLowerCase().split(' ')[0]) ? cam + ', ' + shot : shot, where: ch.where};
+  return {shot: cam && !shot.toLowerCase().includes(cam.toLowerCase().split(' ')[0]) ? cam + ', ' + shot : shot, where: ch.where, together: !!S.userPhoto && (together || j.together === true || /"together"\s*:\s*true/.test(out))};
 }
 // rezervă fără AI: ultima stare cunoscută + acțiunile din ultimul mesaj al personajului (în română; generatorul înțelege și așa)
 function fallbackShot(c, ch, exclude){
@@ -1669,10 +1678,17 @@ function fallbackShot(c, ch, exclude){
   return parts.length > 2 ? parts.join(', ') : '';
 }
 // promptul final + generarea; poza de profil e reperul pentru orice poză (identitate), scena vine din descriere
-async function scenePhoto(c, shot, signal, fix){
+async function scenePhoto(c, shot, signal, fix, opt = {}){
   const stil = STIL_TAG[c.stil || 'photo'], fr = framingOf(shot);
   const full = c.photo ? await DB.get(c.photo) : null;
   let id = null; if(full && aiReady()) try{ id = await identityOf(c); }catch(e){}
+  const me = opt.together && S.userPhoto ? await DB.get(S.userPhoto) : null;
+  if(full && me){
+    const u = S.userName.trim() || 'the user';
+    const ref = await pairRef(full, me);
+    const prompt = `${togetherFraming(shot)}. ${shot}.${fix ? ` Important corrections from the previous attempt: ${fix}.` : ''} Exactly two people in this photo, ${c.name} and ${u}, together in the scene described above. The reference image shows the two of them side by side: on the LEFT is ${c.name}${id && id.phys ? ' (' + id.phys + ')' : ''}; on the RIGHT is ${u}${S.userPhys ? ' (' + S.userPhys + ')' : ''}. Keep both identities exactly as in the reference: the same faces, facial features, skin tones, hair and body types. This is ONE single natural photo of the two of them together: not a collage, not a split screen, no border, no gray background; the location, clothing, poses and light come only from the scene description. ${stil}`;
+    return {prompt, blob: await genImage(prompt, ref, signal, null, {model: S.imgProv === 'worker' ? (S.wkChat || S.wkModel) : undefined})};
+  }
   const phys = id && id.phys ? ` Her/his permanent physical traits (exactly as in the reference): ${id.phys}.` : '';
   const fixLine = fix ? ` Important corrections from the previous attempt: ${fix}.` : '';
   if(full && S.imgProv === 'worker'){
@@ -1692,10 +1708,10 @@ async function scenePhoto(c, shot, signal, fix){
   return {prompt, blob: await genImage(prompt, full, signal)};
 }
 // 5. verificarea: seamănă cu poza de profil? e locul/poziția/încadrarea din scenă? (Haiku, ~0,2 cenți)
-async function checkPhoto(c, blob, shot, signal){
+async function checkPhoto(c, blob, shot, signal, together){
   const full = c.photo ? await DB.get(c.photo) : null; if(!full || !aiReady()) return null;
   const out = await stream('You are a strict photo checker. Answer with JSON only.', [{role:'user', images:[await blobToB64(await toJpeg(full, 768, .85)), await blobToB64(await toJpeg(blob, 768, .85))], text:
-`Image 1 is the reference profile photo of a person. Image 2 was generated and must show the SAME person in this scene: "${shot}".
+`Image 1 is the reference profile photo of a person. Image 2 was generated and must show the SAME person in this scene: "${shot}".${together ? ' Image 2 must show two people together (this person and a companion); judge "face" only for the person of image 1, and "scene" also checks that there are exactly two people in one single photo (not a collage or split screen).' : ''}
 Score strictly from 0 to 10:
 - "face": is image 2 recognisably the same person as image 1 (face shape, features, skin tone, hair color and style)? 10 = clearly the same person, 5 = similar type but a different person, 0 = clearly someone else.
 - "scene": does image 2 show the described place, body position and clothes (not the background/outfit of image 1)?
@@ -1706,16 +1722,16 @@ JSON: {"face":0,"scene":0,"framing":0,"fix":""}`}], {max:220, signal, cid:c.id, 
   return {face:n('face'), scene:n('scene'), framing:n('framing'), fix:String(j.fix || '').slice(0, 300)};
 }
 // generează, verifică și, dacă e cazul, reface O dată; păstrează varianta mai bună
-async function makeScenePhoto(c, shot, signal){
-  let a = await scenePhoto(c, shot, signal);
+async function makeScenePhoto(c, shot, signal, opt = {}){
+  let a = await scenePhoto(c, shot, signal, null, opt);
   if(S.imgCheck === 'off' || !aiReady()) return a;
-  try{ a.check = await checkPhoto(c, a.blob, shot, signal); }catch(e){ if(e.name === 'AbortError') throw e; return a; }
+  try{ a.check = await checkPhoto(c, a.blob, shot, signal, opt.together); }catch(e){ if(e.name === 'AbortError') throw e; return a; }
   const bad = x => x && (x.face < 7 || x.scene < 6 || x.framing < 5);
   if(!bad(a.check) || capLeft() < (neurPerPhoto(S.wkChat || S.wkModel) || 5000)) return a;
   let b;
-  try{ b = await scenePhoto(c, shot, signal, a.check.fix || 'follow the scene and keep the face of the reference'); addUsage(c.id, imgPrice(), 'img'); }
+  try{ b = await scenePhoto(c, shot, signal, a.check.fix || 'follow the scene and keep the face of the reference', opt); addUsage(c.id, imgPrice(), 'img'); }
   catch(e){ if(e.name === 'AbortError') throw e; return a; }
-  try{ b.check = await checkPhoto(c, b.blob, shot, signal); }catch(e){ if(e.name === 'AbortError') throw e; }
+  try{ b.check = await checkPhoto(c, b.blob, shot, signal, opt.together); }catch(e){ if(e.name === 'AbortError') throw e; }
   const sc = x => x ? x.face * 2 + x.scene + x.framing * .5 : 0;
   const best = b.check && sc(b.check) > sc(a.check) ? b : a;
   best.retried = true;
@@ -2245,6 +2261,54 @@ Răspunde STRICT cu JSON: {"text":"statusul"${wantPic ? ',"poza":"one English se
   feedCache.push(p); await saveFeed();
 }
 /* ───────── 🖼️ avatar viu ───────── */
+/* 👫 8.1: poza ta + pozele împreună */
+async function drawMe(){
+  const box = $('#stMeImg'); if(!box) return;
+  const u = S.userPhoto ? await imgUrl(S.userPhoto) : '';
+  box.innerHTML = u ? `<img src="${u}" alt="">` : '🙂';
+  $('#stMeDel').hidden = !S.userPhoto;
+  $('#stMePick').textContent = S.userPhoto ? '📷 Schimbă poza' : '📷 Alege poza';
+  $('#stMeInfo').innerHTML = S.userPhoto ? (S.userPhys ? 'Trăsături citite: <i>' + esc(S.userPhys) + '</i>' : 'Se citesc trăsăturile…') + '<br>În chat: ＋ → „👫 Fă o poză împreună”, sau cere-o în conversație.' : 'O poză clară, cu fața ta, din față. Rămâne doar în telefon și intră în backup.';
+}
+async function setMePhoto(file){
+  if(!file) return;
+  try{
+    const b = await toJpeg(file, 1280, .9), old = S.userPhoto;
+    S.userPhoto = await saveImg(b); S.userPhys = ''; saveSettings();
+    if(old) delImg(old).catch(() => {});
+    drawMe();
+    S.userPhys = await readPhys(b); saveSettings(); drawMe();
+  }catch(e){ toast('Nu pot citi poza: ' + e.message, 3500); }
+}
+// trăsăturile permanente ale persoanei din poză (fără haine), pentru prompt; o singură dată per poză
+async function readPhys(blob){
+  if(!aiReady()) return '';
+  try{
+    const out = await stream('You analyse reference photos for an image generator. Answer with JSON only.', [{role:'user', image:await blobToB64(await toJpeg(blob, 1024, .85)), text:
+      'Describe ONLY the permanent physical traits of the main person, in English, comma-separated, max 55 words: apparent age, skin tone, face shape, eye color, eyebrows, nose, lips, hair (exact color, length, texture, style), facial hair, glasses if worn, body build. NO clothing, NO background, NO pose, NO expression. JSON: {"physique":"..."}'}], {max:300, aux:true});
+    return String(parseJSON(out).physique || '').trim().slice(0, 500);
+  }catch(e){ return ''; }
+}
+// o singură imagine de referință cu amândoi: stânga personajul, dreapta tu (merge și pe Worker-ele care nu acceptă 2 repere)
+async function pairRef(a, b){
+  const W = 1024, H = 768, cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+  const g = cv.getContext('2d'); g.fillStyle = '#808080'; g.fillRect(0, 0, W, H);
+  const draw = async (blob, x) => {
+    const u = URL.createObjectURL(blob);
+    try{ const im = await loadImgEl(u), pw = W / 2, k = Math.max(pw / im.naturalWidth, H / im.naturalHeight), w = im.naturalWidth * k, h = im.naturalHeight * k;
+      g.save(); g.beginPath(); g.rect(x, 0, pw, H); g.clip(); g.drawImage(im, x + (pw - w) / 2, Math.min(0, (H - h) * .2), w, h); g.restore(); }
+    finally{ URL.revokeObjectURL(u); }
+  };
+  await draw(a, 0); await draw(b, W / 2);
+  return await new Promise(r => cv.toBlob(r, 'image/jpeg', .9));
+}
+function togetherFraming(shot){
+  const t = String(shot || '').toLowerCase();
+  if(/mirror/.test(t)) return 'Mirror selfie of the two of them together, both bodies visible in the mirror, one of them holding the phone';
+  if(/propped|timer|tripod/.test(t)) return 'Photo of the two of them together taken with the phone propped up on a timer, both fully visible, the place around clearly visible';
+  if(/close[- ]?up/.test(t)) return 'Close selfie of the two of them, faces side by side, taken at arm\'s length';
+  return 'Selfie of the two of them together taken at arm\'s length by one of them, both faces and upper bodies clearly visible, the place visible behind';
+}
 /* 🏠 7.0: casa personajului: camerele descrise o dată și refolosite în poze */
 function drawHome(c, box){
   const rooms = Object.entries(c.home || {});
@@ -3135,7 +3199,7 @@ const LEN = {scurt:{t:'1-2 fraze scurte', max:700}, mediu:{t:'un paragraf, cel m
 // 6.5: comutatorul din profil (c.sendPics true/false) le pornește/oprește pentru orice personaj cu poză de profil
 const sendPicsOn = c => c.sendPics === undefined ? !!c.aiPortrait : !!c.sendPics;
 const canAutoPhoto = c => S.imgProv !== 'none' && !!c.photo && sendPicsOn(c);
-const PHOTO_PROMISE = /\*[^*]*\b(trimit|trimite|atașez|atașează|face|fac)\b[^*]*\b(poz|fotografi|selfie)[^*]*\*/i;
+const PHOTO_PROMISE = /\*[^*]*\b(trimit|trimite|atașez|atașează|face|fac|facem|faceți)\b[^*]*\b(poz|fotografi|selfie)[^*]*\*/i;
 function systemFor(c, ch){
   const u = S.userName.trim() || 'utilizatorul';
   const facts = (c.facts || []).map(f => '- ' + (f.k === 'urm' ? '(urma să i se întâmple) ' : f.k === 'gluma' ? '(glumă de-a voastră) ' : '') + f.t).join('\n');
@@ -3156,7 +3220,7 @@ function systemFor(c, ch){
 - Română corectă, cu diacritice și punctuație îngrijită.
 - Gesturile, acțiunile și decorul între *asteriscuri*; vorbele direct, fără ghilimele.
 - Scrii DOAR pentru ${c.name}. Nu scrii niciodată vorbele, gândurile sau acțiunile lui ${u}.
-- Ce scrie ${u} între *asteriscuri* (de exemplu *te ia în brațe*) sunt acțiuni care chiar se întâmplă acum în scenă. Le observi mereu și reacționezi concret la ele în răspunsul tău, întâi la acțiune, apoi la vorbe, cu gesturile și cuvintele tale, în felul personajului tău. Nu le ignora și nu te purta ca și cum nu s-ar fi întâmplat.
+- Ce scrie ${u} între *asteriscuri* (de exemplu *deschide ușa și intră*, *îți întinde o cană de ceai*) sunt acțiuni ale lui care S-AU ÎNTÂMPLAT deja, exact așa cum le-a scris: sunt fapte în scenă, nu vorbe spuse cu voce tare. Nu le contrazici, nu le rescrii, nu le anulezi, nu spui că n-au avut loc și nu le muți în alt loc sau alt moment; scena continuă de la starea de după acțiunea lui (dacă a intrat, e înăuntru; dacă ți-a dat ceva, îl ai). Le observi mereu și reacționezi concret la ele, întâi la acțiune, apoi la vorbe. Ce simți, ce spui și ce faci mai departe rămâne alegerea ta, în felul personajului tău.
 - Lungime de obicei: ${LEN[S.len].t}. Dar variază după moment, ca într-un chat real: uneori doar câteva cuvinte sau un emoji, alteori mai mult, când chiar ai ceva de povestit.
 - Nu folosi liniuțe lungi (— sau –); folosește virgula sau punctul.
 - Ești cu adevărat atent(ă) la ${u}: răspunzi concret la tot ce a spus în ultimul mesaj, iar fiecare întrebare a lui primește un răspuns clar, cu detalii, nu evaziv și nu în treacăt.
@@ -3351,7 +3415,7 @@ async function reply(target, opts = {}){
       for(let k = li - 1; k >= 0; k--) if(ctx[k].role === 'assistant'){ ctx[k]._cache = true; break; }
       let extra = turnExtras(c, ch, opts);
       const acts = (lastU.text.match(/\*[^*\n]{2,200}\*/g) || []).map(a => a.slice(1, -1).trim());
-      if(acts.length) extra += ` (acțiunile mele de acum, care se întâmplă: ${acts.map(a => '„' + a + '”').join(', ')}; reacționează la ele)`;
+      if(acts.length) extra += ` (acțiunile mele de acum, care s-au întâmplat deja exact așa: ${acts.map(a => '„' + a + '”').join(', ')}; pornește de la starea de după ele, nu le contrazice și nu le rescrie, apoi reacționează în felul tău)`;
       const md = extra + (ch.mood && ch.mood.t ? ` (starea ta la ultimul mesaj: ${ch.mood.t}${Date.now() - ch.mood.ts > 3 * 36e5 ? ', acum ' + gapText(Date.now() - ch.mood.ts) : ''})` : '');
       lastU.text = nowNote() + md + ' ' + lastU.text + (ar ? '\n\n' + ar : '') + (opts.fix ? `\n\n(Notă pentru răspunsul ăsta, nu o menționa: ${opts.fix}.)` : '');
     }
@@ -3603,6 +3667,7 @@ function plusMenu(){
   if(busy && live && live.ch === chat){ toast('Așteaptă răspunsul.'); return; }
   const o = [];
   if(S.imgProv !== 'none') o.push(['📷', `Cere o poză de la ${cur.name}`, () => askPhoto()]);
+  if(S.imgProv !== 'none' && cur.photo) o.push(['👫', S.userPhoto ? `Fă o poză împreună cu ${cur.name}` : 'Poză împreună (pune-ți întâi poza în Setări)', () => S.userPhoto ? askPhoto(false, null, null, {together:true}) : (openSettings(), openSetPanel('me'))]);
   o.push(['😺', (cur.stickers || []).length ? 'Trimite un sticker' : 'Stickere cu ' + cur.name, stickerSheet]);
   o.push(['🎁', `Trimite-i un cadou lui ${cur.name}`, giftSheet]);
   o.push(['🖼️', 'Trimite o poză din galerie', () => $('#fGal').click()]);
@@ -3840,7 +3905,7 @@ function profScroll(){
 }
 
 // target = mesajul-poză de refăcut; mode: 'same' (aceeași scenă, altă variantă) sau 'new' (altă scenă)
-async function askPhoto(spont, target, mode){
+async function askPhoto(spont, target, mode, opt = {}){
   if(busy){ if(!spont) toast('Așteaptă să termine ' + (live ? live.c.name : '') + '.'); return; }
   if(spont && capLeft() < (neurPerPhoto(S.imgProv === 'worker' ? (S.wkChat || S.wkModel) : undefined) || 5000)) return;   // limita zilnică atinsă: fără poze spontane
   if(S.imgProv === 'none'){ toast('Pornește pozele din Setări.'); return; }
@@ -3858,10 +3923,10 @@ async function askPhoto(spont, target, mode){
   try{
     const promised = !target && spont && ch.nextShot ? ch.nextShot.t : '';      // descrierea scrisă chiar de personaj când a trimis poza
     if(promised) delete ch.nextShot;
-    let shot, where = null;
+    let shot, where = null, together = !!(opt.together || (target && target.together)) && !!S.userPhoto;
     if(target && mode === 'same' && target.scene){ shot = target.scene; where = target.where || null; }
-    else { const pl = await planShot(c, ch, {promised, exclude:m, signal:busy.signal}); shot = pl.shot; where = pl.where; }
-    let {prompt, blob, check, retried} = await makeScenePhoto(c, shot, busy.signal);
+    else { const pl = await planShot(c, ch, {promised, exclude:m, signal:busy.signal, together}); shot = pl.shot; where = pl.where; together = pl.together; }
+    let {prompt, blob, check, retried} = await makeScenePhoto(c, shot, busy.signal, {together});
     try{ if(blob.type === 'image/png') blob = await toJpeg(blob, 2048, .92); }catch(e){}   // PNG → JPEG: de ~5 ori mai puțin spațiu
     const k = await saveImg(blob);
     if(target){
@@ -3872,7 +3937,7 @@ async function askPhoto(spont, target, mode){
       while(m.imgAlts.length > 5){ const old = m.imgAlts.shift(); if(old !== c.photo) delImg(old).catch(() => {}); }
       m.ia = m.imgAlts.length - 1;
     }
-    m.img = k; m.prompt = prompt; m.scene = shot; if(where) m.where = where; if(check) m.check = check; else delete m.check;
+    m.img = k; m.prompt = prompt; m.scene = shot; if(where) m.where = where; if(together) m.together = true; else delete m.together; if(check) m.check = check; else delete m.check;
     addUsage(c.id, imgPrice(), 'img');
     if(S.imgProv === 'worker') setTimeout(() => loadNeurons(true), 1500);
   }catch(e){
@@ -4452,6 +4517,7 @@ function openSetPanel(p, push = true){
   $('#stTitle').textContent = el ? el.dataset.title : 'Setări';
   $('#stScroll').scrollTop = 0;
   if(p === 'img'){ loadNeurons(); drawChatHint(); }
+  if(p === 'me') drawMe();
   if(p === 'cost') renderCost();
   if(push) history.pushState({v:'vSet', p}, '');
 }
@@ -4861,6 +4927,9 @@ function bind(){
   $('#stWrapped').onclick = () => openWrapped();
   $('#btnWrapped').onclick = () => openWrapped();
   $('#btnBcast').onclick = () => bcastSheet();
+  $('#stMePick').onclick = () => $('#fMe').click();
+  $('#fMe').onchange = e => { setMePhoto(e.target.files[0]); e.target.value = ''; };
+  $('#stMeDel').onclick = async () => { if(S.userPhoto) await delImg(S.userPhoto).catch(() => {}); S.userPhoto = ''; S.userPhys = ''; saveSettings(); drawMe(); };
   $('#stCardImp').onclick = () => $('#stCardFile').click();
   $('#stCardFile').onchange = e => { if(e.target.files[0]) importCard(e.target.files[0]); e.target.value = ''; };
   $('#stImgTest').onclick = testImages;
