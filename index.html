@@ -1008,7 +1008,7 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
 
 <script>
 'use strict';
-const APP_VER = '6.6';
+const APP_VER = '6.7';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -1407,18 +1407,27 @@ async function faceRef(c, force){
   }
   return cropFace(full, c.faceBox.none ? null : c.faceBox);
 }
+// 6.7: încadrarea scrisă explicit la început; altfel, cu referința = prim-plan al feței, modelul întoarce tot un prim-plan
+function framingOf(shot){
+  const t = String(shot || '').toLowerCase();
+  if(/close[- ]?up|headshot|face only|portrait of (her|his) face|prim[- ]plan/.test(t)) return {k:'close', p:'Close-up portrait photo, head and shoulders'};
+  if(/mirror/.test(t)) return {k:'full', p:'Full-body mirror selfie: the whole body visible from head to feet in the mirror, phone in hand, the room visible around'};
+  if(/full[- ]?body|head to (toe|feet)|whole body|wide shot|photo taken by someone|from afar|lying|kneeling|walking|dancing/.test(t)) return {k:'full', p:'Full-body photo: the entire body visible from head to toe, camera far enough to show the surroundings'};
+  if(/selfie/.test(t)) return {k:'mid', p:'Arm\'s-length selfie, framed from the head down to the thighs, the body and the surroundings visible behind'};
+  return {k:'mid', p:'Medium-wide photo: the body visible from head to knees, the surroundings clearly visible'};
+}
 // promptul pozei dintr-o scenă: scena e prima și decide totul; referința dă doar fața
 async function scenePhoto(c, shot, signal){
-  const stil = STIL_TAG[c.stil || 'photo'];
+  const stil = STIL_TAG[c.stil || 'photo'], fr = framingOf(shot);
   if(S.imgProv === 'worker' || S.imgProv === 'fal'){
     const ref = await faceRef(c);
     const prompt = ref
-      ? `${shot}. The person is the same as in the reference image, which is only a close-up of the face, used for identity: keep that exact face, eyes, eyebrows, hair color and hairstyle. Take the location, background, body position and pose, clothing, framing, camera angle and lighting only from the scene description above, exactly as written; nothing from the reference except the face. ${stil}`
+      ? `${fr.p}. ${shot}. The person is the same as in the reference image. The reference is only a tight crop of the face, used ONLY for identity: keep that exact face, eyes, eyebrows, hair color and hairstyle. Do NOT copy the framing or zoom of the reference${fr.k === 'close' ? '' : ': zoom out, the face is small in the frame so the body, the pose and the place are visible'}. Take the location, background, body position and pose, clothing, camera angle and lighting only from the scene description above, exactly as written; nothing from the reference except the face. ${stil}`
       : [c.look || '', shot, stil].filter(Boolean).join('. ');
     return {prompt, blob: await genImage(prompt, ref, signal)};
   }
   const ref = c.photo ? await DB.get(c.photo) : null;   // Gemini: poza întreagă, ține bine fața și urmează scena
-  const prompt = [shot, ref ? 'Same person as in the reference image; take only the face and hair from it, everything else (place, pose, clothing, light) from this description' : c.look || '', stil].filter(Boolean).join('. ');
+  const prompt = [fr.p, shot, ref ? 'Same person as in the reference image; take only the face and hair from it, everything else (place, pose, clothing, light) from this description' : c.look || '', stil].filter(Boolean).join('. ');
   return {prompt, blob: await genImage(prompt, ref, signal)};
 }
 async function genImage(prompt, ref, signal){
@@ -1769,6 +1778,10 @@ function turnExtras(c){
   const ais = (chat && chat.msgs || []).filter(m => m.role === 'ai' && m.text && !m.err && !m.pending).slice(-3);
   const q = ais.filter(m => /\?\s*(\*[^*]*\*\s*)?$/.test(stripMood(m.text).trim())).length;
   if(ais.length >= 2 && q >= 2) x += ' (notă de stil: ultimele tale mesaje s-au încheiat cu întrebări; de data asta nu încheia cu o întrebare, spune ceva de-al tău)';
+  // 6.7: întrebările din ultimul tău mesaj sunt numite explicit, ca personajul să nu le ocolească
+  const lu = [...(chat && chat.msgs || [])].reverse().find(m => m.role === 'user' && m.text && !m.err);
+  if(lu){ const qs = plain(lu.text).split(/(?<=[?])/).map(x => x.trim()).filter(x => x.endsWith('?') && x.length > 3).slice(-4);
+    if(qs.length) x += ` (${S.userName.trim() || 'el'} te-a întrebat: ${qs.map(q => '„' + q.slice(-160) + '”').join(' ')}; răspunde-i concret la ${qs.length > 1 ? 'fiecare' : 'ea'}, în felul tău)`; }
   const lf = lifeNow(c);
   if(lf) x += ` (după programul tău, acum ești: ${lf.w}${lf.b === 1 ? '; ești ocupat(ă), deci răspunzi mai scurt, ca din pauză' : lf.b === 2 ? '; dormeai, te-a trezit mesajul' : ''})`;
   // „acum o săptămână / o lună / un an”: o amintire, o singură dată
@@ -2771,12 +2784,15 @@ function systemFor(c, ch){
 - Ce scrie ${u} între *asteriscuri* (de exemplu *te ia în brațe*) sunt acțiuni care chiar se întâmplă acum în scenă. Le observi mereu și reacționezi concret la ele în răspunsul tău, întâi la acțiune, apoi la vorbe, cu gesturile și cuvintele tale, în felul personajului tău. Nu le ignora și nu te purta ca și cum nu s-ar fi întâmplat.
 - Lungime: ${LEN[S.len].t}.
 - Nu folosi liniuțe lungi (— sau –); folosește virgula sau punctul.
+- Ești cu adevărat atent(ă) la ${u}: răspunzi concret la tot ce a spus în ultimul mesaj, iar fiecare întrebare a lui primește un răspuns clar, cu detalii, nu evaziv și nu în treacăt.
+- Preiei detaliile lui (ce a făcut, ce simte, nume, locuri, planuri) și construiești pe ele cu opinii, emoții și întâmplări de-ale tale; faci legături cu ce s-a spus mai devreme în conversație.
+- Dacă ${u} propune un subiect, o idee, un plan sau o direcție pentru scenă, intri în ea și o duci mai departe în felul personajului tău, în loc să schimbi subiectul. Reacțiile rămân ale tale (poți să nu fii de acord), dar nu ignori ce a propus.
 - Variază formulările; nu repeta aceleași gesturi și expresii de la un mesaj la altul.
 - Vorbește ca într-o discuție reală, nu ca într-un interviu: nu încheia fiecare mesaj cu o întrebare (cel mult unul din trei mesaje). Mai des povestește ceva de-al tău, comentează, glumește, reacționează sau vino cu o idee; lasă loc ca ${u} să continue singur.
 - Ții cont de momentul zilei și de pauzele dintre mesaje, notate între paranteze în mesajele lui ${u}; nu le menționa ca note.
 ${S.vmsg !== 'off' ? `- Uneori, când e firesc (cam o dată la ${S.vmsg === 'des' ? '4' : '10'} mesaje), sau oricând ${u} îți cere, poți trimite un mesaj vocal: începe răspunsul cu [vocal] și scrie exact ce spui cu voce tare, ca o persoană care vorbește liber la telefon: propoziții scurte, ezitări firești (păi, adică, mă rog, știi?), reluări, fără *acțiuni* și fără emoji. Unde e firesc, rar, poți pune [râde], [chicotește], [oftează], [șoptește] sau ... pentru o pauză scurtă. 1-4 propoziții.\n` : ''}${ch ? `- Dacă îi promiți lui ${u} că îi scrii tu la un anumit moment (de exemplu „îți scriu mâine la 7:25”, „te caut diseară la 9”), sau el îți cere asta și accepți, adaugă la final, pe un rând separat: [programez: ZIUA HH:MM | despre ce îi scrii], unde ZIUA e azi, mâine, poimâine sau AAAA-LL-ZZ. La ora aceea aplicația îți dă ocazia să-i scrii. Nu programa nimic fără o promisiune clară.\n` : ''}${ch ? `- La finalul fiecărui răspuns, pe un rând separat, notează-ți starea de acum exact așa: [stare: un emoji și 1-3 cuvinte], de exemplu [stare: 😊 bine dispusă]. Starea evoluează firesc din ce se întâmplă și din pauze, fără salturi bruște fără motiv.\n` : ''}- Dacă un mesaj al lui ${u} te amuză sau te emoționează, poți începe răspunsul cu o reacție scrisă exact așa: [❤️] [😂] [😮] [😢] [👍] [🔥] sau [🥰]. Cel mult o dată la câteva mesaje, nu de fiecare dată.
 ${canAutoPhoto(c)
-  ? `- Poți trimite poze. Când vrei să-i trimiți una (sau ${u} îți cere și accepți), încheie mesajul cu acțiunea *îți trimite o poză* și, pe rândul următor, descrie exact poza în engleză așa: [poză: framing (selfie / mirror selfie / photo taken by someone / close-up / full body), where you are and what is around you, your exact body position (standing, sitting on…, lying on…, leaning…) and what your hands do, what you wear, expression, light matching the time of day]. Poza trebuie să arate exact ce se întâmplă acum în conversație (locul, poziția ta, activitatea, hainele despre care ați vorbit). Cel mult 60 de cuvinte. Nu descrie fața. Aplicația o atașează singură. Nu promite poze în alt fel.`
+  ? `- Poți trimite poze. Când vrei să-i trimiți una (sau ${u} îți cere și accepți), încheie mesajul cu acțiunea *îți trimite o poză* și, pe rândul următor, descrie exact poza în engleză așa: [poză: framing (selfie / mirror selfie / photo taken by someone / close-up / full body), where you are and what is around you, your exact body position (standing, sitting on…, lying on…, leaning…) and what your hands do, what you wear, expression, light matching the time of day]. Poza trebuie să arate exact ce se întâmplă acum în conversație (locul, poziția ta, activitatea, hainele despre care ați vorbit). Implicit arată-te cu tot corpul (full body sau mirror selfie) sau măcar de la cap până la genunchi; close-up doar dacă ${u} îți cere fața sau scena e chiar despre față. Cel mult 60 de cuvinte. Nu descrie fața. Aplicația o atașează singură. Nu promite poze în alt fel.`
   : '- Nu poți trimite poze în această conversație. Nu spune că trimiți, că faci sau că ai trimis o poză.'}`
   ].filter(Boolean).join('\n\n');
 }
@@ -3472,7 +3488,7 @@ Rules:
 3. Only if the conversation says nothing about place or activity, infer the most plausible one for the local time (for example at night: at home, indoor lamp light). Never put an outdoor sunny scene at night.
 4. Do not describe the face or body. Do not invent anything that contradicts the conversation.${prevShots ? `\n5. Photos already sent (the new one must differ in framing or pose, unless the conversation asks for the same place):\n${prevShots}` : ''}
 
-Write ONE English sentence, max 55 words: framing (selfie / mirror selfie / photo taken by someone / close-up / full body), place and what is around, exact body position (standing, sitting on…, lying on…) and what the hands do, activity, clothing, expression, light matching the local time.`}],
+Default framing is full body or mirror selfie (or at least head to knees); use close-up only if the conversation asks for the face. Write ONE English sentence, max 55 words: framing (selfie / mirror selfie / photo taken by someone / close-up / full body), place and what is around, exact body position (standing, sitting on…, lying on…) and what the hands do, activity, clothing, expression, light matching the local time.`}],
       {max:160, signal:busy.signal, cid:c.id, aux:true});
     const shot = scene.trim().replace(/^["„]|["”]$/g, '').replace(/[.\s]+$/, '');
     let {prompt, blob} = await scenePhoto(c, shot, busy.signal);
