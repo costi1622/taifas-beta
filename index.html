@@ -679,6 +679,98 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
 [data-theme=light] .obArt span{box-shadow:0 10px 26px #0002}
 #toast{position:fixed;left:50%;bottom:calc(90px + var(--safe-b));transform:translateX(-50%);background:#2a2433;border:1px solid var(--line);padding:10px 16px;border-radius:12px;z-index:99;max-width:90vw;font-size:.9rem;box-shadow:0 6px 20px #0008;transition:opacity .2s;pointer-events:none}
 #toast:empty{opacity:0}
+
+/* ═════════ 6.9: refacere vizuală (Botify, mai rafinat) ═════════ */
+:root{--r:20px;--hair:#ffffff12;--glass:color-mix(in srgb,var(--bg2) 72%,transparent);--shadow:0 10px 30px #00000059;--ease:cubic-bezier(.2,.8,.25,1)}
+[data-theme=light]{--hair:#0000000f;--shadow:0 10px 26px #0000001f}
+body{background:radial-gradient(120% 60% at 50% -10%,color-mix(in srgb,var(--acc2) 14%,transparent),transparent 60%),var(--bg)}
+#vHome,#vProf,#vSet{background:radial-gradient(110% 45% at 85% -8%,color-mix(in srgb,var(--acc) 13%,transparent),transparent 62%),radial-gradient(90% 40% at 0% 0%,color-mix(in srgb,var(--acc2) 12%,transparent),transparent 60%),var(--bg)}
+.top h1{font-size:1.65rem;letter-spacing:-.8px}
+button,.btn,.ib{transition:transform .15s var(--ease),background-color .2s,opacity .2s}
+.btn:active,.ib:active{transform:scale(.95)}
+.btn{border-radius:14px;border-color:var(--hair);background:color-mix(in srgb,var(--card) 88%,transparent)}
+.btn.pri{box-shadow:0 8px 20px color-mix(in srgb,var(--acc) 32%,transparent)}
+input[type=text],input[type=password],input[type=url],input[type=datetime-local],input:not([type]),textarea,select{border-radius:14px;border-color:var(--hair);background:color-mix(in srgb,var(--bg2) 85%,var(--bg));transition:border-color .2s,box-shadow .2s}
+input:focus,textarea:focus,select:focus{border-color:color-mix(in srgb,var(--acc) 70%,transparent);box-shadow:0 0 0 4px color-mix(in srgb,var(--acc) 14%,transparent)}
+.sheet{border-radius:26px 26px 0 0;background:color-mix(in srgb,var(--bg2) 94%,transparent);backdrop-filter:blur(24px);border-top:1px solid var(--hair);box-shadow:0 -18px 50px #0007;animation:su .28s var(--ease)}
+.sheet::before{width:44px;height:5px;background:color-mix(in srgb,var(--tx3) 55%,transparent)}
+.sheet .opt{border-radius:14px}
+#toast{background:color-mix(in srgb,var(--card) 88%,transparent);backdrop-filter:blur(16px);border-color:var(--hair);border-radius:16px;box-shadow:var(--shadow)}
+.sgroup>.srow{background:color-mix(in srgb,var(--bg2) 88%,transparent)}
+.sgroup>.srow+.srow{border-top-color:var(--hair)}
+.pfSec{border:1px solid var(--hair)}
+#nav{background:color-mix(in srgb,var(--bg2) 78%,transparent);backdrop-filter:blur(22px) saturate(1.3);border-top:1px solid var(--hair)}
+#nav button.on{color:var(--tx)}
+#nav button.on::after{content:"";position:absolute;bottom:0;left:50%;width:18px;height:3px;margin-left:-9px;border-radius:3px;background:var(--grad)}
+#nav .mid::after{display:none}
+#nav .mid{border-radius:20px;box-shadow:0 10px 26px color-mix(in srgb,var(--acc) 45%,transparent),inset 0 1px 0 #ffffff40}
+
+/* Acasă */
+.grid{grid-template-columns:repeat(auto-fill,minmax(155px,1fr));gap:12px;padding:2px 14px calc(28px + var(--safe-b))}
+.hhello{grid-column:1/-1;padding:4px 2px 2px}
+.hhello b{display:block;font-size:1.32rem;font-weight:800;letter-spacing:-.4px}
+.hhello small{display:block;color:var(--tx2);font-size:.9rem;margin-top:3px}
+.hsec{grid-column:1/-1;display:flex;align-items:center;gap:8px;margin:12px 2px -2px;font-size:.76rem;font-weight:800;text-transform:uppercase;letter-spacing:.09em;color:var(--tx3)}
+.hsec span{font-size:.7rem;padding:2px 8px;border-radius:99px;background:color-mix(in srgb,var(--tx) 8%,transparent);color:var(--tx2);letter-spacing:0}
+.hcont{grid-column:1/-1;display:flex;gap:14px;overflow-x:auto;margin:0 -14px;padding:4px 14px 6px;scrollbar-width:none;scroll-snap-type:x proximity}
+.hcont::-webkit-scrollbar{display:none}
+.hc{flex:none;width:70px;display:flex;flex-direction:column;align-items:center;gap:5px;padding:0;scroll-snap-align:start}
+.hc:active{transform:scale(.93)}
+.hcav{position:relative;width:66px;height:66px;border-radius:50%;padding:2.5px;background:color-mix(in srgb,var(--tx) 14%,transparent)}
+.hc.unr .hcav{background:var(--grad)}
+.hcav img,.hcav .ph{width:100%;height:100%;border-radius:50%;object-fit:cover;display:grid;place-items:center;font-weight:800;color:#fff;border:2.5px solid var(--bg)}
+.hcav .on{position:absolute;right:3px;bottom:3px;width:13px;height:13px;border-radius:50%;background:var(--ok);border:2.5px solid var(--bg)}
+.hcav em{position:absolute;top:-2px;right:-4px;min-width:20px;height:20px;padding:0 5px;border-radius:99px;background:var(--grad);color:#fff;font-style:normal;font-size:.68rem;font-weight:800;display:grid;place-items:center;border:2px solid var(--bg)}
+.hc b{font-size:.78rem;font-weight:700;max-width:70px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hc small{font-size:.66rem;color:var(--tx3);margin-top:-4px}
+.card{aspect-ratio:3/4.35;border-radius:var(--r);box-shadow:0 12px 28px #00000066,0 0 0 1px var(--hair)}
+.card img{transition:transform .5s var(--ease)}
+.card:active img{transform:scale(1.04)}
+.card .ov{padding:64px 12px 12px;background:linear-gradient(transparent,#0000004d 30%,#000000e6)}
+.card b{font-size:1.12rem;font-weight:800;letter-spacing:-.2px}
+.card .crel{background:#ffffff24;backdrop-filter:blur(8px)}
+.card .when{background:#00000059;backdrop-filter:blur(10px);border:1px solid #ffffff1f}
+.card.new{aspect-ratio:3/4.35;border:1.5px dashed color-mix(in srgb,var(--tx3) 60%,transparent);background:color-mix(in srgb,var(--bg2) 55%,transparent);box-shadow:none;align-content:center;gap:6px;justify-items:center}
+.card.new span{font-size:2.2rem;width:58px;height:58px;border-radius:50%;display:grid;place-items:center;background:color-mix(in srgb,var(--acc) 14%,transparent);-webkit-text-fill-color:initial;color:var(--acc)}
+[data-theme=light] .card{box-shadow:0 10px 24px #00000024,0 0 0 1px var(--hair)}
+
+/* Conversația */
+.bub{border-radius:20px}
+.m.ai .bub{border-bottom-left-radius:6px;box-shadow:0 4px 16px #0000002e,inset 0 0 0 1px var(--hair)}
+.m.me .bub{border-bottom-right-radius:6px;background:linear-gradient(135deg,color-mix(in srgb,var(--acc) 40%,var(--me)),color-mix(in srgb,var(--acc2) 38%,var(--me)));box-shadow:0 6px 18px color-mix(in srgb,var(--acc) 18%,transparent)}
+[data-theme=light] .m.me .bub{background:linear-gradient(135deg,color-mix(in srgb,var(--acc) 22%,#fff),color-mix(in srgb,var(--acc2) 20%,#fff))}
+.picbox{border-radius:22px;overflow:hidden;box-shadow:var(--shadow)}
+.under{gap:6px;margin:6px 0 0 38px}
+.under.last{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;padding:2px 2px 4px;margin-right:-12px;padding-right:12px;mask-image:linear-gradient(90deg,#000 88%,transparent)}
+.under.last::-webkit-scrollbar{display:none}
+.under.last>span:not(.cutn){font-size:.74rem;color:var(--tx3);min-width:26px;text-align:center}
+.under button{flex:none;height:30px;padding:0 11px;border-radius:99px;font-size:.78rem;font-weight:650;color:var(--tx2);background:var(--glass);backdrop-filter:blur(12px);border:1px solid var(--hair);display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
+.under button:active{transform:scale(.93)}
+.under [data-alt],.under [data-ia]{width:30px;padding:0;justify-content:center;font-size:1rem}
+.under .ico,.under .rate{width:32px;padding:0;justify-content:center;font-size:.9rem}
+.under [data-cont]{color:#fff;background:var(--grad);border-color:transparent;box-shadow:0 4px 12px color-mix(in srgb,var(--acc) 30%,transparent)}
+.under .rate.on{background:color-mix(in srgb,var(--acc) 26%,var(--glass));border-color:color-mix(in srgb,var(--acc) 45%,transparent)}
+.picm .under,.mw>.under{margin-left:38px}
+#sugg{gap:8px;padding:0 12px 6px}
+#sugg button{padding:9px 14px;border-radius:18px 18px 18px 6px;background:var(--glass);backdrop-filter:blur(14px);border:1px solid color-mix(in srgb,var(--acc) 30%,var(--hair));font-size:.86rem;box-shadow:0 4px 14px #00000033}
+#sugg button:active{transform:scale(.96)}
+#composer{align-items:flex-end;gap:8px;padding:8px 10px calc(10px + var(--safe-b))}
+#composer .field{flex:1;min-width:0;display:flex;align-items:flex-end;gap:2px;padding:3px 4px 3px 0;border-radius:24px;background:var(--glass);backdrop-filter:blur(18px);border:1px solid var(--hair);transition:border-color .2s,box-shadow .2s}
+#composer .field:focus-within{border-color:color-mix(in srgb,var(--acc) 55%,transparent);box-shadow:0 0 0 4px color-mix(in srgb,var(--acc) 12%,transparent)}
+#composer #inp{flex:1;min-width:0;border:0!important;background:transparent!important;box-shadow:none!important;min-height:42px;padding:10px 4px 10px 16px;border-radius:0}
+#composer .field button{width:38px;height:38px;margin:0;border:0;background:transparent;border-radius:50%;display:grid;place-items:center;font-size:1.05rem;color:var(--tx2);flex:none}
+#composer .field button:active{background:color-mix(in srgb,var(--tx) 10%,transparent)}
+#composer #btnMic.rec{background:#ff4f6a;color:#fff}
+#btnPlus{width:44px;height:44px;margin:0 0 2px;background:var(--glass);backdrop-filter:blur(18px);border:1px solid var(--hair);color:var(--tx)}
+#btnSend{width:48px;height:48px;box-shadow:0 8px 20px color-mix(in srgb,var(--acc) 40%,transparent);transition:transform .15s var(--ease)}
+#btnSend:active{transform:scale(.9)}
+#btnSend svg{margin-left:2px}
+#btnSend.stop svg{margin:0}
+#typingBar{font-weight:600}
+#vChat .under button[data-cont]{background:var(--grad)!important;color:#fff;border-color:transparent}
+#vChat .m.me .bub{background:linear-gradient(135deg,color-mix(in srgb,var(--acc) 48%,transparent),color-mix(in srgb,var(--acc2) 48%,transparent)),color-mix(in srgb,var(--me) 65%,transparent);backdrop-filter:blur(12px)}
+[data-theme=light] #vChat .m.me .bub{background:linear-gradient(135deg,color-mix(in srgb,var(--acc) 20%,#fffe),color-mix(in srgb,var(--acc2) 18%,#fffe))}
+@media (prefers-reduced-motion:reduce){.card img,button,.btn{transition:none}}
 </style>
 </head>
 <body>
@@ -746,14 +838,16 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
   <div id="typingBar" hidden><span id="tbAv"></span><span id="tbTxt"></span></div>
   <div id="sugg"></div>
   <form id="composer" autocomplete="off">
-    <button type="button" id="btnPlus" aria-label="Poze">＋</button>
+    <button type="button" id="btnPlus" aria-label="Poze"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
     <input type="file" id="fGal" accept="image/*" hidden>
     <input type="file" id="fCam" accept="image/*" capture="environment" hidden>
-    <button type="button" id="btnSugg" aria-label="Sugestii de răspuns">💡</button>
-    <button type="button" id="btnMic" aria-label="Dictează">🎤</button>
-    <button type="button" id="btnPolish" aria-label="Îmbunătățește mesajul" hidden>✨</button>
-    <textarea id="inp" rows="1" placeholder="Mesaj…"></textarea>
-    <button type="submit" id="btnSend" aria-label="Trimite">➤</button>
+    <div class="field">
+      <textarea id="inp" rows="1" placeholder="Mesaj…"></textarea>
+      <button type="button" id="btnSugg" aria-label="Sugestii de răspuns">💡</button>
+      <button type="button" id="btnMic" aria-label="Dictează"><svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button>
+      <button type="button" id="btnPolish" aria-label="Îmbunătățește mesajul" hidden>✨</button>
+    </div>
+    <button type="submit" id="btnSend" aria-label="Trimite"><svg viewBox="0 0 24 24" width="21" height="21" fill="currentColor"><path d="M3.4 20.4 21 12 3.4 3.6l.1 6.5L15 12l-11.5 1.9z"/></svg></button>
   </form>
 </section>
 
@@ -1008,7 +1102,7 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
 
 <script>
 'use strict';
-const APP_VER = '6.8';
+const APP_VER = '6.9';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -1544,10 +1638,18 @@ function renderHome(){
   if($('#searchWrap').hidden && homeTab === 'chars') $('#search').value = '';
   const q = $('#search').value.trim().toLowerCase();
   const shown = q ? sorted.filter(c => (c.name + ' ' + (c.tag || '')).toLowerCase().includes(q)) : sorted;
-  $('#homeChars').innerHTML = (!chars.length ? `<button class="card empty" data-new><b>Niciun personaj încă</b>Apasă ＋ jos ca să creezi primul personaj, din poză sau din imaginație.</button>` : '') +
+  const hr = new Date().getHours(), salut = hr < 5 ? 'Noapte bună' : hr < 11 ? 'Bună dimineața' : hr < 18 ? 'Bună ziua' : 'Bună seara';
+  const recent = q ? [] : chars.filter(c => c.last).sort((a, b) => (b.unread ? 1 : 0) - (a.unread ? 1 : 0) || (b.lastAt || 0) - (a.lastAt || 0)).slice(0, 12);
+  const unreadN = chars.reduce((n, c) => n + (c.unread || 0), 0);
+  const top = q || !chars.length ? '' : `<div class="hhello"><b>${salut}${S.userName.trim() ? ', ' + esc(S.userName.trim()) : ''}</b><small>${unreadN ? `Ai ${unreadN === 1 ? 'un mesaj nou' : unreadN + ' mesaje noi'} 💌` : 'Cu cine stai la taifas azi?'}</small></div>`
+    + (recent.length ? `<div class="hsec">Continuă conversația</div><div class="hcont">${recent.map(c => {
+        const online = c.lastAt && Date.now() - c.lastAt < 10 * 60e3;
+        return `<button class="hc${c.unread ? ' unr' : ''}" data-open="${c.id}"><span class="hcav">${c.photo ? `<img data-k="${esc(photoNow(c))}" alt="">` : `<span class="ph" style="background:${colorFor(c)}">${esc(c.name[0] || '?')}</span>`}${online ? '<i class="on"></i>' : ''}${c.unread ? `<em>${c.unread > 9 ? '9+' : c.unread}</em>` : ''}</span><b>${esc(c.name)}</b><small>${esc(when(c.lastAt))}</small></button>`; }).join('')}</div>` : '')
+    + `<div class="hsec">Personajele tale <span>${chars.length}</span></div>`;
+  $('#homeChars').innerHTML = top + (!chars.length ? `<button class="card empty" data-new><b>Niciun personaj încă</b>Apasă ＋ jos ca să creezi primul personaj, din poză sau din imaginație.</button>` : '') +
     shown.map(c => `<button class="card${c.fav ? ' isfav' : ''}" data-open="${c.id}">${c.fav ? '<span class="fav">⭐</span>' : ''}${c.unread ? `<span class="ubadge">${c.unread > 9 ? '9+' : c.unread}</span>` : ''}${c.lastAt && c.last ? `<span class="when">${when(c.lastAt)}</span>` : ''}
       ${c.photo ? `<img data-k="${esc(photoNow(c))}" alt="">` : `<div class="ph" style="background:${colorFor(c)}">${esc(c.name[0] || '?')}</div>`}
-      <div class="ov"><b>${esc(c.name)}</b>${c.tag ? `<small>${esc(c.tag)}</small>` : ''}${cardStatus(c)}${c.rel ? `<span class="crel">💞 ${esc(relOf(c).name)}</span>` : ''}${c.last ? `<em class="lm">${esc(c.last)}</em>` : ''}</div></button>`).join('');
+      <div class="ov"><b>${esc(c.name)}</b>${c.tag ? `<small>${esc(c.tag)}</small>` : ''}${cardStatus(c)}${c.rel ? `<span class="crel">💞 ${esc(relOf(c).name)}</span>` : ''}${c.last ? `<em class="lm">${esc(c.last)}</em>` : ''}</div></button>`).join('') + (chars.length && !q ? `<button class="card new" data-new><span>＋</span><em>Personaj nou</em></button>` : '');
   const withChat = chars.filter(c => c.last).sort((a, b) => (b.lastAt || 0) - (a.lastAt || 0));
   const pinned = withChat.filter(c => c.pinned), rest = withChat.filter(c => !c.pinned);
   const crow = c => {
@@ -2264,7 +2366,7 @@ function msgHTML(m, i, lastAi, anim){
     under = `<div class="under"><button data-ia="-1" ${m.ia <= 0 ? 'disabled' : ''}>‹</button><span>${m.ia + 1}/${m.imgAlts.length}</span><button data-ia="1" ${m.ia >= m.imgAlts.length - 1 ? 'disabled' : ''}>›</button></div>`;
   if(!me && i === lastAi && !m.pending && !m.pendingImg){
     const n = m.alts?.length || 1;
-    under = `<div class="under">
+    under = `<div class="under last">
       ${n > 1 ? `<button data-alt="-1" ${m.alt <= 0 ? 'disabled' : ''}>‹</button><span>${(m.alt || 0) + 1}/${n}</span><button data-alt="1" ${m.alt >= n - 1 ? 'disabled' : ''}>›</button>` : ''}
       ${m.img && m.imgAlts && m.imgAlts.length > 1 ? `<button data-ia="-1" ${m.ia <= 0 ? 'disabled' : ''}>‹</button><span>${m.ia + 1}/${m.imgAlts.length}</span><button data-ia="1" ${m.ia >= m.imgAlts.length - 1 ? 'disabled' : ''}>›</button>` : ''}
       ${m.img && !m.err ? `<button data-rephoto>🎲 Altă poză</button>` : ''}
@@ -2272,7 +2374,7 @@ function msgHTML(m, i, lastAi, anim){
       ${m.cut ? `<span class="cutn">${m.cut === 'refusal' ? '⚠️ întrerupt de furnizor' : m.cut === 'len' ? '✂️ prea lung, tăiat' : '📶 conexiune întreruptă'}</span>` : ''}
       ${m.err ? '' : `<button data-cont>▶ Continuă</button>`}
       ${m.err ? `<button data-retry>${m.errKind === 'flag' ? '🎲 Încearcă altă scenă' : 'Reîncearcă'}</button>` : ''}
-      ${S.voice !== 'off' && m.text && !m.err ? `<button data-say>🔊</button>` : ''}
+      ${S.voice !== 'off' && m.text && !m.err ? `<button data-say class="ico" aria-label="Ascultă">🔊</button>` : ''}
       ${m.text && !m.err ? `<button class="rate${m.rate === 1 ? ' on' : ''}" data-rate="1" aria-label="Bun">👍</button><button class="rate${m.rate === -1 ? ' on' : ''}" data-rate="-1" aria-label="Nu prea">👎</button>` : ''}</div>`;
   }
   if(me && m.seenAt && seen && !chat.msgs.slice(i + 1).some(x => x.role === 'user')){
@@ -2742,6 +2844,8 @@ function typeTick(m, st){
   }
   if(st.shown < st.target.length) st.raf = requestAnimationFrame(() => typeTick(m, st));
 }
+const SEND_GO = '<svg viewBox="0 0 24 24" width="21" height="21" fill="currentColor"><path d="M3.4 20.4 21 12 3.4 3.6l.1 6.5L15 12l-11.5 1.9z"/></svg>';
+const SEND_STOP = '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><rect x="5" y="5" width="14" height="14" rx="3"/></svg>';
 function updateComposer(){
   const empty = !$('#inp').value.trim();
   $('#btnMic').hidden = !SpeechRec || (!empty && !rec) || !!(busy && live && live.ch === chat);
@@ -2751,7 +2855,7 @@ function updateComposer(){
   $('#btnPolish').hidden = empty || working || !aiReady();
 }
 function setBusyUI(on){
-  const b = $('#btnSend'); b.classList.toggle('stop', on); b.textContent = on ? '■' : '➤';
+  const b = $('#btnSend'); b.classList.toggle('stop', on); b.innerHTML = on ? SEND_STOP : SEND_GO;
   b.setAttribute('aria-label', on ? 'Oprește' : 'Trimite');
   $('#btnPlus').disabled = on;
   updateComposer();
