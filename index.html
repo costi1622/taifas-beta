@@ -358,6 +358,10 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
 .flyav{position:fixed;z-index:90;object-fit:cover;pointer-events:none;box-shadow:0 10px 30px #0008}
 #btnPolish{font-size:1.05rem}
 .polres{background:var(--bg2);border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:10px;white-space:pre-wrap;line-height:1.5}
+/* 7.3: comparația de repere */
+.rtgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.rtgrid figure{margin:0}.rtgrid img,.rtgrid .ph{width:100%;aspect-ratio:3/4;object-fit:cover;border-radius:12px;background:var(--bg2);display:grid;place-items:center;color:var(--tx3)}
+.rtgrid figcaption{font-size:.74rem;color:var(--tx2);margin-top:4px;text-align:center}
 /* 7.0: casa + scena pozei */
 .homebox{margin-top:12px;padding:12px;border-radius:14px;background:color-mix(in srgb,var(--tx) 5%,transparent);border:1px solid var(--hair)}
 .homebox>b{display:block;font-size:.9rem}.homebox>small{display:block;color:var(--tx3);font-size:.8rem;margin:2px 0 8px}
@@ -1007,6 +1011,13 @@ input:focus,textarea:focus,select:focus{border-color:color-mix(in srgb,var(--acc
           <div class="hint" id="stWkEst"></div>
         </details>
       </div>
+      <div id="stChatWrap">
+        <label style="margin-top:14px">Fidelitatea feței în pozele din chat</label>
+        <div class="seg" id="stWkChat"><button data-v="">Eco · klein 4B</button><button data-v="ancorat">Fidel · klein 9B</button></div>
+        <p class="hint" id="stWkChatHint"></p>
+        <div class="btns"><button type="button" class="btn sm" id="stRefTest">🔬 Compară pe personajul meu</button></div>
+        <div id="stRefRes"></div>
+      </div>
       <label style="margin-top:14px">Verificare automată a pozelor din chat</label>
       <div class="seg" id="stImgCheck"><button data-v="on">Pornită</button><button data-v="off">Oprită</button></div>
       <p class="hint">Pornită: după fiecare poză, Claude Haiku o compară cu poza de profil și cu scena din chat. Dacă nu seamănă sau nu e locul, o reface o dată și păstrează varianta mai bună (~0,2 cenți verificarea; o poză în plus doar când e nevoie).</p>
@@ -1112,7 +1123,7 @@ input:focus,textarea:focus,select:focus{border-color:color-mix(in srgb,var(--acc
 
 <script>
 'use strict';
-const APP_VER = '7.2';
+const APP_VER = '7.3';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -1151,7 +1162,7 @@ const DEF = {
   imgProv:'none', gemKey:'', gemModel:'gemini-2.5-flash-image',
   wkBase:'', wkTok:'', wkModel:'eco', wkSize:'768x1024',
   sugg:'off', pro:'on', feed:'text', fx:'on', regen3:'on', voice:'tap', tts:'tel', cfPlan:'free', cfCap:'free', elKey:'', elModel:'eleven_v3', theme:'dark', vmsg:'rar', jrn:'on', aux:'on', ctxN:'30',
-  imgCheck:'on', falKey:'', falModel:'fal-ai/flux-pulid', falSize:'576x768', spont:'rar', imgAlt:'fal', sv:34, imgCost:'', pIn:'', pOut:''
+  imgCheck:'on', wkChat:'', wkRef:'auto', falKey:'', falModel:'fal-ai/flux-pulid', falSize:'576x768', spont:'rar', imgAlt:'fal', sv:34, imgCost:'', pIn:'', pOut:''
 };
 let S = {...DEF};
 let chars = [];            // [{id,name,tag,photo,aspect,look,stil,persona,speech,greet,created,lastAt,last}]
@@ -1609,7 +1620,7 @@ async function scenePhoto(c, shot, signal, fix){
   if(full && S.imgProv === 'worker'){
     let face = null; try{ face = await cropFace(full, id && !id.none ? id : null); }catch(e){}
     const prompt = `${fr.p}. ${shot}.${fixLine} The person in this photo is exactly the same real person as in the reference images: image 1 is the profile photo (whole appearance), ${face ? 'image 2 is a close-up of the same face. ' : ''}Keep the identity identical to the reference: the same face and facial features, skin tone, eyes, eyebrows, nose, lips, hair color, hair texture and hairstyle, the same body type and proportions.${phys} Do NOT copy the background, the location, the outfit, the pose or the framing of image 1: this is a new photo, where the location, background, body position, clothing, camera angle and lighting come only from the scene description above. ${stil}`;
-    return {prompt, blob: await genImage(prompt, full, signal, face)};
+    return {prompt, blob: await genImage(prompt, full, signal, face, {model: S.wkChat || S.wkModel})};
   }
   if(full && S.imgProv === 'fal'){
     const prompt = `${fr.p}. ${shot}.${fixLine} Same person as in the reference image (same face, skin tone, hair, body type).${phys} New location, outfit, pose and light exactly as described, not those of the reference. ${stil}`;
@@ -1641,8 +1652,8 @@ async function makeScenePhoto(c, shot, signal){
   let a = await scenePhoto(c, shot, signal);
   if(S.imgCheck === 'off' || !aiReady()) return a;
   try{ a.check = await checkPhoto(c, a.blob, shot, signal); }catch(e){ if(e.name === 'AbortError') throw e; return a; }
-  const bad = x => x && (x.face < 6 || x.scene < 6 || x.framing < 5);
-  if(!bad(a.check) || capLeft() < (neurPerPhoto() || 5000)) return a;
+  const bad = x => x && (x.face < 7 || x.scene < 6 || x.framing < 5);
+  if(!bad(a.check) || capLeft() < (neurPerPhoto(S.wkChat || S.wkModel) || 5000)) return a;
   let b;
   try{ b = await scenePhoto(c, shot, signal, a.check.fix || 'follow the scene and keep the face of the reference'); addUsage(c.id, imgPrice(), 'img'); }
   catch(e){ if(e.name === 'AbortError') throw e; return a; }
@@ -1653,7 +1664,8 @@ async function makeScenePhoto(c, shot, signal){
   return best;
 }
 let wkSimple = false;   // 7.2: Worker-ul a refuzat 2 repere în sesiunea asta
-async function genImage(prompt, ref, signal, ref2){
+let lastImgModel = '';  // 7.3: modelul folosit la ultima poză (pentru cost)
+async function genImage(prompt, ref, signal, ref2, opt = {}){
   if(S.imgProv === 'gemini'){
     if(!S.gemKey) throw new Error('Lipsește cheia Google în Setări → Poze.');
     const parts = [{text: ref ? 'Keep the exact same person from the reference image (same face, identity, hair). New photo: ' + prompt : prompt}];
@@ -1671,13 +1683,18 @@ async function genImage(prompt, ref, signal, ref2){
   }
   if(S.imgProv === 'worker'){
     if(!S.wkBase) throw new Error('Lipsește adresa Worker-ului în Setări → Poze.');
-    await checkCap();
+    const model = opt.model || S.wkModel || 'eco';
+    await checkCap(model);
     // 7.2: la o eroare de server Cloudflare (5xx, de ex. 3043) reîncearcă singur, tot mai simplu:
     //   1) poza de profil 768 px + fața (2 repere)  2) doar poza de profil 512 px  3) + prompt scurtat
     // dacă merge doar varianta simplă, o folosim până la următoarea pornire (wkSimple)
-    const steps = [];
-    if(ref && ref2 && !wkSimple) steps.push({two:true});
-    steps.push({two:false}, {two:false, short:true});
+    // 7.3: reperul unic merge la 1024 px (fața are de 4 ori mai mulți pixeli decât la 512); testul din Setări fixează S.wkRef
+    let steps = [];
+    if(opt.force) steps = [opt.force];
+    else {
+      if(ref && ref2 && !wkSimple && S.wkRef !== 'one') steps.push({two:true});
+      steps.push({two:false, px:1024}, {two:false, px:512, short:true});
+    }
     let lastErr;
     for(let i = 0; i < steps.length; i++){
       const st = steps[i];
@@ -1685,21 +1702,22 @@ async function genImage(prompt, ref, signal, ref2){
       if(!st.two) p = p.replace(/,? ?image 2 is a close-up of the same face\. ?/i, ' ').replace(/the reference images: image 1 is the profile photo \(whole appearance\),/i, 'the reference image (the profile photo).');
       if(st.short && p.length > 1100) p = p.slice(0, 1100).replace(/[^.]*$/, '');
       const fd = new FormData();
-      fd.append('prompt', p); fd.append('model', S.wkModel || 'ancorat'); fd.append('size', S.wkSize || '576x768');
+      fd.append('prompt', p); fd.append('model', model); fd.append('size', S.wkSize || '768x1024');
       fd.append('seed', String(Math.floor(Math.random() * 1e9)));
-      if(ref) fd.append('image', await toJpeg(ref, st.two ? 768 : 512, .9), 'ref.jpg');
-      if(ref && st.two) fd.append('image_1', ref2, 'face.jpg');
+      if(ref) fd.append('image', await toJpeg(ref, st.px || (st.two ? 768 : 1024), .9), 'ref.jpg');
+      if(ref && st.two && ref2) fd.append('image_1', ref2, 'face.jpg');
       const r = await fetch(wkUrl() + '/images/generations', {method:'POST', signal, body:fd,
         headers: S.wkTok ? {authorization:'Bearer ' + S.wkTok.trim()} : {}});
       if(r.ok){
         const d = await r.json();
         const b = d.data?.[0]?.b64_json; if(!b) throw new Error('Worker-ul n-a întors imagine.');
-        if(i > 0 && steps[0].two && !wkSimple){ wkSimple = true; console.warn('Worker: 2 repere au dat eroare, folosesc doar poza de profil'); }
-        neurAdd(neurPerPhoto() || 5000);
+        if(!opt.force && i > 0 && steps[0].two && !wkSimple){ wkSimple = true; console.warn('Worker: 2 repere au dat eroare, folosesc doar poza de profil'); }
+        lastImgModel = model;
+        neurAdd(neurPerPhoto(model) || 5000);
         return b64ToBlob(b, 'image/png');
       }
       lastErr = await errText(r);
-      if(r.status < 500 || i === steps.length - 1) break;   // 4xx (cheie, limită, filtru): nu are rost să reîncercăm
+      if(opt.force || r.status < 500 || i === steps.length - 1) break;   // 4xx (cheie, limită, filtru): nu are rost să reîncercăm
       await new Promise(res => setTimeout(res, 1200 + i * 800));
     }
     if(/\b30(43|40)\b|internal server error|out of capacity/i.test(lastErr || '')) throw new Error('Cloudflare a avut o eroare internă (' + ((lastErr.match(/\b30\d\d\b/) || ['5xx'])[0]) + '), chiar după 3 încercări. De obicei trece în câteva minute; apasă Reîncearcă.');
@@ -3439,7 +3457,7 @@ function priceFor(model){
 function imgPrice(){
   const v = parseFloat(String(S.imgCost).replace(',', '.'));
   if(!isNaN(v)) return v;
-  if(S.imgProv === 'worker' && S.cfPlan === 'paid'){ const n = neurPerPhoto() || 5000; return neurToday >= 10000 ? n * NEUR_USD : 0; }
+  if(S.imgProv === 'worker' && S.cfPlan === 'paid'){ const n = neurPerPhoto(lastImgModel || S.wkModel) || 5000; return neurToday >= 10000 ? n * NEUR_USD : 0; }
   return {gemini:.04, fal:.035, worker:0}[S.imgProv] || 0;
 }
 let usageQ = Promise.resolve();
@@ -4242,7 +4260,7 @@ const aiReady = () => S.prov === 'anthropic' ? !!S.key.trim() : !!(S.oaBase && S
 const FIELDS = {stKey:'key', stModel:'model', stOaBase:'oaBase', stOaKey:'oaKey', stOaModel:'oaModel', stUser:'userName', stAbout:'userAbout',
   stGemKey:'gemKey', stGemModel:'gemModel', stWkBase:'wkBase', stWkTok:'wkTok', stWkModel:'wkModel', stWkSize:'wkSize',
   stFalKey:'falKey', stFalModel:'falModel', stFalSize:'falSize', stImgCost:'imgCost', stPin:'pIn', stPout:'pOut', stElKey:'elKey', stTtsFalKey:'falKey'};
-const SEGS = {stRegen:'regen3', stFx:'fx', stFeed:'feed', stCfCap:'cfCap', stCfPlan:'cfPlan', stTts:'tts', stElModel:'elModel', stAux:'aux', stCtx:'ctxN', stVmsg:'vmsg', stJrn:'jrn', stTheme:'theme', stProv:'prov', stLen:'len', stFont:'font', stImg:'imgProv', stImgAlt:'imgProv', stSugg:'sugg', stPro:'pro', stVoice:'voice', stSpont:'spont', stImgCheck:'imgCheck'};
+const SEGS = {stRegen:'regen3', stFx:'fx', stFeed:'feed', stCfCap:'cfCap', stCfPlan:'cfPlan', stTts:'tts', stElModel:'elModel', stAux:'aux', stCtx:'ctxN', stVmsg:'vmsg', stJrn:'jrn', stTheme:'theme', stProv:'prov', stLen:'len', stFont:'font', stImg:'imgProv', stImgAlt:'imgProv', stSugg:'sugg', stPro:'pro', stVoice:'voice', stSpont:'spont', stImgCheck:'imgCheck', stWkChat:'wkChat'};
 let setPanel = null, setPanelPushed = false;
 function openSettings(){
   for(const [id, k] of Object.entries(FIELDS)) $('#' + id).value = S[k] ?? '';
@@ -4263,7 +4281,7 @@ function openSetPanel(p, push = true){
   const el = $(`#vSet .panel[data-panel="${p}"]`);
   $('#stTitle').textContent = el ? el.dataset.title : 'Setări';
   $('#stScroll').scrollTop = 0;
-  if(p === 'img') loadNeurons();
+  if(p === 'img'){ loadNeurons(); drawChatHint(); }
   if(p === 'cost') renderCost();
   if(push) history.pushState({v:'vSet', p}, '');
 }
@@ -4298,6 +4316,7 @@ function syncSegs(){
   $$('#stImgAlt button').forEach(b => b.classList.toggle('on', b.dataset.v === S.imgProv));
   $('#stAltWrap').hidden = !alt;
   $('#stImgTestWrap').hidden = S.imgProv === 'none';
+  $('#stChatWrap').hidden = S.imgProv !== 'worker'; drawChatHint();
   drawWkEst();
   $('#stCapWrap').hidden = S.cfPlan !== 'paid';
   $('#stCapHint').textContent = {free:'Factura rămâne $5/lună: când se termină neuronii gratuiți de azi, aplicația nu mai cere poze până la ' + resetAt() + '.',
@@ -4334,7 +4353,7 @@ function neurPerPhoto(model = S.wkModel, size = S.wkSize){
   // Worker-ul folosește automat klein 4B (eco) când primește poză de referință și modelul ales nu o acceptă
   if(!['eco', 'ancorat', 'ancorat+'].includes(model)) model = 'eco';
   // 6.8: referințe = poza de profil la 768 px (~4 bucăți) + fața 512 px (1 bucată)
-  const [w, h] = String(size || '768x1024').split('x').map(Number), mp = w * h / 1048576, refMp = (576 * 768 + 512 * 512) / 1048576;
+  const [w, h] = String(size || '768x1024').split('x').map(Number), mp = w * h / 1048576, refMp = (768 * 1024) / 1048576;
   if(model === 'eco') return tiles(w, h) * 26.05 + 5 * 5.37;
   if(model === 'ancorat') return 1363.64 + Math.max(0, mp - 1) * 181.82 + refMp * 181.82;
   return null;                                  // FLUX.2 dev: depinde de pași, mult mai scump
@@ -4367,10 +4386,10 @@ async function fetchNeurons(){
   if(!r.ok){ const e = new Error(r.status === 404 ? 'v3' : await errText(r)); e.st = r.status; throw e; }
   const d = await r.json(); if(!d.date || d.date === utcDay()) neurSet(d.neurons || 0); return d;
 }
-async function checkCap(){
+async function checkCap(model){
   if(capLeft() === Infinity) return;
   try{ await fetchNeurons(); }catch(e){}           // dacă nu merge citirea, rămâne estimarea locală
-  if(capLeft() < (neurPerPhoto() || 5000)){ const e = new Error(capMsg()); e.cap = true; throw e; }
+  if(capLeft() < (neurPerPhoto(model) || 5000)){ const e = new Error(capMsg()); e.cap = true; throw e; }
 }
 // consumul de neuroni Cloudflare de azi, citit prin Worker (GET /v1/usage)
 async function loadNeurons(after){
@@ -4398,6 +4417,45 @@ async function loadNeurons(after){
     if(after && pc >= 80) toast(pc >= 100 ? '⚠️ Cota gratuită Cloudflare de azi s-a terminat. Se resetează la ' + resetAt() + '.' : `⚠️ Ai folosit ${Math.round(pc)}% din neuronii gratuiți de azi.`, 4500);
   }catch(e){ box.className = 'neur'; box.textContent = 'Consum neuroni: ' + e.message; }
 }
+/* 🔬 7.3: comparație reală pe Worker-ul tău, cu poza de profil a personajului: eco 2 repere, eco 1 reper, 9B */
+function drawChatHint(){
+  const el = $('#stWkChatHint'); if(!el) return;
+  const e = neurPerPhoto('eco'), f = neurPerPhoto('ancorat');
+  el.innerHTML = S.wkChat === 'ancorat'
+    ? `9B ține fața mult mai bine. ~${Math.round(f).toLocaleString('ro-RO')} neuroni pe poză: cam ${Math.floor(10000 / f)} poze pe zi în cota gratuită, apoi ~${usd(f * NEUR_USD)} pe poză (limita zilnică din Setări rămâne în vigoare). Stickerele, avatarul și statusurile rămân pe modelul de mai jos.`
+    : `Eco: ~${Math.round(e)} neuroni pe poză (cam ${Math.floor(10000 / e)} pe zi gratuit). Ține bine scena, mai slab fața. Fidel (9B): ~${Math.round(f).toLocaleString('ro-RO')} neuroni pe poză.`;
+}
+async function refTest(){
+  const c = (cur && cur.photo) ? cur : chars.find(x => x.photo);
+  const box = $('#stRefRes');
+  if(!c){ box.innerHTML = '<p class="hint">Ai nevoie de un personaj cu poză de profil.</p>'; return; }
+  if(S.imgProv !== 'worker' || !S.wkBase){ box.innerHTML = '<p class="hint">Pornește întâi Worker-ul.</p>'; return; }
+  const cost = Math.round(neurPerPhoto('eco') * 2 + neurPerPhoto('ancorat'));
+  if(!confirm2(`Generez 3 poze cu ${c.name} (aceeași scenă), ca să compari fața: eco cu 2 repere, eco cu 1 reper și 9B. ~${cost.toLocaleString('ro-RO')} neuroni.`)) return;
+  const full = await DB.get(c.photo); let face = null, id = null;
+  try{ id = await identityOf(c); face = await cropFace(full, id && !id.none ? id : null); }catch(e){}
+  const shot = 'mirror selfie in a cozy bedroom, standing, holding the phone, casual t-shirt and jeans, warm lamp light, relaxed smile';
+  const prompt = `${framingOf(shot).p}. ${shot}. The person in this photo is exactly the same real person as in the reference images: image 1 is the profile photo (whole appearance), image 2 is a close-up of the same face. Keep the identity identical to the reference: the same face and facial features, skin tone, eyes, eyebrows, nose, lips, hair color, hair texture and hairstyle, the same body type and proportions.${id && id.phys ? ' Her/his permanent physical traits: ' + id.phys + '.' : ''} Do NOT copy the background, the outfit, the pose or the framing of image 1. ${STIL_TAG[c.stil || 'photo']}`;
+  const tests = [['Eco · 2 repere', {model:'eco', force:{two:true}}], ['Eco · 1 reper', {model:'eco', force:{two:false, px:1024}}], ['Fidel 9B', {model:'ancorat', force:{two:true}}]];
+  const pfu = await imgUrl(c.photo);
+  box.innerHTML = `<div class="rtgrid"><figure><img src="${pfu}" alt=""><figcaption>Poza de profil</figcaption></figure>${tests.map((t, i) => `<figure id="rt${i}"><div class="ph"><span class="spin"></span></div><figcaption>${t[0]}</figcaption></figure>`).join('')}</div><p class="hint" id="rtNote">Generez pe rând…</p>`;
+  let twoOk = null;
+  for(let i = 0; i < tests.length; i++){
+    const [lbl, o] = tests[i], fig = $('#rt' + i);
+    try{
+      let b;
+      try{ b = await genImage(prompt, full, null, face, o); }
+      catch(e){ if(o.force.two){ if(o.model === 'eco') twoOk = false; b = await genImage(prompt, full, null, face, {model:o.model, force:{two:false, px:1024}}); fig.querySelector('figcaption').textContent = lbl.replace('2 repere', '1 reper') + ' (2 repere: eroare)'; } else throw e; }
+      if(o.model === 'eco' && o.force.two && twoOk === null) twoOk = true;
+      fig.querySelector('.ph').outerHTML = `<img src="${URL.createObjectURL(b)}" data-big alt="">`;
+    }catch(e){ fig.querySelector('.ph').innerHTML = '✗'; fig.querySelector('figcaption').textContent = lbl + ': ' + String(e.message).slice(0, 60); }
+  }
+  if(twoOk !== null){ S.wkRef = twoOk ? 'two' : 'one'; saveSettings(); }
+  $('#rtNote').textContent = (twoOk === false ? 'Worker-ul tău nu acceptă 2 repere: de acum trimit doar poza de profil (1024 px). ' : twoOk ? '2 repere merg pe Worker-ul tău. ' : '') + 'Alege mai sus „Eco” sau „Fidel”, după fața care seamănă mai bine. Atinge o poză ca s-o vezi mare.';
+  box.querySelectorAll('img').forEach(im => im.onclick = () => openSheet(`<div class="pad"><img src="${im.src}" style="width:100%;border-radius:14px" alt=""></div>`));
+  setTimeout(() => loadNeurons(true), 1500);
+}
+const confirm2 = t => window.confirm(t);
 async function testImages(){
   for(const [id, k] of Object.entries(FIELDS)) S[k] = $('#' + id).value.trim(); saveSettings();
   if(S.imgProv === 'worker' && S.wkBase) $('#stWkBase').value = S.wkBase = wkUrl(), saveSettings();
@@ -4635,6 +4693,7 @@ function bind(){
   $('#stCardImp').onclick = () => $('#stCardFile').click();
   $('#stCardFile').onchange = e => { if(e.target.files[0]) importCard(e.target.files[0]); e.target.value = ''; };
   $('#stImgTest').onclick = testImages;
+  $('#stRefTest').onclick = refTest;
   $('#stGemList').onclick = () => { S.gemKey = $('#stGemKey').value.trim(); saveSettings(); listGemModels(); };
   $('#stImport').onclick = () => $('#stImpFile').click();
   $('#stImpFile').onchange = e => { if(e.target.files[0]) importAll(e.target.files[0]); e.target.value = ''; };
