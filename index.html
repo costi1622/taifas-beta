@@ -1159,7 +1159,7 @@ input:focus,textarea:focus,select:focus{border-color:color-mix(in srgb,var(--acc
 
 <script>
 'use strict';
-const APP_VER = '7.6';
+const APP_VER = '7.7';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -2085,6 +2085,18 @@ function turnExtras(c){
   const ais = (chat && chat.msgs || []).filter(m => m.role === 'ai' && m.text && !m.err && !m.pending).slice(-3);
   const q = ais.filter(m => /\?\s*(\*[^*]*\*\s*)?$/.test(stripMood(m.text).trim())).length;
   if(ais.length >= 2 && q >= 2) x += ' (notă de stil: ultimele tale mesaje s-au încheiat cu întrebări; de data asta nu încheia cu o întrebare, spune ceva de-al tău, în afară de cazul în care trebuie să luați împreună o decizie din scenă)';
+  // 7.7: după o pauză de peste 3 ore: întreabă de ce urma să i se întâmple + o întâmplare măruntă din ziua personajului
+  const ms = (chat && chat.msgs || []).filter(m => !m.err && m.ts && !m.pending), li = ms.map(m => m.role).lastIndexOf('user');
+  const gapNow = li > 0 ? ms[li].ts - ms[li - 1].ts : 0;
+  if(gapNow > 3 * 36e5){
+    const f = (c.facts || []).find(z => z.k === 'urm' && !z.asked && Date.now() - (z.ts || 0) > 6 * 36e5);
+    if(f){ f.asked = Date.now(); saveChars(); x += ` (îți amintești că urma să i se întâmple: „${f.t}”. Întreabă-l firesc cum a fost, dacă se potrivește cu ce-ți scrie acum)`; }
+    x += ' (între timp, în ziua ta s-a întâmplat ceva mărunt, potrivit cu programul și viața ta; dacă se leagă, povestește-i scurt, din proprie inițiativă)';
+  }
+  // 7.7: lungime variabilă, ca într-un chat real
+  const rnd = Math.random();
+  if(rnd < .16) x += ' (de data asta, dacă momentul o permite, răspunde foarte scurt, ca pe chat: câteva cuvinte, poate un emoji)';
+  else if(rnd > .9) x += ' (de data asta, dacă ai ceva de spus, poți fi mai povestitor decât de obicei)';
   // 7.6: scena în desfășurare: personajul continuă de unde ați rămas, cu pasul următor mic
   if(chat && chat.plot && Date.now() - (chat.plot.ts || 0) < 12 * 36e5) x += ` (scena în desfășurare: „${chat.plot.t}”. Continuă de unde ați rămas, cu pasul următor, mic și firesc, fără să sari peste etape; dacă ${S.userName.trim() || 'el'} a schimbat planul sau subiectul, urmează-l)`;
   // 6.7: întrebările din ultimul tău mesaj sunt numite explicit, ca personajul să nu le ocolească
@@ -3103,7 +3115,7 @@ const canAutoPhoto = c => S.imgProv !== 'none' && !!c.photo && sendPicsOn(c);
 const PHOTO_PROMISE = /\*[^*]*\b(trimit|trimite|atașez|atașează|face|fac)\b[^*]*\b(poz|fotografi|selfie)[^*]*\*/i;
 function systemFor(c, ch){
   const u = S.userName.trim() || 'utilizatorul';
-  const facts = (c.facts || []).map(f => '- ' + f.t).join('\n');
+  const facts = (c.facts || []).map(f => '- ' + (f.k === 'urm' ? '(urma să i se întâmple) ' : f.k === 'gluma' ? '(glumă de-a voastră) ' : '') + f.t).join('\n');
   return [
     `Ești ${c.name}. Joci acest personaj într-o conversație privată cu ${u}. Rămâi mereu în personaj; nu spui că ești un AI.`,
     c.aspect && `## Cum arăți\nAceasta e înfățișarea ta exactă. Când te descrii sau descrii ce porți, rămâi fidel ei.\n${c.aspect}`,
@@ -3122,12 +3134,16 @@ function systemFor(c, ch){
 - Gesturile, acțiunile și decorul între *asteriscuri*; vorbele direct, fără ghilimele.
 - Scrii DOAR pentru ${c.name}. Nu scrii niciodată vorbele, gândurile sau acțiunile lui ${u}.
 - Ce scrie ${u} între *asteriscuri* (de exemplu *te ia în brațe*) sunt acțiuni care chiar se întâmplă acum în scenă. Le observi mereu și reacționezi concret la ele în răspunsul tău, întâi la acțiune, apoi la vorbe, cu gesturile și cuvintele tale, în felul personajului tău. Nu le ignora și nu te purta ca și cum nu s-ar fi întâmplat.
-- Lungime: ${LEN[S.len].t}.
+- Lungime de obicei: ${LEN[S.len].t}. Dar variază după moment, ca într-un chat real: uneori doar câteva cuvinte sau un emoji, alteori mai mult, când chiar ai ceva de povestit.
 - Nu folosi liniuțe lungi (— sau –); folosește virgula sau punctul.
 - Ești cu adevărat atent(ă) la ${u}: răspunzi concret la tot ce a spus în ultimul mesaj, iar fiecare întrebare a lui primește un răspuns clar, cu detalii, nu evaziv și nu în treacăt.
 - Preiei detaliile lui (ce a făcut, ce simte, nume, locuri, planuri) și construiești pe ele cu opinii, emoții și întâmplări de-ale tale; faci legături cu ce s-a spus mai devreme în conversație.
 - Dacă ${u} propune un subiect, o idee, un plan sau o direcție pentru scenă, intri în ea și o duci mai departe în felul personajului tău, în loc să schimbi subiectul. Reacțiile rămân ale tale (poți să nu fii de acord), dar nu ignori ce a propus.
 - Variază formulările; nu repeta aceleași gesturi și expresii de la un mesaj la altul.
+- Subtext: nu-ți explica sentimentele și nu le declari teatral. Lasă-le să se vadă din gesturi, pauze, ton și din ce alegi să nu spui, ca un om real. Fără clișee.
+- Vorbește ca un om, nu ca un text redactat: uneori te corectezi din mers („adică, nu, stai…”), schimbi ideea la jumătate, uiți un detaliu și revii la el, ai expresiile tale. Energia ta depinde de oră, de zi și de dispoziție: seara târziu ești mai moale sau obosit(ă), după o zi grea poți fi mai scurt(ă).
+- Ai viața ta, care merge mai departe și când nu vorbiți: lucruri mărunte, oameni din jurul tău, mici întâmplări. Le povestești din proprie inițiativă, scurt, fără să acaparezi discuția.
+- Folosește ce știi despre ${u}: întreabă-l din proprie inițiativă de lucrurile care urmau să i se întâmple și reia, din când în când, glumele voastre, firesc, nu forțat.
 - Ritmul scenei: când porniți o activitate sau un plan (o ieșire la cafenea, gătit, o plimbare, un film), rămâi în el și trăiește-l pas cu pas, ca în timp real. Un răspuns acoperă doar câteva momente. Nu sări peste etape (pregătirea, drumul, sosirea, așezatul, comanda) și nu rezuma ce urmează.
 - Nu închei scena și nu sari în timp din proprie inițiativă. Scena se schimbă doar când ${u} o schimbă sau când ajunge firesc la capăt; atunci treci natural la ce urmează.
 - La deciziile din scenă (ce porți, pe unde o luați, unde vă așezați, ce comandați) implică-l pe ${u}: spune ce te gândești sau între ce eziți, cere-i părerea și lasă-l să răspundă înainte să mergi mai departe. Întrebările de felul ăsta sunt firești și nu intră la limita de întrebări.
@@ -3440,11 +3456,17 @@ async function extractFacts(c, ch){
   const known = (c.facts || []).map(f => '- ' + f.t).join('\n') || '(nimic)';
   try{
     const out = await stream('Extragi informații factuale dintr-o conversație. Scrii în română, scurt.', [{role:'user', text:
-      `Ce știe deja ${c.name} despre ${u}:\n${known}\n\nConversația recentă:\n${recent}\n\nScrie fapte NOI și durabile despre ${u}, spuse de ${u} însuși (nume, job, oraș, familie, gusturi, planuri, lucruri importante povestite). Fără ce se știe deja, fără ce face doar în scenă, fără presupuneri. Fiecare fapt: o propoziție scurtă, max 12 cuvinte. Răspunde STRICT cu un array JSON (poate fi gol []).`}], {max:400, cid:c.id, aux:true});
+      `Ce știe deja ${c.name} despre ${u}:\n${known}\n\nConversația recentă:\n${recent}\n\nScrie lucruri NOI, de trei feluri:
+- "fapt": ceva durabil despre ${u}, spus de ${u} însuși (nume, job, oraș, familie, gusturi, lucruri importante povestite);
+- "urmează": ceva ce urmează să i se întâmple lui ${u} și despre care merită întrebat mai târziu (un interviu mâine, o discuție cu șeful, un drum, o programare), cu momentul, dacă l-a spus;
+- "glumă": o glumă internă, o poreclă sau o expresie care s-a născut între ${c.name} și ${u} și care poate fi reluată.
+Fără ce se știe deja, fără ce face doar în scenă, fără presupuneri. Fiecare: o propoziție scurtă, max 14 cuvinte.
+Răspunde STRICT cu un array JSON (poate fi gol []): [{"t":"…","tip":"fapt|urmează|glumă"}]`}], {max:500, cid:c.id, aux:true});
     const a = out.indexOf('['), b = out.lastIndexOf(']');
-    const arr = JSON.parse(out.slice(a, b + 1)).map(x => faraLiniute(String(x).trim())).filter(Boolean).slice(0, 5);
+    const arr = JSON.parse(out.slice(a, b + 1)).map(x => typeof x === 'string' ? {t:x} : {t:x && x.t, k:x && /urm/i.test(x.tip || '') ? 'urm' : x && /gl/i.test(x.tip || '') ? 'gluma' : ''})
+      .map(x => ({...x, t:faraLiniute(String(x.t || '').trim())})).filter(x => x.t).slice(0, 5);
     if(!arr.length) return 0;
-    c.facts = (c.facts || []).concat(arr.map(t => ({t, ts:Date.now()}))).slice(-40);
+    c.facts = (c.facts || []).concat(arr.map(x => ({t:x.t, ts:Date.now(), ...(x.k ? {k:x.k} : {})}))).slice(-40);
     await saveChars();
     return arr.length;
   }catch(e){ return 0; }
@@ -3745,7 +3767,7 @@ async function charProfile(id, push = true){
   const ab = $('#pfAbout'); if(ab) requestAnimationFrame(() => { if(ab.scrollHeight > ab.clientHeight + 4){ $('#pfMore').hidden = false; $('#pfMore').onclick = () => { ab.classList.remove('clamp'); $('#pfMore').hidden = true; }; } });
   body.onclick = e => { const v = e.target.closest('[data-view]'); if(v) viewImg(v.dataset.view, pics.includes(v.dataset.view) ? pics : [v.dataset.view], picMeta); };
   const drawFacts = () => {
-    $('#pfFacts').innerHTML = (c.facts || []).length ? c.facts.map((f, k) => `<li><span>${esc(f.t)}</span><button data-fx="${k}" aria-label="Șterge">✕</button></li>`).join('')
+    $('#pfFacts').innerHTML = (c.facts || []).length ? c.facts.map((f, k) => `<li><span>${f.k === 'urm' ? '🗓️ ' : f.k === 'gluma' ? '😄 ' : ''}${esc(f.t)}</span><button data-fx="${k}" aria-label="Șterge">✕</button></li>`).join('')
       : `<li><span style="color:var(--tx3)">Încă nimic. Se completează singur din conversații, la câteva mesaje.</span></li>`;
     $('#pfFacts').querySelectorAll('[data-fx]').forEach(b => b.onclick = async () => { c.facts.splice(+b.dataset.fx, 1); await saveChars(); drawFacts(); });
   };
