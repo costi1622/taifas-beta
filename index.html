@@ -1123,7 +1123,7 @@ input:focus,textarea:focus,select:focus{border-color:color-mix(in srgb,var(--acc
 
 <script>
 'use strict';
-const APP_VER = '7.3';
+const APP_VER = '7.4';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -3935,7 +3935,8 @@ async function viewImg(k, list, meta){
     requestAnimationFrame(() => { img.style.transition = 'transform .25s ease, opacity .2s'; img.style.opacity = '1'; tx = 0; apply(true); });
     v.querySelector('.vcount').textContent = list.length > 1 ? `${idx + 1} / ${list.length}` : '';
     const mt = meta[list[idx]];
-    v.querySelector('.vcap').innerHTML = mt && (mt.ts || mt.scene) ? `${mt.ts ? `<b>${esc(new Date(mt.ts).toLocaleDateString('ro-RO', {weekday:'long', day:'numeric', month:'long'}))} · ${esc(hhmm(mt.ts))}</b>` : ''}${mt.scene ? esc(mt.scene) : ''}` : '';
+    // 7.4: doar data și ora; scena (textul pentru generator) rămâne în apăsare lungă → „Ce scenă a ales”
+    v.querySelector('.vcap').innerHTML = mt && mt.ts ? `<b>${esc(new Date(mt.ts).toLocaleDateString('ro-RO', {weekday:'long', day:'numeric', month:'long'}))} · ${esc(hhmm(mt.ts))}</b>` : '';
     v.querySelector('.vplay').hidden = list.length < 2;
     v.querySelector('#vwRe').hidden = !(S.imgProv !== 'none' && !busy && aiPicIdx() >= 0);
     v.querySelectorAll('.vnav').forEach(b => b.hidden = list.length < 2);
