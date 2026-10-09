@@ -1003,7 +1003,7 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
 
 <script>
 'use strict';
-const APP_VER = '6.4';
+const APP_VER = '6.5';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -1829,6 +1829,15 @@ Răspunde STRICT cu JSON: {"text":"statusul"${wantPic ? ',"poza":"one English se
   feedCache.push(p); await saveFeed();
 }
 /* ───────── 🖼️ avatar viu ───────── */
+/* 📷 6.5: personajul îți trimite poze în conversație (și cu poză de profil urcată) */
+function drawPics(c){
+  const box = $('#pfPics'); if(!box) return;
+  const on = sendPicsOn(c);
+  const why = S.imgProv === 'none' ? 'Pozele sunt oprite în Setări → Poze; pornește-le acolo.' : !c.photo ? 'Are nevoie de o poză de profil (după ea se păstrează fața).' : '';
+  box.innerHTML = `<div class="pfVoice"><span>${on ? '✅ Pornit' : '⏸ Oprit'}${why ? ' · ' + why : ''}</span><button class="btn sm" id="pfPicsOn">${on ? '⏸ Oprește' : '▶ Pornește'}</button></div>
+    <p class="hint" style="margin-top:6px">${on ? `${esc(c.name)} îți poate trimite poze în chat: când vrea, când i-o ceri, plus cele spontane (Setări → Poze) și cele din statusuri. Fața vine din poza de profil.` : `${esc(c.name)} nu trimite poze singur${c.aiPortrait ? '' : ' (implicit doar personajele cu portret generat în aplicație o fac)'}. 📷 Cere o poză din ＋ merge oricum.`}</p>`;
+  $('#pfPicsOn').onclick = async () => { c.sendPics = !on; await saveChars(); drawPics(c); toast(c.sendPics ? '📷 ' + c.name + ' îți poate trimite poze' : c.name + ' nu mai trimite poze singur'); };
+}
 function drawAv(c){
   const box = $('#pfAv'); if(!box) return;
   const can = !!c.aiPortrait && S.imgProv !== 'none' && c.photo;
@@ -1864,7 +1873,7 @@ async function genAvatars(c){
 }
 
 /* ───────── 🗂️ carduri de personaj ───────── */
-const CARD_FIELDS = ['name', 'tag', 'aspect', 'look', 'stil', 'persona', 'speech', 'greet', 'accent', 'bg', 'aiPortrait', 'voice', 'vPitch', 'life', 'lifeOff', 'avLive'];
+const CARD_FIELDS = ['name', 'tag', 'aspect', 'look', 'stil', 'persona', 'speech', 'greet', 'accent', 'bg', 'aiPortrait', 'voice', 'vPitch', 'life', 'lifeOff', 'avLive', 'sendPics'];
 async function exportCard(c){
   toast('Pregătesc cardul…');
   const out = {app:'taifas-card', v:1, date:new Date().toISOString(), char:{}};
@@ -2665,8 +2674,10 @@ function setBusyUI(on){
 }
 
 const LEN = {scurt:{t:'1-2 fraze scurte', max:700}, mediu:{t:'un paragraf, cel mult două', max:1300}, lung:{t:'2-4 paragrafe bogate', max:2400}};
-// pozele automate (promise în text sau spontane) doar pentru personajele cu portret generat în aplicație
-const canAutoPhoto = c => S.imgProv !== 'none' && !!c.aiPortrait && !!c.photo;
+// pozele trimise de personaj (promise în text, spontane, statusuri): implicit doar cu portret generat în aplicație;
+// 6.5: comutatorul din profil (c.sendPics true/false) le pornește/oprește pentru orice personaj cu poză de profil
+const sendPicsOn = c => c.sendPics === undefined ? !!c.aiPortrait : !!c.sendPics;
+const canAutoPhoto = c => S.imgProv !== 'none' && !!c.photo && sendPicsOn(c);
 const PHOTO_PROMISE = /\*[^*]*\b(trimit|trimite|atașez|atașează|face|fac)\b[^*]*\b(poz|fotografi|selfie)[^*]*\*/i;
 function systemFor(c, ch){
   const u = S.userName.trim() || 'utilizatorul';
@@ -3285,6 +3296,7 @@ async function charProfile(id, push = true){
     <div class="pfSec" id="pfPrefsSec"><h3>🎯 Ce a învățat din notele tale</h3><ul class="facts" id="pfPrefs"></ul></div>
     <div class="pfSec"><h3><span>🗓️ Ziua ${esc(c.name)}</span></h3><div id="pfLife"></div></div>
     <div class="pfSec"><h3><span>💝 Amintiri</span></h3><div id="pfMem"></div></div>
+    <div class="pfSec"><h3><span>📷 Poze de la ${esc(c.name)}</span></h3><div id="pfPics"></div></div>
     <div class="pfSec"><h3><span>🖼️ Avatar viu</span></h3><div id="pfAv"></div></div>
     <div class="pfSec"><h3><span>😺 Stickere</span></h3><div id="pfStk"></div></div>
     <div class="pfSec"><h3>🎙️ Vocea</h3><div class="pfVoice"><span id="pfVName">${esc(voiceLabel(c))}</span><button class="btn sm" id="pfVPlay">▶ Ascultă</button><button class="btn sm" id="pfVPick">Schimbă</button></div></div>
@@ -3336,7 +3348,7 @@ async function charProfile(id, push = true){
     $('#pfPrefs').querySelectorAll('[data-lx]').forEach(b => b.onclick = async () => { c.liked.splice(+b.dataset.lx, 1); await saveChars(); drawPrefs(); });
   };
   drawPrefs();
-  drawLife(c); drawMem(c); drawAv(c); drawStk(c);
+  drawLife(c); drawMem(c); drawPics(c); drawAv(c); drawStk(c);
   $('#pfMoreTop').onclick = () => sheet([['📤', 'Exportă cardul personajului', () => exportCard(c)], ['🧬', 'Duplică personajul', () => duplicateChar(c)]]);
   $('#pfVPlay').onclick = () => voiceSample(c, $('#pfVPlay'));
   $('#pfVPick').onclick = () => pickVoice(c, () => { $('#pfVName').textContent = voiceLabel(c); });
