@@ -818,6 +818,25 @@ input:focus,textarea:focus,select:focus{border-color:color-mix(in srgb,var(--acc
 .shut i{width:40px;height:40px;border-radius:50%;background:#fff;animation:shut 1.6s ease-in-out infinite}
 @keyframes shut{0%,70%,100%{transform:scale(1);opacity:.95}80%{transform:scale(.72);opacity:.7}}
 @media (prefers-reduced-motion:reduce){.hero img,.picload .plbg,.shut i{animation:none!important}.pic.dev{filter:none;transform:none}}
+
+/* 7.9: 📣 întreabă-le pe toate */
+.bcpick{display:flex;gap:10px;overflow-x:auto;padding:12px 2px 6px;scrollbar-width:none}
+.bcpick button{flex:none;width:64px;display:flex;flex-direction:column;align-items:center;gap:5px;font-size:.74rem;font-weight:700;color:var(--tx3);opacity:.45;transition:opacity .2s}
+.bcpick button .av{width:52px;height:52px;box-shadow:0 0 0 2px var(--bg2),0 0 0 3px var(--line)}
+.bcpick button.on{opacity:1;color:var(--tx)}
+.bcpick button.on .av{box-shadow:0 0 0 2px var(--bg2),0 0 0 4px var(--acc)}
+.bcpick span{max-width:64px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bcsum{font-weight:700;color:var(--tx)!important}
+.bclist{display:flex;flex-direction:column;gap:8px;max-height:58vh;overflow:auto}
+.bcrow{display:flex;gap:12px;align-items:flex-start;width:100%;padding:12px;border-radius:16px;text-align:left;background:color-mix(in srgb,var(--tx) 4%,transparent);border:1px solid var(--hair)}
+.bcrow .av{width:44px;height:44px;flex:none}
+.bcrow.da{border-color:color-mix(in srgb,var(--ok) 55%,transparent);background:color-mix(in srgb,var(--ok) 9%,transparent)}
+.bcrow.poate{border-color:color-mix(in srgb,#ffb020 50%,transparent)}
+.bcrow.nu{opacity:.75}
+.bct{flex:1;min-width:0}
+.bct b{display:flex;justify-content:space-between;gap:8px;font-size:.95rem}
+.bct em{font-style:normal;font-size:.76rem;font-weight:700;color:var(--tx2);white-space:nowrap;display:inline-flex;align-items:center;gap:4px}
+.bct small{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;color:var(--tx2);font-size:.84rem;line-height:1.4;margin-top:3px}
 </style>
 </head>
 <body>
@@ -826,6 +845,7 @@ input:focus,textarea:focus,select:focus{border-color:color-mix(in srgb,var(--acc
 <section id="vHome" class="view">
   <header class="top">
     <h1>Taifas</h1>
+    <button class="ib" id="btnBcast" aria-label="Întreabă-le pe toate" style="font-size:1.15rem">📣</button>
     <button class="ib" id="btnWrapped" aria-label="Taifas Wrapped" style="font-size:1.15rem">📊</button>
     <button class="ib" id="btnSearch" aria-label="Caută"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></button>
   </header>
@@ -1159,7 +1179,7 @@ input:focus,textarea:focus,select:focus{border-color:color-mix(in srgb,var(--acc
 
 <script>
 'use strict';
-const APP_VER = '7.8';
+const APP_VER = '7.9';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -2660,12 +2680,13 @@ function setReply(i){
 function clearReply(){ replyTo = null; $('#replyBar').hidden = true; }
 // dispoziția: personajul o scrie la finalul răspunsului ca [stare: …]; o păstrăm pe conversație și o ascundem din text
 const MOOD_RE = /\s*\[stare:\s*([^\]\n]{1,40})\]/gi;
-const PLOT_RE = /\s*\[acum:\s*([^\]\n]{3,200})\]/gi;   // 7.6: scena în desfășurare, scrisă de personaj
+const PLOT_RE = /\s*\[acum:\s*([^\]\n]{3,200})\]/gi;
+const VERD_RE = /\s*\[r[ăa]spuns:\s*(da|poate|nu)\s*\]/gi;   // 7.9: răspunsul la „📣 Întreabă-le pe toate”   // 7.6: scena în desfășurare, scrisă de personaj
 const SCHED_RE = /\s*\[programez:\s*([^\]\n]{3,160})\]/gi;
 const STK_RE = /\s*\[sticker:\s*([^\]\n]{2,40})\]/gi;
 const SHOT_RE = /\s*\[poz[ăa]:\s*([^\]]{8,2000})\]/gi;
 const SHOT_OPEN = /\s*\[poz[ăa]:[^\]]*$/i;   // etichetă începută, încă neînchisă (în timpul scrierii) sau tăiată
-const stripMood = t => String(t || '').replace(MOOD_RE, '').replace(PLOT_RE, '').replace(/\s*\[acum:[^\]]*$/i, '').replace(SCHED_RE, '').replace(SHOT_RE, '').replace(SHOT_OPEN, '').replace(STK_RE, '')
+const stripMood = t => String(t || '').replace(MOOD_RE, '').replace(PLOT_RE, '').replace(VERD_RE, '').replace(/\s*\[acum:[^\]]*$/i, '').replace(SCHED_RE, '').replace(SHOT_RE, '').replace(SHOT_OPEN, '').replace(STK_RE, '')
   .replace(/\s*\[s(t(a(r(e(:[^\]\n]*)?)?)?)?)?$/i, '').replace(/\s*\[p(r(o(g(r(a(m(e(z(:[^\]\n]*)?)?)?)?)?)?)?)?)?$/i, '').replace(/\s*\[p(o(z([ăa](:[^\]\n]*)?)?)?)?$/i, '').replace(/\s*\[s(t(i(c(k(e(r(:[^\]\n]*)?)?)?)?)?)?)?$/i, '').trimEnd();
 // starea din antet: online / ultima dată + dispoziția (scrisă de personaj sau dedusă din ultimul răspuns)
 const MOODS = [
@@ -3355,6 +3376,7 @@ async function reply(target, opts = {}){
     { const sk = [...full.matchAll(STK_RE)].pop(); if(sk){ const x = (c.stickers || []).find(z => z.l.toLowerCase() === sk[1].trim().toLowerCase()); if(x) m._stk = x; } }
     { const sh = [...full.matchAll(SHOT_RE)].pop(); if(sh) ch.nextShot = {t:sh[1].trim(), mid:m.id}; else if(ch.nextShot && ch.nextShot.mid === m.id) delete ch.nextShot; }
     if(!opts.sched) for(const x of full.matchAll(SCHED_RE)){ const sc = parseSched(x[1]); if(sc) addSched(c, ch, sc); }
+    { const vd = [...m.text.matchAll(VERD_RE)].pop(); if(vd) m.verdict = vd[1].toLowerCase(); }
     { const pl = [...m.text.matchAll(PLOT_RE)].pop(); if(pl && !opts.sched){ const t = pl[1].trim(); ch.plot = /^(discuție liberă|nimic|-)$/i.test(t) ? null : {t, ts:Date.now()}; } }
     { let mo = null; m.text.replace(MOOD_RE, (a, x) => { mo = x.trim(); return ''; });
       if(mo){ ch.mood = {t:mo, ts:Date.now()}; m.mood = mo; c.moodNow = {t:mo, ts:Date.now()}; } m.text = stripMood(m.text).trim(); }
@@ -3972,6 +3994,73 @@ function exportTxt(){
 function download(blob, name){ const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 5000); }
 
 /* ───────── sheet (meniu de jos) ───────── */
+/* ───────── 📣 7.9: întreabă-le pe toate ─────────
+   Mesajul tău ajunge în conversația fiecărui personaj ales, ca un mesaj obișnuit; fiecare răspunde în felul lui și
+   marchează ascuns [răspuns: da/poate/nu]. Rezultatele (ultima trimitere) stau în DB `bcast`. */
+let bcastLast = null, bcastRun = false;
+const VERD = {da:['✅', 'Da'], poate:['🤔', 'Poate'], nu:['❌', 'Nu'], '?':['💬', 'A răspuns']};
+async function bcastSheet(fresh){
+  if(!bcastLast) bcastLast = await DB.get('bcast');
+  if(!fresh && bcastLast && (bcastRun || Date.now() - bcastLast.ts < 24 * 36e5)) return bcastResults();
+  if(!aiReady()){ toast('Pune întâi cheia în Setări.'); return; }
+  const list = [...chars].sort((a, b) => (b.lastAt || 0) - (a.lastAt || 0));
+  if(!list.length){ toast('Creează întâi un personaj.'); return; }
+  const sel = new Set(list.map(c => c.id));
+  openSheet(`<h4>📣 Întreabă-le pe toate</h4><div class="pad">
+    <p>Scrie o dată. Mesajul ajunge în conversația fiecărui personaj ales, ca un mesaj de-al tău, iar fiecare îți răspunde în felul lui. Vezi apoi cine e dispus.</p>
+    <textarea id="bcTx" rows="3" placeholder="ex. Cine vine diseară la o cafea în centru?"></textarea>
+    <div class="bcpick">${list.map(c => `<button class="on" data-bc="${c.id}">${avatarHTML(c)}<span>${esc(c.name)}</span></button>`).join('')}</div>
+    <p class="hint" id="bcN"></p>
+    <div class="btns"><button class="btn" data-close>Renunță</button><button class="btn pri" id="bcGo">Trimite</button></div></div>`);
+  hydrate(document.querySelector('.sheet'));
+  const upd = () => { $('#bcN').textContent = `${sel.size} ${sel.size === 1 ? 'personaj' : 'personaje'} · un răspuns de la fiecare, pe rând (costă cât ${sel.size} mesaje obișnuite)`; $('#bcGo').disabled = !sel.size; };
+  $$('.bcpick [data-bc]').forEach(b => b.onclick = () => { const id = b.dataset.bc; sel.has(id) ? sel.delete(id) : sel.add(id); b.classList.toggle('on', sel.has(id)); upd(); });
+  upd(); setTimeout(() => $('#bcTx') && $('#bcTx').focus(), 250);
+  $('#bcGo').onclick = () => { const t = $('#bcTx').value.trim(); if(!t){ $('#bcTx').focus(); return; } runBcast(t, [...sel]); };
+}
+function bcastResults(){
+  const r = bcastLast; if(!r) return;
+  const ord = {da:0, poate:1, '?':2, nu:3};
+  const items = bcastRun ? r.items : [...r.items].sort((a, b) => (ord[a.v] ?? 4) - (ord[b.v] ?? 4));
+  const n = k => r.items.filter(x => x.v === k).length;
+  const html = `<h4>📣 „${esc(r.text.length > 60 ? r.text.slice(0, 60) + '…' : r.text)}”</h4><div class="pad">
+    <p class="bcsum">${bcastRun ? '<span class="spin"></span> Răspund pe rând…' : `✅ ${n('da')} · 🤔 ${n('poate')} · ❌ ${n('nu')}${n('?') ? ' · 💬 ' + n('?') : ''}`}</p>
+    <div class="bclist">${items.map(x => { const c = charById(x.cid); if(!c) return ''; const v = VERD[x.v] || null;
+      return `<button class="bcrow ${x.v || x.st}" data-bcopen="${c.id}">${avatarHTML(c)}<span class="bct"><b>${esc(c.name)}${v ? `<em>${v[0]} ${v[1]}</em>` : x.st === 'run' ? '<em><span class="spin"></span> scrie…</em>' : x.st === 'err' ? '<em>⚠️ eroare</em>' : '<em>în așteptare</em>'}</b><small>${esc(x.t || x.err || '')}</small></span></button>`; }).join('')}</div>
+    <div class="btns">${bcastRun ? '' : '<button class="btn" id="bcNew">📣 Mesaj nou</button>'}<button class="btn" data-close>Închide</button></div></div>`;
+  const sh = document.querySelector('.scrim .sheet.bcsheet');
+  if(sh){ sh.innerHTML = html; } else { openSheet(html); document.querySelector('.scrim .sheet').classList.add('bcsheet'); }
+  const root = document.querySelector('.scrim .sheet.bcsheet'); hydrate(root);
+  root.querySelectorAll('[data-bcopen]').forEach(b => b.onclick = () => { if(bcastRun) return toast('Așteaptă să termine toate.'); closeSheet(); openChat(b.dataset.bcopen); });
+  const nw = $('#bcNew'); if(nw) nw.onclick = () => bcastSheet(true);
+}
+async function runBcast(text, ids){
+  if(bcastRun) return;
+  bcastRun = true;
+  bcastLast = {id:uid(), text, ts:Date.now(), items:ids.map(cid => ({cid, st:'wait'}))};
+  closeSheet(); bcastResults();
+  const u = S.userName.trim() || 'el';
+  const note = `răspunde sincer, ca tine: după cine ești, cum vă știți, ce faci acum și ce simți, poți accepta, ezita sau refuza. La final, pe un rând separat, adaugă exact una dintre: [răspuns: da], [răspuns: poate], [răspuns: nu], după cât de dispus(ă) ești la ce ți-a scris ${u}`;
+  for(const it of bcastLast.items){
+    const c = charById(it.cid); if(!c){ it.st = 'err'; continue; }
+    try{
+      while(busy) await sleep(400);
+      const tid = c.thread || 'main', open = cur === c && chat && (chat.tid || 'main') === tid;
+      const ch = open ? chat : await loadChat(c, tid);
+      if(!ch.msgs.length && c.greet) ch.msgs.push(greetMsg(c));
+      ch.msgs.push({id:uid(), role:'user', text, ts:Date.now(), bc:bcastLast.id});
+      await saveChat(c, ch);
+      it.st = 'run'; bcastResults();
+      await reply(null, {c, ch, fix:note});
+      const m = [...ch.msgs].reverse().find(x => x.role === 'ai' && !x.sticker && !x.img);
+      if(!m || m.err){ it.st = 'err'; it.err = m ? m.err : 'fără răspuns'; }
+      else { it.st = 'ok'; it.v = m.verdict || '?'; it.t = m.text; it.mid = m.id; }
+    }catch(e){ it.st = 'err'; it.err = e.message; }
+    await DB.set('bcast', bcastLast); bcastResults();
+  }
+  bcastRun = false; await DB.set('bcast', bcastLast); bcastResults();
+  if(!$('#vHome').hidden) renderHome();
+}
 function openSheet(html){
   closeSheet(true);
   const s = document.createElement('div'); s.className = 'scrim';
@@ -4771,6 +4860,7 @@ function bind(){
   $('#stExport').onclick = exportAll;
   $('#stWrapped').onclick = () => openWrapped();
   $('#btnWrapped').onclick = () => openWrapped();
+  $('#btnBcast').onclick = () => bcastSheet();
   $('#stCardImp').onclick = () => $('#stCardFile').click();
   $('#stCardFile').onchange = e => { if(e.target.files[0]) importCard(e.target.files[0]); e.target.value = ''; };
   $('#stImgTest').onclick = testImages;
