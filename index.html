@@ -889,7 +889,7 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
 
 <script>
 'use strict';
-const APP_VER = '5.1';
+const APP_VER = '5.2';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -1380,7 +1380,7 @@ async function openChat(id, push = true, tid, dir){
   $('#sugg').innerHTML = '';
   clearReply(); jumpCount = 0;
   if((cur.sched || []).some(x => x.at <= Date.now())) runDueSched(); else maybeProactive();
-  { const jc = cur; setTimeout(() => maybeJournal(jc), 2500); }
+  setTimeout(jrnSweep, 2500);
 }
 function tagLine(c){
   const ts = threadsOf(c);
@@ -1574,8 +1574,9 @@ function clearReply(){ replyTo = null; $('#replyBar').hidden = true; }
 // dispoziția: personajul o scrie la finalul răspunsului ca [stare: …]; o păstrăm pe conversație și o ascundem din text
 const MOOD_RE = /\s*\[stare:\s*([^\]\n]{1,40})\]/gi;
 const SCHED_RE = /\s*\[programez:\s*([^\]\n]{3,160})\]/gi;
-const stripMood = t => String(t || '').replace(MOOD_RE, '').replace(SCHED_RE, '')
-  .replace(/\s*\[s(t(a(r(e(:[^\]\n]*)?)?)?)?)?$/i, '').replace(/\s*\[p(r(o(g(r(a(m(e(z(:[^\]\n]*)?)?)?)?)?)?)?)?)?$/i, '').trimEnd();
+const SHOT_RE = /\s*\[poz[ăa]:\s*([^\]\n]{8,400})\]/gi;
+const stripMood = t => String(t || '').replace(MOOD_RE, '').replace(SCHED_RE, '').replace(SHOT_RE, '')
+  .replace(/\s*\[s(t(a(r(e(:[^\]\n]*)?)?)?)?)?$/i, '').replace(/\s*\[p(r(o(g(r(a(m(e(z(:[^\]\n]*)?)?)?)?)?)?)?)?)?$/i, '').replace(/\s*\[p(o(z([ăa](:[^\]\n]*)?)?)?)?$/i, '').trimEnd();
 // starea din antet: online / ultima dată + dispoziția (scrisă de personaj sau dedusă din ultimul răspuns)
 const MOODS = [
   [/\b(râde|chicotește|hohot)/i, '😂', 'haz'],
@@ -2032,7 +2033,7 @@ function systemFor(c, ch){
 - Ții cont de momentul zilei și de pauzele dintre mesaje, notate între paranteze în mesajele lui ${u}; nu le menționa ca note.
 ${S.vmsg !== 'off' ? `- Uneori, când e firesc (cam o dată la ${S.vmsg === 'des' ? '4' : '10'} mesaje), sau oricând ${u} îți cere, poți trimite un mesaj vocal: începe răspunsul cu [vocal] și scrie exact ce spui cu voce tare, ca o persoană care vorbește liber la telefon: propoziții scurte, ezitări firești (păi, adică, mă rog, știi?), reluări, fără *acțiuni* și fără emoji. Unde e firesc, rar, poți pune [râde], [chicotește], [oftează], [șoptește] sau ... pentru o pauză scurtă. 1-4 propoziții.\n` : ''}${ch ? `- Dacă îi promiți lui ${u} că îi scrii tu la un anumit moment (de exemplu „îți scriu mâine la 7:25”, „te caut diseară la 9”), sau el îți cere asta și accepți, adaugă la final, pe un rând separat: [programez: ZIUA HH:MM | despre ce îi scrii], unde ZIUA e azi, mâine, poimâine sau AAAA-LL-ZZ. La ora aceea aplicația îți dă ocazia să-i scrii. Nu programa nimic fără o promisiune clară.\n` : ''}${ch ? `- La finalul fiecărui răspuns, pe un rând separat, notează-ți starea de acum exact așa: [stare: un emoji și 1-3 cuvinte], de exemplu [stare: 😊 bine dispusă]. Starea evoluează firesc din ce se întâmplă și din pauze, fără salturi bruște fără motiv.\n` : ''}- Dacă un mesaj al lui ${u} te amuză sau te emoționează, poți începe răspunsul cu o reacție scrisă exact așa: [❤️] [😂] [😮] [😢] [👍] [🔥] sau [🥰]. Cel mult o dată la câteva mesaje, nu de fiecare dată.
 ${canAutoPhoto(c)
-  ? '- Poți trimite poze. Când vrei să-i trimiți una, încheie mesajul cu acțiunea *îți trimite o poză*; aplicația o atașează singură. Nu promite poze în alt fel.'
+  ? `- Poți trimite poze. Când vrei să-i trimiți una (sau ${u} îți cere și accepți), încheie mesajul cu acțiunea *îți trimite o poză* și, pe rândul următor, descrie exact poza în engleză așa: [poză: framing (selfie / mirror selfie / photo taken by someone / close-up / full body), where you are, what you are doing, what you wear, expression, light matching the time of day]. Poza trebuie să arate exact ce se întâmplă acum în conversație (locul, activitatea, hainele despre care ați vorbit). Nu descrie fața. Aplicația o atașează singură. Nu promite poze în alt fel.`
   : '- Nu poți trimite poze în această conversație. Nu spune că trimiți, că faci sau că ai trimis o poză.'}`
   ].filter(Boolean).join('\n\n');
 }
@@ -2069,24 +2070,44 @@ async function writeJournal(c, day, force){
   const msgs = (await allChats(c)).flatMap(ch => ch.msgs).filter(m => m.ts && dayKey(m.ts) === day && !m.err && (m.text || m.img)).sort((a, b) => a.ts - b.ts);
   if(msgs.length < (force ? 1 : 4)) return null;
   const u = S.userName.trim() || 'el';
-  const log = msgs.slice(-60).map(m => (m.role === 'user' ? u : c.name) + ': ' + (m.img && !m.text ? '[poză]' : plain(m.text))).join('\n').slice(-9000);
+  // păstrăm și acțiunile (*…*), doar fără etichetele ascunse
+  const clean = t => stripMood(stripReact(String(t || ''))).replace(/\s+/g, ' ').trim();
+  const log = msgs.slice(-80).map(m => (m.role === 'user' ? u : c.name) + ': ' + (m.img && !m.text ? '[poză]' : clean(m.text))).join('\n').slice(-12000);
   const date = new Date(day + 'T12:00').toLocaleDateString('ro-RO', {weekday:'long', day:'numeric', month:'long'});
-  const out = await stream(systemFor(c, null), [{role:'user', text:
-    `(Ieșim din conversație.) Scrie, ca ${c.name}, o intrare scurtă în jurnalul tău personal despre ziua de ${date}, pe baza conversației noastre de mai jos. 4-7 propoziții, la persoana I, sincer, cu ce ai simțit și ce ți-a rămas în minte despre ${u}. Fără *acțiuni*, fără titlu, fără dată.\n\nConversația:\n${log}`}], {max:500, cid:c.id, aux:true});
-  const text = faraLiniute(plain(stripMood(out))).trim();
-  if(!text) return null;
+  const sys = [`Ești ${c.name}. Scrii în jurnalul tău personal, privat, în română corectă, cu diacritice.`,
+    c.persona && `Cine ești: ${c.persona}`, c.speech && `Cum vorbești: ${c.speech}`, `Relația ta cu ${u}: ${relOf(c).name}.`].filter(Boolean).join('\n\n');
+  // modelul principal (o dată pe zi): jurnalul cere vocea personajului, nu un rezumat sec
+  const out = await stream(sys, [{role:'user', text:
+    `Scrie intrarea din jurnal pentru ziua de ${date}, pe baza conversației voastre de mai jos. 4-7 propoziții, la persoana I, sincer și personal: ce s-a întâmplat între voi, ce ai simțit, un detaliu care ți-a rămas în minte despre ${u}. Nu cita mesajele, nu face listă, fără *acțiuni*, fără titlu, fără dată, fără etichete între paranteze drepte.\n\nConversația din ziua aceea:\n${log}`}], {max:600, cid:c.id});
+  let text = faraLiniute(plain(stripMood(stripReact(out)))).replace(/^\s*(dragă jurnalule[,!]?\s*)/i, m => m).trim();
+  // un text gol, prea scurt sau un refuz/explicație nu se salvează ca pagină de jurnal
+  if(text.length < 40 || /\b(ca AI|ca asistent|model de limbaj|nu pot (să )?(scriu|continua|ajuta)|I can(no|')t|as an AI)\b/i.test(text)) return null;
   c.journal = c.journal.filter(j => j.day !== day).concat({day, text, ts:Date.now()}).sort((a, b) => a.day < b.day ? 1 : -1).slice(0, 120);
   await saveChars();
   return text;
 }
-// la deschiderea unei conversații: scrie intrarea pentru cea mai recentă zi trecută care n-are încă una
+// jurnalul se scrie a doua zi: pentru fiecare zi trecută în care ați vorbit (cel puțin 4 mesaje) și care n-are încă pagină
+// (cel mult 3 zile lipsă recuperate odată, ca să nu coste mult după o pauză)
 async function maybeJournal(c){
-  if(!c) return;
-  if(S.jrn !== 'on' || !aiReady()) return;
+  if(!c || S.jrn !== 'on' || !aiReady()) return;
   const today = dayKey(Date.now());
-  const days = [...new Set((await allChats(c)).flatMap(ch => ch.msgs).filter(m => m.ts && !m.err).map(m => dayKey(m.ts)))].filter(d => d < today).sort().reverse();
-  const d = days.find(x => !(c.journal || []).some(j => j.day === x));
-  if(d && d >= days[0]) try{ await writeJournal(c, d); }catch(e){}
+  const days = [...new Set((await allChats(c)).flatMap(ch => ch.msgs).filter(m => m.ts && !m.err && !m.pending).map(m => dayKey(m.ts)))].filter(d => d < today).sort().reverse();
+  const missing = days.filter(x => !(c.journal || []).some(j => j.day === x)).slice(0, 3);
+  for(const d of missing){ try{ await writeJournal(c, d); }catch(e){ break; } }
+}
+// verificarea zilnică pentru toate personajele (nu doar la deschiderea unei conversații)
+let jrnRun = false;
+async function jrnSweep(){
+  if(jrnRun || S.jrn !== 'on' || !aiReady()) return;
+  jrnRun = true;
+  try{
+    const today = dayKey(Date.now());
+    for(const c of [...chars]){
+      if(c.jrnCk === today) continue;
+      c.jrnCk = today; await saveChars();
+      await maybeJournal(c);
+    }
+  } finally { jrnRun = false; }
 }
 // anti-repetiție: gesturile și începuturile folosite recent de personaj, ca să le evite în răspunsul următor
 function antiRepeat(ch, idx){
@@ -2195,6 +2216,7 @@ async function reply(target, opts = {}){
         if(!m.rec && S.vmsg !== 'off' && /^\s*(?:\[[^\]v][^\]]*\]\s*)?\[v/i.test(t)){ m.rec = m.hold = true; if(live){ live.rec = true; if(chat === ch) setBusyUI(true); } if(chat === ch) renderMsgs(); }
         draw(); }});
     m.text = faraLiniute(full.trim());
+    { const sh = [...full.matchAll(SHOT_RE)].pop(); if(sh) ch.nextShot = {t:sh[1].trim(), mid:m.id}; else if(ch.nextShot && ch.nextShot.mid === m.id) delete ch.nextShot; }
     if(!opts.sched) for(const x of full.matchAll(SCHED_RE)){ const sc = parseSched(x[1]); if(sc) addSched(c, ch, sc); }
     { let mo = null; m.text.replace(MOOD_RE, (a, x) => { mo = x.trim(); return ''; });
       if(mo){ ch.mood = {t:mo, ts:Date.now()}; m.mood = mo; } m.text = stripMood(m.text).trim(); }
@@ -2244,7 +2266,7 @@ async function reply(target, opts = {}){
     summarizeIfNeeded(c, ch);
     ch.factCount = (ch.factCount || 0) + 1;
     if(ch.factCount >= 6){ ch.factCount = 0; extractFacts(c, ch); }
-    if(canAutoPhoto(c) && PHOTO_PROMISE.test(m.text)){
+    if(canAutoPhoto(c) && (PHOTO_PROMISE.test(m.text) || (ch.nextShot && ch.nextShot.mid === m.id))){
       ch.sinceImg = 0;
       setTimeout(() => { if(chat === ch && !busy) askPhoto(true); }, 900);
     }
@@ -2594,11 +2616,11 @@ async function charProfile(id, push = true){
   };
   drawFacts();
   const jHTML = list => list.map(j => `<div class="jentry"><b>${new Date(j.day + 'T12:00').toLocaleDateString('ro-RO', {weekday:'long', day:'numeric', month:'long'})}</b><p>${esc(j.text)}</p></div>`).join('');
-  const drawJ = () => { const js = (c.journal || []).slice(0, 3); $('#pfJrn').innerHTML = js.length ? jHTML(js) : `<p style="color:var(--tx3);font-size:.88rem">Încă nicio pagină. ${esc(c.name)} scrie aici câte ceva despre fiecare zi în care ați vorbit.</p>`; };
+  const drawJ = () => { const js = (c.journal || []).slice(0, 3); $('#pfJrn').innerHTML = js.length ? jHTML(js) : `<p style="color:var(--tx3);font-size:.88rem">Încă nicio pagină. ${esc(c.name)} scrie aici singur, a doua zi, despre fiecare zi în care ați vorbit (cel puțin 4 mesaje). Pentru azi, apasă „Scrie despre azi”.</p>`; };
   drawJ();
   $('#pfJrnToday').onclick = async () => {
     const b = $('#pfJrnToday'); b.disabled = true; b.innerHTML = '<span class="spin"></span> Scrie…';
-    try{ const t = await writeJournal(c, dayKey(Date.now()), true); if(!t) toast('Azi n-ați vorbit încă.'); drawJ(); }catch(e){ toast('N-a mers: ' + e.message, 3500); }
+    try{ const t = await writeJournal(c, dayKey(Date.now()), true); if(!t) toast('N-am putut scrie pagina de azi (prea puține mesaje sau un răspuns nepotrivit). Mai încearcă.', 4000); drawJ(); }catch(e){ toast('N-a mers: ' + e.message, 3500); }
     b.disabled = false; b.textContent = '✍️ Scrie despre azi';
   };
   const ja = $('#pfJrnAll'); if(ja) ja.onclick = () => openSheet(`<h4>📔 Jurnal · ${esc(c.name)}</h4><div class="pad">${jHTML(c.journal || [])}</div>`);
@@ -2658,7 +2680,9 @@ async function askPhoto(spont, target, mode){
     // pozele trimise deja: regizorul trebuie să aleagă altceva (altă încadrare, alt loc, altă poză)
     const prevShots = ch.msgs.filter(x => x.img && x.scene && x !== m).slice(-3).map(x => '- ' + x.scene).join('\n');
     const h = new Date().getHours(), tod = h < 5 ? 'late night (dark outside, indoor lamp light)' : h < 11 ? 'morning' : h < 14 ? 'midday' : h < 18 ? 'afternoon' : h < 22 ? 'evening (sunset or indoor warm light)' : 'night (dark outside, indoor lamp light)';
-    const scene = (target && mode === 'same' && target.scene) ? target.scene : await stream('You are the photo director for a chat app. You decide what photo the character sends, strictly based on the conversation. Answer with one English sentence only.', [{role:'user', text:
+    const promised = !target && spont && ch.nextShot ? ch.nextShot.t : '';      // descrierea scrisă chiar de personaj când a trimis poza
+    if(promised) delete ch.nextShot;
+    const scene = (target && mode === 'same' && target.scene) ? target.scene : promised ? promised : await stream('You are the photo director for a chat app. You decide what photo the character sends, strictly based on the conversation. Answer with one English sentence only.', [{role:'user', text:
       `Character: ${c.name}. ${c.persona ? 'About the character: ' + plain(c.persona).slice(0, 400) : ''}
 Local time now: ${tod}.
 ${ch.scene ? 'Current scene set by the user (translate to English, it has priority): ' + ch.scene + '\n' : ''}
@@ -3587,7 +3611,8 @@ async function init(){
   navigator.storage?.persist?.().catch(() => {});
   setTimeout(runDueSched, 1500);
   setInterval(runDueSched, 30e3);
-  document.addEventListener('visibilitychange', () => { if(!document.hidden) setTimeout(runDueSched, 800); });
+  setTimeout(jrnSweep, 6000); setInterval(jrnSweep, 30 * 60e3);
+  document.addEventListener('visibilitychange', () => { if(!document.hidden){ setTimeout(runDueSched, 800); setTimeout(jrnSweep, 4000); } });
   if('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
 }
 init();
