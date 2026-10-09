@@ -268,6 +268,40 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
 .relbox{display:flex;align-items:center;gap:10px}
 .relbox .lv{font-weight:700}
 .relbox small{color:var(--tx3);font-size:.78rem}
+/* 5.3: statusuri, ziua personajului, amintiri, cadouri */
+#homeFeed{padding:4px 12px calc(24px + var(--safe-b))}
+.feedtop{display:flex;align-items:center;justify-content:space-between;margin:2px 2px 12px;color:var(--tx3);font-size:.82rem}
+.post{background:var(--card);border:1px solid var(--line);border-radius:20px;margin-bottom:14px;overflow:hidden}
+.post .ph2{display:flex;align-items:center;gap:10px;padding:12px 14px 6px}
+.post .ph2 b{font-weight:700}.post .ph2 small{color:var(--tx3);font-size:.75rem;display:block}
+.post .ph2 .av{width:38px;height:38px}
+.post p{margin:4px 14px 10px;line-height:1.5;white-space:pre-wrap}
+.post img.pimg{display:block;width:100%;aspect-ratio:3/4;object-fit:cover;background:var(--bg2)}
+.post .pact{display:flex;gap:6px;padding:8px 10px}
+.post .pact button{padding:7px 12px;border-radius:99px;background:var(--bg2);font-size:.88rem;color:var(--tx2)}
+.post .pact button.on{color:var(--acc);background:color-mix(in srgb,var(--acc) 16%,transparent)}
+.post.new{border-color:color-mix(in srgb,var(--acc) 55%,var(--line))}
+.post.loading p{color:var(--tx3)}
+#nav button .ndot{position:absolute;top:4px;right:calc(50% - 16px);width:8px;height:8px;border-radius:50%;background:var(--acc)}
+#nav button{position:relative}
+.life{display:flex;flex-direction:column;gap:2px;font-size:.88rem}
+.life .lr{display:flex;gap:10px;padding:5px 0;color:var(--tx2)}
+.life .lr time{width:96px;flex:none;color:var(--tx3);font-variant-numeric:tabular-nums}
+.life .lr.now{color:var(--tx);font-weight:600}
+.lifenow{font-size:.92rem;margin-bottom:8px}
+.mems{list-style:none;margin:0;padding:0;border-left:2px solid color-mix(in srgb,var(--acc) 40%,transparent);margin-left:6px}
+.mems li{position:relative;padding:0 0 12px 16px;font-size:.9rem;line-height:1.45}
+.mems li::before{content:'';position:absolute;left:-6px;top:5px;width:10px;height:10px;border-radius:50%;background:var(--acc)}
+.mems li small{display:block;color:var(--tx3);font-size:.74rem}
+.annline{font-size:.88rem;color:var(--tx2);margin-bottom:10px}
+.gifts{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:0 16px 10px}
+.gifts button{display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 4px;border-radius:14px;background:var(--bg2);border:1px solid var(--line);font-size:.72rem;color:var(--tx2)}
+.gifts button i{font-style:normal;font-size:1.7rem}
+.gifts button.on{border-color:var(--acc);color:var(--tx)}
+.bub.gift{text-align:center;padding:14px 18px}
+.bub.gift .ge{font-size:2.6rem;line-height:1.1;display:block}
+.bub.gift .gn{display:block;font-weight:700;margin-top:4px}
+.bub.gift .gt{display:block;margin-top:6px;font-size:.92rem}
 .chk{display:flex;align-items:center;gap:10px;font-size:.92rem;color:var(--tx2);margin-top:4px}
 .chk input{width:20px;height:20px;accent-color:var(--acc);flex:none}
 .vrow[data-rl]{cursor:pointer}
@@ -581,17 +615,19 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
 <section id="vHome" class="view">
   <header class="top">
     <h1>Taifas</h1>
+    <button class="ib" id="btnSearch" aria-label="Caută"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></button>
   </header>
   <div class="scroll" id="homeScroll">
     <div class="search" id="searchWrap" hidden>🔎<input id="search" placeholder="Caută un personaj" autocomplete="off"></div>
     <div id="homeChars" class="grid"></div>
     <div id="homeChats" class="list" hidden></div>
+    <div id="homeFeed" hidden></div>
   </div>
   <nav id="nav">
     <button data-tab="chars" class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/></svg><span>Acasă</span></button>
     <button data-tab="chats"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20.5l1.4-4.9A8 8 0 1 1 21 12z"/></svg><span>Conversații</span></button>
     <button class="mid" id="btnNew" aria-label="Personaj nou"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
-    <button id="btnSearch"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><span>Caută</span></button>
+    <button data-tab="feed"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/></svg><span>Noutăți</span></button>
     <button id="btnSettings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg><span>Setări</span></button>
   </nav>
 </section>
@@ -853,6 +889,8 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
       </div>
       <p class="hint" id="ttsHint"></p>
       <div class="btns"><button class="btn sm" id="stTtsTest">🔊 Ascultă un test</button></div>
+      <label>📱 Statusuri în Noutăți (personajele postează ce fac)</label>
+      <div class="seg" id="stFeed"><button data-v="off">Oprite</button><button data-v="text">Doar text</button><button data-v="poze">Cu poze</button></div>
       <label>Jurnalul personajului (o intrare pe zi, automat)</label>
       <div class="seg" id="stJrn"><button data-v="off">Oprit</button><button data-v="on">Pornit</button></div>
     </div>
@@ -889,7 +927,7 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
 
 <script>
 'use strict';
-const APP_VER = '5.2';
+const APP_VER = '5.4';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -927,7 +965,7 @@ const DEF = {
   userName:'', userAbout:'', len:'mediu', font:16,
   imgProv:'none', gemKey:'', gemModel:'gemini-2.5-flash-image',
   wkBase:'', wkTok:'', wkModel:'eco', wkSize:'768x1024',
-  sugg:'off', pro:'on', voice:'tap', tts:'tel', cfPlan:'free', cfCap:'free', elKey:'', elModel:'eleven_v3', theme:'dark', vmsg:'rar', jrn:'on', aux:'on', ctxN:'30',
+  sugg:'off', pro:'on', feed:'text', voice:'tap', tts:'tel', cfPlan:'free', cfCap:'free', elKey:'', elModel:'eleven_v3', theme:'dark', vmsg:'rar', jrn:'on', aux:'on', ctxN:'30',
   falKey:'', falModel:'fal-ai/flux-pulid', falSize:'576x768', spont:'rar', imgAlt:'fal', sv:34, imgCost:'', pIn:'', pOut:''
 };
 let S = {...DEF};
@@ -1320,6 +1358,9 @@ function renderHome(){
   $$('#nav [data-tab]').forEach(b => b.classList.toggle('on', b.dataset.tab === homeTab));
   $('#homeChars').hidden = homeTab !== 'chars';
   $('#homeChats').hidden = homeTab !== 'chats';
+  $('#homeFeed').hidden = homeTab !== 'feed';
+  if(homeTab === 'feed') renderFeed();
+  feedDot();
   const sorted = [...chars].sort((a, b) => (b.fav ? 1 : 0) - (a.fav ? 1 : 0) || (b.lastAt || b.created || 0) - (a.lastAt || a.created || 0));
   $('#searchWrap').hidden = homeTab !== 'chars' || chars.length < 5;
   if($('#searchWrap').hidden && homeTab === 'chars') $('#search').value = '';
@@ -1379,7 +1420,7 @@ async function openChat(id, push = true, tid, dir){
   setBusyUI(!!(busy && live && live.ch === chat));
   $('#sugg').innerHTML = '';
   clearReply(); jumpCount = 0;
-  if((cur.sched || []).some(x => x.at <= Date.now())) runDueSched(); else maybeProactive();
+  if((cur.sched || []).some(x => x.at <= Date.now())) runDueSched(); else annCheck(cur).then(done => { if(!done) maybeProactive(); });
   setTimeout(jrnSweep, 2500);
 }
 function tagLine(c){
@@ -1481,6 +1522,211 @@ function schedSheet(){
     addSched(c, chat, {at, note:$('#scNote').value.trim()}); closeSheet();
   };
 }
+/* ───────── 🗓️ ziua personajului ───────── */
+const LIFE_E = {0:'☕', 1:'💼', 2:'😴'};
+const tmin = t => { const [h, m] = String(t).split(':').map(Number); return (h || 0) * 60 + (m || 0); };
+function lifeNow(c, ts = Date.now()){
+  if(!c || !c.life || c.lifeOff) return null;
+  const d = new Date(ts), list = [0, 6].includes(d.getDay()) ? (c.life.we || c.life.wk) : c.life.wk;
+  const n = d.getHours() * 60 + d.getMinutes();
+  return (list || []).find(x => { const a = tmin(x.f), b = tmin(x.t); return a <= b ? (n >= a && n < b) : (n >= a || n < b); }) || null;
+}
+const lifeLines = list => (list || []).map(x => `${x.f}-${x.t} | ${x.w} | ${['liber', 'ocupat', 'doarme'][x.b] || 'liber'}`).join('\n');
+function parseLife(txt){
+  return String(txt || '').split('\n').map(l => { const m = l.match(/(\d{1,2}[:.]\d{2})\s*-\s*(\d{1,2}[:.]\d{2})\s*\|\s*([^|]+?)\s*(?:\|\s*(\S+))?\s*$/); if(!m) return null;
+    const fx = t => t.replace('.', ':').padStart(5, '0'); return {f:fx(m[1]), t:fx(m[2]), w:m[3].trim().slice(0, 60), b:/doarm|somn/i.test(m[4] || '') ? 2 : /ocup/i.test(m[4] || '') ? 1 : 0}; }).filter(Boolean);
+}
+async function genLife(c){
+  const out = await stream('Creezi rutine zilnice realiste pentru personaje. Răspunzi DOAR cu JSON valid.', [{role:'user', text:
+`Personaj: ${c.name}. ${c.tag ? 'Pe scurt: ' + c.tag + '. ' : ''}${c.persona ? 'Descriere: ' + c.persona.slice(0, 1200) : ''}
+Scrie programul unei zile obișnuite de lucru și al unei zile de weekend pentru acest personaj, în română, acoperind toate cele 24 de ore, 6-10 intervale pe zi (inclusiv somnul). Fiecare interval: de la, până la (HH:MM), ce face (3-8 cuvinte, la persoana a III-a, fără nume, ex: „la cafeneaua de lângă birou”) și starea: liber, ocupat sau doarme.
+JSON: {"lucru":[{"de":"07:00","pana":"08:00","ce":"…","stare":"liber"}],"weekend":[…]}`}], {max:1400, cid:c.id});
+  const j = parseJSON(out);
+  const conv = a => (Array.isArray(a) ? a : []).map(x => ({f:String(x.de || '').slice(0, 5), t:String(x.pana || '').slice(0, 5), w:String(x.ce || '').trim().slice(0, 60), b:/doarm|somn/i.test(x.stare) ? 2 : /ocup/i.test(x.stare) ? 1 : 0})).filter(x => /^\d{2}:\d{2}$/.test(x.f) && /^\d{2}:\d{2}$/.test(x.t) && x.w);
+  const wk = conv(j.lucru), we = conv(j.weekend);
+  if(wk.length < 3) throw new Error('Programul n-a ieșit bine. Mai încearcă.');
+  c.life = {wk, we: we.length >= 3 ? we : wk}; delete c.lifeOff; await saveChars();
+}
+function drawLife(c){
+  const box = $('#pfLife'); if(!box) return;
+  if(!c.life){
+    box.innerHTML = `<p style="color:var(--tx3);font-size:.88rem;margin:0 0 10px">${esc(c.name)} n-are încă un program al zilei. Cu el, știe ce face la fiecare oră (la muncă, acasă, doarme), iar sus în conversație apare ce face acum.</p><div class="btns"><button class="btn sm" id="lfGen">✨ Creează programul din descriere</button></div>`;
+  } else {
+    const now = lifeNow(c), d = new Date(), list = [0, 6].includes(d.getDay()) ? c.life.we : c.life.wk;
+    box.innerHTML = `${c.lifeOff ? '<p class="lifenow" style="color:var(--tx3)">⏸ Programul e oprit.</p>' : now ? `<p class="lifenow">Acum: ${LIFE_E[now.b]} <b>${esc(now.w)}</b></p>` : ''}
+      <div class="life">${(list || []).map(x => `<div class="lr${now === x ? ' now' : ''}"><time>${x.f} - ${x.t}</time><span>${LIFE_E[x.b]} ${esc(x.w)}</span></div>`).join('')}</div>
+      <div class="btns jbtn"><button class="btn sm" id="lfEdit">✏️ Editează</button><button class="btn sm" id="lfGen">✨ Refă</button><button class="btn sm" id="lfOff">${c.lifeOff ? '▶ Pornește' : '⏸ Oprește'}</button></div>`;
+    $('#lfOff').onclick = async () => { c.lifeOff = !c.lifeOff; await saveChars(); drawLife(c); };
+    $('#lfEdit').onclick = () => {
+      openSheet(`<h4>🗓️ Programul lui ${esc(c.name)}</h4><div class="pad"><p class="hint">Un rând pe interval: <b>07:00-09:00 | la muncă | ocupat</b> (stare: liber, ocupat sau doarme).</p>
+        <label>Zi de lucru</label><textarea id="lfWk" rows="8">${esc(lifeLines(c.life.wk))}</textarea>
+        <label style="margin-top:10px">Weekend</label><textarea id="lfWe" rows="8">${esc(lifeLines(c.life.we))}</textarea>
+        <div class="btns" style="margin-top:10px"><button class="btn" data-close>Renunță</button><button class="btn pri" id="lfSave">Salvează</button></div></div>`);
+      $('#lfSave').onclick = async () => { const wk = parseLife($('#lfWk').value), we = parseLife($('#lfWe').value); if(!wk.length){ toast('N-am înțeles niciun rând. Folosește formatul din exemplu.'); return; } c.life = {wk, we: we.length ? we : wk}; await saveChars(); closeSheet(); drawLife(c); };
+    };
+  }
+  $('#lfGen').onclick = async () => { const b = $('#lfGen'); b.disabled = true; b.innerHTML = '<span class="spin"></span> Creez…'; try{ await genLife(c); }catch(e){ toast(e.message, 3500); } drawLife(c); };
+}
+
+/* ───────── 💝 amintiri și aniversări ───────── */
+function addMoment(c, t, kind, day = dayKey(Date.now())){
+  c.moments = (c.moments || []).filter(x => !(x.day === day && x.t === t));
+  c.moments.push({day, t, kind:kind || 'moment'}); c.moments.sort((a, b) => a.day < b.day ? 1 : -1); c.moments = c.moments.slice(0, 200);
+  saveChars();
+}
+async function momentFromJournal(c, day, text){
+  try{
+    const out = (await stream('Extragi momente importante. Răspunzi scurt, în română.', [{role:'user', text:
+      `Pagina de jurnal a lui ${c.name}:\n${text}\n\nScrie momentul cel mai memorabil al zilei într-o propoziție scurtă (max 14 cuvinte), la persoana a II-a plural, ca într-un album (ex: „Ați râs împreună de pățania cu pisica.”). Dacă ziua a fost banală, scrie doar: NIMIC`}], {max:80, cid:c.id, aux:true})).trim();
+    const t = faraLiniute(plain(out)).replace(/^["„]|["”]$/g, '').trim();
+    if(t && !/^nimic/i.test(t) && t.length > 8 && t.length < 160) addMoment(c, t, 'moment', day);
+  }catch(e){}
+}
+const ANN = [7, 30, 50, 100, 200, 365, 500, 730, 1000];
+async function firstDay(c){
+  if(c.first) return c.first;
+  const ts = (await allChats(c)).flatMap(ch => ch.msgs.map(m => m.ts || 0)).filter(Boolean);
+  c.first = ts.length ? Math.min(...ts) : (c.created || Date.now()); await saveChars(); return c.first;
+}
+const daysSince = ts => Math.round((new Date(dayKey(Date.now()) + 'T12:00') - new Date(dayKey(ts) + 'T12:00')) / 864e5);
+async function annCheck(c){
+  if(!c || busy) return false;
+  const d = daysSince(await firstDay(c));
+  if(!ANN.includes(d) || c.annDone === d) return false;
+  if(!chat.msgs.some(m => m.role === 'user')) return false;
+  c.annDone = d; await saveChars();
+  const lbl = d === 365 ? 'un an' : d === 730 ? 'doi ani' : d + (d >= 20 ? ' de zile' : ' zile');
+  addMoment(c, `🎉 ${lbl} de când vă știți`, 'ann');
+  toast(`🎉 Azi se împlinesc ${lbl} cu ${c.name}!`, 4000);
+  if(S.pro !== 'on' || !aiReady()) return false;
+  const u = S.userName.trim() || 'utilizatorul';
+  reply(null, {pro:true, note:`(Notă de regie, nu o menționa ca atare: azi se împlinesc ${lbl} de când vorbiți tu și ${u}. Scrie-i tu primul și marchează asta în felul tău, cald și firesc, poate cu o amintire de-a voastră, fără să exagerezi.)`});
+  return true;
+}
+// ce adaugă aplicația la mesajul tău (nu în promptul de sistem, ca să rămână în cache)
+function turnExtras(c){
+  let x = '';
+  const lf = lifeNow(c);
+  if(lf) x += ` (după programul tău, acum ești: ${lf.w}${lf.b === 1 ? '; ești ocupat(ă), deci răspunzi mai scurt, ca din pauză' : lf.b === 2 ? '; dormeai, te-a trezit mesajul' : ''})`;
+  // „acum o săptămână / o lună / un an”: o amintire, o singură dată
+  const ago = [[7, 'o săptămână'], [30, 'o lună'], [365, 'un an']];
+  for(const [n, lbl] of ago){
+    const day = dayKey(Date.now() - n * 864e5), mo = (c.moments || []).find(m => m.day === day && m.kind === 'moment' && !m.rc);
+    if(mo){ mo.rc = 1; saveChars(); x += ` (acum ${lbl} ați trăit asta: „${mo.t}”. O poți aminti natural, doar dacă se potrivește.)`; break; }
+  }
+  const lk = feedCache.find(p => p.cid === c.id && p.liked && !p.likeNoted);
+  if(lk){ lk.likeNoted = 1; saveFeed(); x += ` (${S.userName.trim() || 'el'} ți-a dat ❤️ la statusul „${lk.text.slice(0, 120)}”)`; }
+  return x;
+}
+async function drawMem(c){
+  const box = $('#pfMem'); if(!box) return;
+  const f = await firstDay(c), d = daysSince(f), next = ANN.find(x => x > d);
+  const nextDate = next ? new Date(new Date(dayKey(f) + 'T12:00').getTime() + next * 864e5).toLocaleDateString('ro-RO', {day:'numeric', month:'long'}) : '';
+  const ms = c.moments || [], show = ms.slice(0, 8);
+  const li = m => `<li>${esc(m.t)}<small>${new Date(m.day + 'T12:00').toLocaleDateString('ro-RO', {day:'numeric', month:'long', year:'numeric'})}</small></li>`;
+  box.innerHTML = `<p class="annline">💞 <b>${d}</b> ${d === 1 ? 'zi' : 'zile'} împreună${next ? ` · următoarea aniversare: <b>${next === 365 ? 'un an' : next === 730 ? 'doi ani' : next + (next >= 20 ? ' de zile' : ' zile')}</b>, pe ${nextDate}` : ''}</p>
+    ${show.length ? `<ul class="mems">${show.map(li).join('')}</ul>${ms.length > 8 ? '<div class="btns jbtn"><button class="btn sm" id="memAll">Vezi tot</button></div>' : ''}`
+      : `<p style="color:var(--tx3);font-size:.88rem;margin:0">Albumul se umple singur: momentul fiecărei zile din jurnal, nivelurile relației, cadourile și aniversările.</p>`}`;
+  const all = $('#memAll'); if(all) all.onclick = () => openSheet(`<h4>💝 Amintiri cu ${esc(c.name)}</h4><div class="pad"><ul class="mems">${ms.map(li).join('')}</ul></div>`);
+}
+
+/* ───────── 🎁 cadouri ───────── */
+const GIFTS = [['☕', 'o cafea'], ['🌹', 'trandafiri'], ['🍫', 'ciocolată'], ['📚', 'o carte'], ['🎬', 'bilete la film'], ['🍕', 'o pizza'], ['🧸', 'un ursuleț de pluș'], ['💐', 'un buchet de flori'], ['🎧', 'căști noi'], ['🍰', 'o prăjitură'], ['🌙', 'o seară în oraș'], ['✍️', 'altceva…']];
+function giftSheet(){
+  if(busy && live && live.ch === chat){ toast('Așteaptă răspunsul.'); return; }
+  let pick = null;
+  openSheet(`<h4>🎁 Un cadou pentru ${esc(cur.name)}</h4><div class="gifts">${GIFTS.map((g, k) => `<button data-g="${k}"><i>${g[0]}</i>${esc(g[1])}</button>`).join('')}</div>
+    <div class="pad"><input id="gCustom" placeholder="Ce cadou? (ex: un colier, o plantă)" hidden maxlength="60"><textarea id="gNote" rows="2" placeholder="Un bilețel (opțional)" style="margin-top:8px"></textarea>
+    <div class="btns" style="margin-top:10px"><button class="btn" data-close>Renunță</button><button class="btn pri" id="gSend" disabled>Trimite</button></div></div>`);
+  $$('.gifts [data-g]').forEach(b => b.onclick = () => { $$('.gifts button').forEach(x => x.classList.remove('on')); b.classList.add('on'); pick = GIFTS[+b.dataset.g]; $('#gCustom').hidden = pick[0] !== '✍️'; $('#gSend').disabled = false; if(pick[0] === '✍️') $('#gCustom').focus(); });
+  $('#gSend').onclick = async () => {
+    if(!pick) return;
+    const n = pick[0] === '✍️' ? $('#gCustom').value.trim() : pick[1]; if(!n){ toast('Scrie ce cadou.'); return; }
+    if(busy){ toast('Așteaptă să termine răspunsul.'); return; }
+    const e = pick[0] === '✍️' ? '🎁' : pick[0], note = $('#gNote').value.trim(), c = cur;
+    closeSheet();
+    const um = {id:uid(), role:'user', text:note, gift:{e, n}, ts:Date.now()};
+    chat.msgs.push(um);
+    c.gifts = (c.gifts || []).concat({e, n, ts:Date.now()}).slice(-30);
+    addMoment(c, `${e} I-ai dăruit ${n}`, 'gift');
+    await saveChat(); renderMsgs(true);
+    relBump(c, 5);
+    await reply();
+  };
+}
+
+/* ───────── 📱 statusuri (Noutăți) ───────── */
+let feedCache = [], feedBusy = false; const feedTried = {};
+async function loadFeed(){ feedCache = (await DB.get('feed')) || []; }
+function saveFeed(){ feedCache = feedCache.filter(p => Date.now() - p.ts < 7 * 864e5 || p.keep).slice(0, 80); return DB.set('feed', feedCache).catch(() => {}); }
+function feedDot(){ const b = $('#nav [data-tab="feed"]'); if(!b) return; const n = feedCache.some(p => !p.seen && charById(p.cid)); let d = b.querySelector('.ndot'); if(n && !d){ d = document.createElement('i'); d.className = 'ndot'; b.appendChild(d); } else if(!n && d) d.remove(); }
+function renderFeed(){
+  const box = $('#homeFeed');
+  if(S.feed === 'off'){ box.innerHTML = `<div class="empty">Statusurile sunt oprite.<br><button class="btn sm" style="margin-top:12px" onclick="openSettings();openSetPanel('chat')">Pornește-le din Setări</button></div>`; return; }
+  const posts = feedCache.filter(p => charById(p.cid)).sort((a, b) => b.ts - a.ts);
+  box.innerHTML = `<div class="feedtop"><span>Ce fac personajele tale</span><button class="btn sm" id="feedRef">${feedBusy ? '<span class="spin"></span>' : '↻ Actualizează'}</button></div>`
+    + (posts.length ? posts.map(p => { const c = charById(p.cid); return `<div class="post${p.seen ? '' : ' new'}" data-p="${p.id}">
+      <div class="ph2">${avatarHTML(c)}<div><b>${esc(c.name)}</b><small>${when(p.ts)}${p.life ? ' · ' + esc(p.life) : ''}</small></div></div>
+      <p>${esc(p.text)}</p>${p.img ? `<img class="pimg" data-k="${esc(p.img)}" data-view="${esc(p.img)}" alt="">` : ''}
+      <div class="pact"><button class="${p.liked ? 'on' : ''}" data-like>${p.liked ? '❤️' : '🤍'} Îmi place</button><button data-rep>💬 Răspunde</button></div></div>`; }).join('')
+      : `<div class="empty">${feedBusy ? 'Personajele scriu primele statusuri…' : 'Încă nimic. Apasă „Actualizează” ca personajele cu care ai vorbit să posteze ce fac.'}</div>`);
+  hydrate(box);
+  $('#feedRef').onclick = () => feedRefresh(true);
+  box.onclick = async e => {
+    const v = e.target.closest('[data-view]'); if(v){ viewImg(v.dataset.view, [v.dataset.view]); return; }
+    const pe = e.target.closest('.post'); if(!pe) return;
+    const p = feedCache.find(x => x.id === pe.dataset.p); if(!p) return;
+    if(e.target.closest('[data-like]')){ p.liked = !p.liked; if(p.liked){ delete p.likeNoted; relBump(charById(p.cid), 1); } await saveFeed(); renderFeed(); return; }
+    if(e.target.closest('[data-rep]')){
+      const c = charById(p.cid); await openChat(c.id);
+      replyTo = {id:'st-' + p.id, name:c.name + ' · status', text:('📱 ' + p.text).slice(0, 140)};
+      $('#rbName').textContent = '↩ Răspunzi la statusul lui ' + c.name; $('#rbTxt').textContent = replyTo.text; $('#replyBar').hidden = false; $('#inp').focus();
+    }
+  };
+  // le marcăm văzute după ce le-ai avut pe ecran
+  setTimeout(() => { let ch = false; feedCache.forEach(p => { if(!p.seen){ p.seen = 1; ch = true; } }); if(ch){ saveFeed(); feedDot(); } }, 2500);
+  if(!feedBusy) feedRefresh(false);
+}
+// cel mult o postare la ~8 ore de personaj, doar pentru personajele cu care ai vorbit în ultimele 14 zile (max 4 odată)
+async function feedRefresh(manual){
+  if(feedBusy || S.feed === 'off' || !aiReady()) return;
+  const h = new Date().getHours();
+  const due = chars.filter(c => c.lastAt && Date.now() - c.lastAt < 14 * 864e5 && (manual || !(Date.now() - (feedTried[c.id] || 0) < 36e5)))
+    .filter(c => { const last = feedCache.filter(p => p.cid === c.id).sort((a, b) => b.ts - a.ts)[0]; return !last || Date.now() - last.ts > (manual ? 3 : 8) * 36e5; })
+    .filter(c => { const lf = lifeNow(c); return manual || !(lf && lf.b === 2) && h >= 7; })
+    .sort((a, b) => (b.lastAt || 0) - (a.lastAt || 0)).slice(0, 4);
+  if(!due.length){ if(manual) toast('Nimic nou încă. Personajele postează cam de două ori pe zi.'); return; }
+  feedBusy = true; if(homeTab === 'feed' && !$('#vHome').hidden) renderFeed();
+  try{ for(const c of due){ feedTried[c.id] = Date.now(); try{ await makePost(c); }catch(e){ if(manual) toast(c.name + ': ' + e.message, 3500); } if(homeTab === 'feed' && !$('#vHome').hidden) renderFeed(); } }
+  finally { feedBusy = false; if(homeTab === 'feed' && !$('#vHome').hidden) renderFeed(); feedDot(); }
+}
+async function makePost(c){
+  const u = S.userName.trim() || 'el', lf = lifeNow(c);
+  const ch = await loadChat(c, c.thread || 'main');
+  const recent = ch.msgs.filter(m => m.text && !m.err).slice(-6).map(m => (m.role === 'user' ? u : c.name) + ': ' + plain(stripMood(m.text)).slice(0, 200)).join('\n');
+  const prev = feedCache.filter(p => p.cid === c.id).slice(-3).map(p => '- ' + p.text).join('\n');
+  const wantPic = S.feed === 'poze' && canAutoPhoto(c);
+  const out = await stream(`Ești ${c.name}. ${c.persona ? c.persona.slice(0, 900) : ''}`, [{role:'user', text:
+`${nowNote()} ${lf ? '(După programul tău, acum: ' + lf.w + '.)' : ''}
+Postezi un status scurt pe rețeaua ta, ca pe Instagram sau WhatsApp: ce faci acum, ce gândești sau ce ți s-a întâmplat azi. 1-3 propoziții, la persoana I, natural, în română, poate cu un emoji. Nu te adresa direct lui ${u} și nu pomeni conversațiile voastre explicit (poate doar o aluzie subtilă).${prev ? '\nStatusurile tale recente (nu te repeta):\n' + prev : ''}${recent ? '\nCa să știi ce mai e nou, ultimele mesaje cu ' + u + ':\n' + recent : ''}
+Răspunde STRICT cu JSON: {"text":"statusul"${wantPic ? ',"poza":"one English sentence: the photo attached to the status (framing, place, activity, outfit, light), no face description"' : ''}}`}], {max:350, cid:c.id, aux:true});
+  const j = parseJSON(out);
+  const text = faraLiniute(String(j.text || '').trim()).slice(0, 400);
+  if(text.length < 5) throw new Error('statusul n-a ieșit');
+  const p = {id:uid(), cid:c.id, ts:Date.now(), text, life:lf ? lf.w : ''};
+  if(wantPic && j.poza && capLeft() >= (neurPerPhoto() || 5000)){
+    try{
+      const ref = c.photo ? await DB.get(c.photo) : null, shot = String(j.poza).trim();
+      const prompt = ref && S.imgProv === 'worker'
+        ? `A brand-new photo of the same person as in the reference image (keep the face, hair color and identity). ${shot} Completely change the background, location, pose, camera angle, framing, clothing and lighting to match this description; do not reuse the composition of the reference image. ${STIL_TAG[c.stil || 'photo']}`
+        : [c.look || '', shot, STIL_TAG[c.stil || 'photo']].filter(Boolean).join('. ');
+      let b = await genImage(prompt, ref);
+      try{ if(b.type === 'image/png') b = await toJpeg(b, 2048, .92); }catch(e){}
+      p.img = await saveImg(b); p.scene = shot; addUsage(c.id, imgPrice(), 'img');
+    }catch(e){ /* statusul pleacă și fără poză */ }
+  }
+  feedCache.push(p); await saveFeed();
+}
 function maybeProactive(){
   if(S.pro !== 'on' || busy || !aiReady() || !chat.msgs.length) return;
   if((cur.sched || []).some(x => x.at <= Date.now())) return;
@@ -1509,6 +1755,7 @@ function msgHTML(m, i, lastAi, anim){
   }
   else if(m.img) inner = `<div class="bub picwrap">${quoteHTML(m)}<img class="pic" data-k="${esc(m.img)}" data-view="${esc(m.img)}" alt="">${m.text ? `<div class="cap">${fmtMsg(m.text)}</div>` : ''}${tm}${reactHTML(m)}</div>`;
   else if(m.voice && !m.pending) inner = `<div class="bub">${voiceHTML(m)}${tm}${reactHTML(m)}</div>`;
+  else if(m.gift) inner = `<div class="bub gift"><span class="ge">${esc(m.gift.e)}</span><span class="gn">🎁 ${esc(m.gift.n)}</span>${m.text ? `<span class="gt">${esc(m.text)}</span>` : ''}${tm}${reactHTML(m)}</div>`;
   else inner = `<div class="bub${m.pending ? ' typing' : ''}${!m.pending && !m.reply && isJumbo(m.text) ? ' jumbo' : ''}">${quoteHTML(m)}${fmtMsg(m.pending ? typedText(m) : m.text)}${m.pending ? '' : tm}${reactHTML(m)}</div>`;
   let under = '';
   if(!me && i !== lastAi && m.img && !m.pendingImg && m.imgAlts && m.imgAlts.length > 1)
@@ -1621,7 +1868,7 @@ async function relBump(c, n, kind){
   c.rel.p += n;
   await saveChars();
   const r = relOf(c);
-  if(r.lv > before){ toast(`💞 Tu și ${c.name}: ${r.name}`, 3500); if(navigator.vibrate) try{ navigator.vibrate([10, 60, 10]); }catch(e){} }
+  if(r.lv > before){ addMoment(c, `Relația voastră a devenit: ${r.name}`, 'level'); toast(`💞 Tu și ${c.name}: ${r.name}`, 3500); if(navigator.vibrate) try{ navigator.vibrate([10, 60, 10]); }catch(e){} }
 }
 // alegi tu nivelul: pornește de acolo și crește în continuare, sau rămâne fixat
 function relSheet(c, done){
@@ -1683,6 +1930,7 @@ function statusLine(){
   }
   const mood = moodOf();
   const ts = threadsOf(cur), t = ts.length > 1 ? ts.find(x => x.id === (cur.thread || 'main')) : null;
+  const lf = lifeNow(cur); if(lf && lf.w) st += ' · ' + (LIFE_E[lf.b] || '') + ' ' + esc(lf.w.length > 26 ? lf.w.slice(0, 25) + '…' : lf.w);
   const nx = (cur.sched || []).find(x => x.tid === (chat.tid || 'main') && x.at > Date.now());
   return st + (mood ? ' · ' + mood : '') + (nx ? ' · ⏰ ' + esc(whenText(nx.at)) : '') + (t ? ' · 🧵 ' + esc(t.title) : '');
 }
@@ -2021,12 +2269,14 @@ function systemFor(c, ch){
     facts && `## Ce știi despre ${u} (din conversațiile voastre)\nFolosește natural când se potrivește, fără să le enumeri.\n${facts}`,
     ch && ch.scene && `## Scena acum\n${ch.scene}`,
     `## Relația voastră acum: ${relOf(c).name}\n${relOf(c).how}. Dacă descrierea ta stabilește deja relația cu ${u}, aceea are prioritate; nivelul arată doar cât de familiar și deschis vorbești acum.`,
+    (c.gifts || []).length && `## Cadouri primite de la ${u} (le ții minte; le poți pomeni firesc)\n${c.gifts.slice(-6).map(g => '- ' + g.e + ' ' + g.n + ' (' + new Date(g.ts).toLocaleDateString('ro-RO', {day:'numeric', month:'long'}) + ')').join('\n')}`,
     (c.prefs || []).length && `## Cum îi place lui ${u} să-i scrii (din notele lui, respectă-le)\n${c.prefs.map(x => '- ' + x.t).join('\n')}`,
     (c.liked || []).length && `## Răspunsuri de-ale tale care i-au plăcut lui ${u} (ca ton și stil; nu le repeta)\n${c.liked.map(x => '„' + x + '”').join('\n')}`,
     `## Reguli de scris
 - Română corectă, cu diacritice și punctuație îngrijită.
 - Gesturile, acțiunile și decorul între *asteriscuri*; vorbele direct, fără ghilimele.
 - Scrii DOAR pentru ${c.name}. Nu scrii niciodată vorbele, gândurile sau acțiunile lui ${u}.
+- Ce scrie ${u} între *asteriscuri* (de exemplu *te ia în brațe*) sunt acțiuni care chiar se întâmplă acum în scenă. Le observi mereu și reacționezi concret la ele în răspunsul tău, întâi la acțiune, apoi la vorbe, cu gesturile și cuvintele tale, în felul personajului tău. Nu le ignora și nu te purta ca și cum nu s-ar fi întâmplat.
 - Lungime: ${LEN[S.len].t}.
 - Nu folosi liniuțe lungi (— sau –); folosește virgula sau punctul.
 - Variază formulările; nu repeta aceleași gesturi și expresii de la un mesaj la altul.
@@ -2054,7 +2304,7 @@ function contextUpTo(idx, chx){
       if(gap > 3 * 36e5) pre += `(au trecut ${gapText(gap)} de la mesajul anterior) `;
       if(react){ pre += `(am reacționat cu ${react} la mesajul tău) `; react = ''; }
       if(m.reply) pre += `(răspund la: „${m.reply.text}”) `;
-      out.push({role:'user', text: pre + (m.img ? '[ți-am trimis o poză]' + (m.text ? ' ' + m.text : '') : m.text), _img: m.img || null});
+      out.push({role:'user', text: pre + (m.gift ? `[îți trimit un cadou: ${m.gift.n}]` + (m.text ? ' ' + m.text : '') : m.img ? '[ți-am trimis o poză]' + (m.text ? ' ' + m.text : '') : m.text), _img: m.img || null});
     } else {
       out.push({role:'assistant', text: m.text || '*îți trimite o poză*'});
       if(m.react) react = m.react;
@@ -2084,6 +2334,7 @@ async function writeJournal(c, day, force){
   if(text.length < 40 || /\b(ca AI|ca asistent|model de limbaj|nu pot (să )?(scriu|continua|ajuta)|I can(no|')t|as an AI)\b/i.test(text)) return null;
   c.journal = c.journal.filter(j => j.day !== day).concat({day, text, ts:Date.now()}).sort((a, b) => a.day < b.day ? 1 : -1).slice(0, 120);
   await saveChars();
+  momentFromJournal(c, day, text);
   return text;
 }
 // jurnalul se scrie a doua zi: pentru fiecare zi trecută în care ați vorbit (cel puțin 4 mesaje) și care n-are încă pagină
@@ -2206,7 +2457,10 @@ async function reply(target, opts = {}){
       // punctul de cache: ultimul mesaj al personajului dinaintea mesajului tău nou (istoricul de până acolo nu se mai schimbă)
       const li = ctx.lastIndexOf(lastU);
       for(let k = li - 1; k >= 0; k--) if(ctx[k].role === 'assistant'){ ctx[k]._cache = true; break; }
-      const md = ch.mood && ch.mood.t ? ` (starea ta la ultimul mesaj: ${ch.mood.t}${Date.now() - ch.mood.ts > 3 * 36e5 ? ', acum ' + gapText(Date.now() - ch.mood.ts) : ''})` : '';
+      let extra = turnExtras(c);
+      const acts = (lastU.text.match(/\*[^*\n]{2,200}\*/g) || []).map(a => a.slice(1, -1).trim());
+      if(acts.length) extra += ` (acțiunile mele de acum, care se întâmplă: ${acts.map(a => '„' + a + '”').join(', ')}; reacționează la ele)`;
+      const md = extra + (ch.mood && ch.mood.t ? ` (starea ta la ultimul mesaj: ${ch.mood.t}${Date.now() - ch.mood.ts > 3 * 36e5 ? ', acum ' + gapText(Date.now() - ch.mood.ts) : ''})` : '');
       lastU.text = nowNote() + md + ' ' + lastU.text + (ar ? '\n\n' + ar : '') + (opts.fix ? `\n\n(Notă pentru răspunsul ăsta, nu o menționa: ${opts.fix}.)` : '');
     }
     const meta = {};
@@ -2430,6 +2684,7 @@ function plusMenu(){
   if(busy && live && live.ch === chat){ toast('Așteaptă răspunsul.'); return; }
   const o = [];
   if(S.imgProv !== 'none') o.push(['📷', `Cere o poză de la ${cur.name}`, () => askPhoto()]);
+  o.push(['🎁', `Trimite-i un cadou lui ${cur.name}`, giftSheet]);
   o.push(['🖼️', 'Trimite o poză din galerie', () => $('#fGal').click()]);
   o.push(['📸', 'Fă o poză cu camera', () => $('#fCam').click()]);
   if(S.imgProv === 'none') o.push(['⚙️', 'Pornește pozele de la personaje (Setări)', openSettings]);
@@ -2594,6 +2849,8 @@ async function charProfile(id, push = true){
     ${c.aspect ? `<div class="pfSec"><h3>Cum arată</h3><p>${esc(c.aspect)}</p></div>` : ''}
     <div class="pfSec"><h3><span>💞 Relația voastră</span></h3><div class="relbox"><span class="lv" id="pfRelName"></span><small id="pfRelSub"></small><button class="btn sm" id="pfRelSet" style="margin-left:auto">Schimbă</button></div><div class="relbar"><i id="pfRelBar"></i></div></div>
     <div class="pfSec" id="pfPrefsSec"><h3>🎯 Ce a învățat din notele tale</h3><ul class="facts" id="pfPrefs"></ul></div>
+    <div class="pfSec"><h3><span>🗓️ Ziua ${esc(c.name)}</span></h3><div id="pfLife"></div></div>
+    <div class="pfSec"><h3><span>💝 Amintiri</span></h3><div id="pfMem"></div></div>
     <div class="pfSec"><h3>🎙️ Vocea</h3><div class="pfVoice"><span id="pfVName">${esc(voiceLabel(c))}</span><button class="btn sm" id="pfVPlay">▶ Ascultă</button><button class="btn sm" id="pfVPick">Schimbă</button></div></div>
     <div class="pfSec"><h3><span>📔 Jurnal</span></h3><div id="pfJrn"></div>
       <div class="btns jbtn"><button class="btn sm" id="pfJrnToday">✍️ Scrie despre azi</button>${(c.journal || []).length > 3 ? '<button class="btn sm" id="pfJrnAll">Vezi tot</button>' : ''}</div></div>
@@ -2643,6 +2900,7 @@ async function charProfile(id, push = true){
     $('#pfPrefs').querySelectorAll('[data-lx]').forEach(b => b.onclick = async () => { c.liked.splice(+b.dataset.lx, 1); await saveChars(); drawPrefs(); });
   };
   drawPrefs();
+  drawLife(c); drawMem(c);
   $('#pfVPlay').onclick = () => voiceSample(c, $('#pfVPlay'));
   $('#pfVPick').onclick = () => pickVoice(c, () => { $('#pfVName').textContent = voiceLabel(c); });
   $('#pfFav').onclick = async () => { c.fav = !c.fav; await saveChars(); $('#pfFav').textContent = c.fav ? '★' : '☆'; toast(c.fav ? '⭐ Adăugat la favorite' : 'Scos de la favorite'); };
@@ -2684,7 +2942,7 @@ async function askPhoto(spont, target, mode){
     if(promised) delete ch.nextShot;
     const scene = (target && mode === 'same' && target.scene) ? target.scene : promised ? promised : await stream('You are the photo director for a chat app. You decide what photo the character sends, strictly based on the conversation. Answer with one English sentence only.', [{role:'user', text:
       `Character: ${c.name}. ${c.persona ? 'About the character: ' + plain(c.persona).slice(0, 400) : ''}
-Local time now: ${tod}.
+Local time now: ${tod}.${lifeNow(c) ? ' According to the character\'s daily routine, right now they are: ' + lifeNow(c).w + ' (use only if the conversation says nothing else).' : ''}
 ${ch.scene ? 'Current scene set by the user (translate to English, it has priority): ' + ch.scene + '\n' : ''}
 Recent conversation (oldest first):
 ${recent || '(just started)'}
@@ -3184,6 +3442,8 @@ async function deleteChar(){
       await DB.del(chatKey(c.id, t.id));
     }
     await delImg(c.photo);
+    for(const p of feedCache.filter(p => p.cid === c.id)) if(p.img) await delImg(p.img).catch(() => {});
+    feedCache = feedCache.filter(p => p.cid !== c.id); await saveFeed();
     chars = chars.filter(x => x !== c); await saveChars();
     ed = null; cur = null; history.back();
   });
@@ -3194,7 +3454,7 @@ const aiReady = () => S.prov === 'anthropic' ? !!S.key.trim() : !!(S.oaBase && S
 const FIELDS = {stKey:'key', stModel:'model', stOaBase:'oaBase', stOaKey:'oaKey', stOaModel:'oaModel', stUser:'userName', stAbout:'userAbout',
   stGemKey:'gemKey', stGemModel:'gemModel', stWkBase:'wkBase', stWkTok:'wkTok', stWkModel:'wkModel', stWkSize:'wkSize',
   stFalKey:'falKey', stFalModel:'falModel', stFalSize:'falSize', stImgCost:'imgCost', stPin:'pIn', stPout:'pOut', stElKey:'elKey', stTtsFalKey:'falKey'};
-const SEGS = {stCfCap:'cfCap', stCfPlan:'cfPlan', stTts:'tts', stElModel:'elModel', stAux:'aux', stCtx:'ctxN', stVmsg:'vmsg', stJrn:'jrn', stTheme:'theme', stProv:'prov', stLen:'len', stFont:'font', stImg:'imgProv', stImgAlt:'imgProv', stSugg:'sugg', stPro:'pro', stVoice:'voice', stSpont:'spont'};
+const SEGS = {stFeed:'feed', stCfCap:'cfCap', stCfPlan:'cfPlan', stTts:'tts', stElModel:'elModel', stAux:'aux', stCtx:'ctxN', stVmsg:'vmsg', stJrn:'jrn', stTheme:'theme', stProv:'prov', stLen:'len', stFont:'font', stImg:'imgProv', stImgAlt:'imgProv', stSugg:'sugg', stPro:'pro', stVoice:'voice', stSpont:'spont'};
 let setPanel = null, setPanelPushed = false;
 function openSettings(){
   for(const [id, k] of Object.entries(FIELDS)) $('#' + id).value = S[k] ?? '';
@@ -3601,6 +3861,7 @@ async function init(){
     if((S.sv || 0) >= 30){ S.sv = 34; saveSettings(); }
   }
   if((S.sv || 0) < 30){ chars.forEach(c => { if(!c.bg || c.bg === 'poza') c.bg = 'clar'; }); await saveChars(); S.sv = 34; saveSettings(); }
+  await loadFeed();
   syncSegs();
   bind();
   history.replaceState({root:1}, ''); history.pushState(null, '');
