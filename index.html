@@ -268,6 +268,9 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
 .relbox{display:flex;align-items:center;gap:10px}
 .relbox .lv{font-weight:700}
 .relbox small{color:var(--tx3);font-size:.78rem}
+.chk{display:flex;align-items:center;gap:10px;font-size:.92rem;color:var(--tx2);margin-top:4px}
+.chk input{width:20px;height:20px;accent-color:var(--acc);flex:none}
+.vrow[data-rl]{cursor:pointer}
 .relbar{height:7px;border-radius:4px;background:color-mix(in srgb,var(--tx) 12%,transparent);overflow:hidden;margin-top:8px}
 .relbar i{display:block;height:100%;background:var(--grad)}
 .fbopts{display:flex;flex-wrap:wrap;gap:8px;padding:0 16px 8px}
@@ -886,7 +889,7 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
 
 <script>
 'use strict';
-const APP_VER = '5.0';
+const APP_VER = '5.1';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -1610,6 +1613,7 @@ async function relInit(c){
 }
 async function relBump(c, n, kind){
   if(!c.rel) await relInit(c);
+  if(c.rel.lock) return;                              // nivel fixat de tine: nu se mai schimbă singur
   const before = relOf(c).lv, today = dayKey(Date.now());
   if(c.rel.day !== today){ c.rel.day = today; c.rel.dp = 0; c.rel.p += 5; }
   if(kind === 'msg'){ if(c.rel.dp >= 40) n = 0; c.rel.dp += n; }
@@ -1617,6 +1621,18 @@ async function relBump(c, n, kind){
   await saveChars();
   const r = relOf(c);
   if(r.lv > before){ toast(`💞 Tu și ${c.name}: ${r.name}`, 3500); if(navigator.vibrate) try{ navigator.vibrate([10, 60, 10]); }catch(e){} }
+}
+// alegi tu nivelul: pornește de acolo și crește în continuare, sau rămâne fixat
+function relSheet(c, done){
+  const r = relOf(c), locked = !!(c.rel && c.rel.lock);
+  openSheet(`<h4>💞 Relația cu ${esc(c.name)}</h4><div class="vlist">${RELS.map((x, k) => `<div class="vrow${k + 1 === r.lv ? ' on' : ''}" data-rl="${k}"><div style="flex:1"><b>${k + 1}. ${esc(x[1])}</b><br><small>${esc(x[2])}</small></div>${k + 1 === r.lv ? '✓' : ''}</div>`).join('')}</div>
+    <div class="pad"><label class="chk"><input type="checkbox" id="relLock" ${locked ? 'checked' : ''}> 🔒 Fixează nivelul (nu mai crește singur)</label></div>`);
+  $('#relLock').onchange = async e => { await relInit(c); c.rel.lock = e.target.checked; await saveChars(); toast(c.rel.lock ? '🔒 Nivel fixat' : '📈 Relația crește din nou singură'); done(); };
+  $$('.sheet [data-rl]').forEach(b => b.onclick = async () => {
+    await relInit(c); const k = +b.dataset.rl;
+    c.rel.p = RELS[k][0]; c.rel.lock = $('#relLock').checked; await saveChars();
+    closeSheet(); toast(`💞 Tu și ${c.name}: ${RELS[k][1]}`); done();
+  });
 }
 /* 👍 / 👎 care învață */
 const FB = [
@@ -2554,7 +2570,7 @@ async function charProfile(id, push = true){
     </div>
     ${c.persona ? `<div class="pfSec"><h3>Despre</h3><p class="clamp" id="pfAbout">${esc(c.persona)}</p><button class="more" id="pfMore" hidden>Mai mult</button></div>` : ''}
     ${c.aspect ? `<div class="pfSec"><h3>Cum arată</h3><p>${esc(c.aspect)}</p></div>` : ''}
-    <div class="pfSec"><h3>💞 Relația voastră</h3><div class="relbox"><span class="lv" id="pfRelName"></span><small id="pfRelSub"></small></div><div class="relbar"><i id="pfRelBar"></i></div></div>
+    <div class="pfSec"><h3><span>💞 Relația voastră</span></h3><div class="relbox"><span class="lv" id="pfRelName"></span><small id="pfRelSub"></small><button class="btn sm" id="pfRelSet" style="margin-left:auto">Schimbă</button></div><div class="relbar"><i id="pfRelBar"></i></div></div>
     <div class="pfSec" id="pfPrefsSec"><h3>🎯 Ce a învățat din notele tale</h3><ul class="facts" id="pfPrefs"></ul></div>
     <div class="pfSec"><h3>🎙️ Vocea</h3><div class="pfVoice"><span id="pfVName">${esc(voiceLabel(c))}</span><button class="btn sm" id="pfVPlay">▶ Ascultă</button><button class="btn sm" id="pfVPick">Schimbă</button></div></div>
     <div class="pfSec"><h3><span>📔 Jurnal</span></h3><div id="pfJrn"></div>
@@ -2593,7 +2609,9 @@ async function charProfile(id, push = true){
     const n = await extractFacts(c, ch); drawFacts(); toast(n ? n + ' lucruri noi reținute.' : 'Nimic nou de reținut.');
     b.disabled = false; b.textContent = '🔄';
   };
-  relInit(c).then(() => { const r = relOf(c); $('#pfRelName').textContent = r.name; $('#pfRelSub').textContent = `nivel ${r.lv} din ${RELS.length}` + (r.next ? ` · ${r.pc}% până la „${r.next}”` : ''); $('#pfRelBar').style.width = r.pc + '%'; });
+  const drawRel = () => { const r = relOf(c), lk = c.rel && c.rel.lock; $('#pfRelName').textContent = r.name; $('#pfRelSub').textContent = `nivel ${r.lv} din ${RELS.length}` + (lk ? ' · 🔒 fixat' : r.next ? ` · ${r.pc}% până la „${r.next}”` : ''); $('#pfRelBar').style.width = (lk ? 100 : r.pc) + '%'; };
+  relInit(c).then(drawRel);
+  $('#pfRelSet').onclick = () => relSheet(c, drawRel);
   const drawPrefs = () => {
     const ps = c.prefs || [], lk = c.liked || [];
     $('#pfPrefs').innerHTML = ps.map((x, k) => `<li><span>${esc(x.t)}</span><button data-px="${k}" aria-label="Șterge">✕</button></li>`).join('')
