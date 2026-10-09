@@ -358,6 +358,15 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
 .flyav{position:fixed;z-index:90;object-fit:cover;pointer-events:none;box-shadow:0 10px 30px #0008}
 #btnPolish{font-size:1.05rem}
 .polres{background:var(--bg2);border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:10px;white-space:pre-wrap;line-height:1.5}
+/* 6.4: 3 variante, văzut la */
+.vpk{background:var(--bg2);border:1px solid var(--line);border-radius:16px;padding:12px 14px;margin-bottom:10px;text-align:left;width:100%;display:block}
+.vpk:active{border-color:var(--acc)}
+.vpk .vh{display:flex;justify-content:space-between;align-items:center;font-size:.74rem;color:var(--tx3);margin-bottom:6px;font-weight:700;letter-spacing:.3px}
+.vpk .vh span{color:var(--acc)}
+.vpk .say,.vpk .act{margin:3px 0}
+.vpk .act{color:var(--tx2);font-style:italic;font-size:.93em}
+.vpicks{max-height:62vh;overflow:auto;padding:0 16px 14px}
+.seenl{text-align:right;font-size:.68rem;color:var(--tx3);margin:2px 6px 0 0}
 .chk{display:flex;align-items:center;gap:10px;font-size:.92rem;color:var(--tx2);margin-top:4px}
 .chk input{width:20px;height:20px;accent-color:var(--acc);flex:none}
 .vrow[data-rl]{cursor:pointer}
@@ -928,6 +937,8 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
       <div class="seg" id="stLen"><button data-v="scurt">Scurte</button><button data-v="mediu">Medii</button><button data-v="lung">Lungi</button></div>
       <label>Câte mesaje recente primește personajul (restul e în rezumat)</label>
       <div class="seg" id="stCtx"><button data-v="20">Economic · 20</button><button data-v="30">Normal · 30</button><button data-v="60">Mare · 60</button></div>
+      <label>Butonul ↻ de sub răspuns</label>
+      <div class="seg" id="stRegen"><button data-v="off">O variantă nouă</button><button data-v="on">🎰 3 variante la alegere</button></div>
       <label>Sugestii de răspuns</label>
       <div class="seg" id="stSugg"><button data-v="off">Doar la 💡</button><button data-v="auto">După fiecare mesaj</button></div>
       <label>Personajul îți scrie primul după 8 ore de pauză</label>
@@ -992,7 +1003,7 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
 
 <script>
 'use strict';
-const APP_VER = '6.3';
+const APP_VER = '6.4';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -1030,7 +1041,7 @@ const DEF = {
   userName:'', userAbout:'', len:'mediu', font:16,
   imgProv:'none', gemKey:'', gemModel:'gemini-2.5-flash-image',
   wkBase:'', wkTok:'', wkModel:'eco', wkSize:'768x1024',
-  sugg:'off', pro:'on', feed:'text', fx:'on', voice:'tap', tts:'tel', cfPlan:'free', cfCap:'free', elKey:'', elModel:'eleven_v3', theme:'dark', vmsg:'rar', jrn:'on', aux:'on', ctxN:'30',
+  sugg:'off', pro:'on', feed:'text', fx:'on', regen3:'on', voice:'tap', tts:'tel', cfPlan:'free', cfCap:'free', elKey:'', elModel:'eleven_v3', theme:'dark', vmsg:'rar', jrn:'on', aux:'on', ctxN:'30',
   falKey:'', falModel:'fal-ai/flux-pulid', falSize:'576x768', spont:'rar', imgAlt:'fal', sv:34, imgCost:'', pIn:'', pOut:''
 };
 let S = {...DEF};
@@ -1691,6 +1702,10 @@ async function annCheck(c){
 // ce adaugă aplicația la mesajul tău (nu în promptul de sistem, ca să rămână în cache)
 function turnExtras(c){
   let x = '';
+  // dacă ultimele răspunsuri s-au terminat toate cu întrebări, cerem explicit o pauză de la întrebări
+  const ais = (chat && chat.msgs || []).filter(m => m.role === 'ai' && m.text && !m.err && !m.pending).slice(-3);
+  const q = ais.filter(m => /\?\s*(\*[^*]*\*\s*)?$/.test(stripMood(m.text).trim())).length;
+  if(ais.length >= 2 && q >= 2) x += ' (notă de stil: ultimele tale mesaje s-au încheiat cu întrebări; de data asta nu încheia cu o întrebare, spune ceva de-al tău)';
   const lf = lifeNow(c);
   if(lf) x += ` (după programul tău, acum ești: ${lf.w}${lf.b === 1 ? '; ești ocupat(ă), deci răspunzi mai scurt, ca din pauză' : lf.b === 2 ? '; dormeai, te-a trezit mesajul' : ''})`;
   // „acum o săptămână / o lună / un an”: o amintire, o singură dată
@@ -2098,6 +2113,20 @@ async function runPolish(t, opt){
     $('#plAgain').onclick = () => runPolish(t, opt);
   }catch(e){ box.innerHTML = `<p class="hint" style="color:var(--err)">N-a mers: ${esc(e.message)}</p>`; }
 }
+// alegi una din cele 3 variante; dacă închizi meniul, rămâne prima
+function pickVariant(outs, signal){
+  return new Promise((res, rej) => {
+    const show = t => fmtMsg(stripMood(stripReact(t)).replace(AI_VOICE, '🎙️ '));
+    openSheet(`<h4>🎰 Alege varianta care-ți place</h4><div class="vpicks">${outs.map((t, k) => `<button class="vpk" data-vk="${k}"><div class="vh">VARIANTA ${k + 1}<span>Alege ›</span></div>${show(t)}</button>`).join('')}</div>`);
+    let done = false;
+    const fin = k => { if(done) return; done = true; obs.disconnect(); closeSheet(); res(k); };
+    $$('.sheet [data-vk]').forEach(b => b.onclick = () => fin(+b.dataset.vk));
+    // meniul închis din afară (atingere pe fundal sau Înapoi): rămâne prima variantă
+    const obs = new MutationObserver(() => { if(!$('.sheet [data-vk]')) fin(0); });
+    obs.observe(document.body, {childList:true});
+    if(signal) signal.addEventListener('abort', () => { if(!done){ done = true; obs.disconnect(); closeSheet(); rej(new DOMException('Oprit', 'AbortError')); } });
+  });
+}
 function maybeProactive(){
   if(S.pro !== 'on' || busy || !aiReady() || !chat.msgs.length) return;
   if((cur.sched || []).some(x => x.at <= Date.now())) return;
@@ -2138,12 +2167,16 @@ function msgHTML(m, i, lastAi, anim){
       ${n > 1 ? `<button data-alt="-1" ${m.alt <= 0 ? 'disabled' : ''}>‹</button><span>${(m.alt || 0) + 1}/${n}</span><button data-alt="1" ${m.alt >= n - 1 ? 'disabled' : ''}>›</button>` : ''}
       ${m.img && m.imgAlts && m.imgAlts.length > 1 ? `<button data-ia="-1" ${m.ia <= 0 ? 'disabled' : ''}>‹</button><span>${m.ia + 1}/${m.imgAlts.length}</span><button data-ia="1" ${m.ia >= m.imgAlts.length - 1 ? 'disabled' : ''}>›</button>` : ''}
       ${m.img && !m.err ? `<button data-rephoto>🎲 Altă poză</button>` : ''}
-      ${m.img || !m.alts ? '' : `<button data-regen>↻ Altul</button>`}
+      ${m.img || !m.alts ? '' : `<button data-regen>${S.regen3 === 'on' ? '🎰 ×3' : '↻ Altul'}</button>`}
       ${m.cut ? `<span class="cutn">${m.cut === 'refusal' ? '⚠️ întrerupt de furnizor' : m.cut === 'len' ? '✂️ prea lung, tăiat' : '📶 conexiune întreruptă'}</span>` : ''}
       ${m.err ? '' : `<button data-cont>▶ Continuă</button>`}
       ${m.err ? `<button data-retry>${m.errKind === 'flag' ? '🎲 Încearcă altă scenă' : 'Reîncearcă'}</button>` : ''}
       ${S.voice !== 'off' && m.text && !m.err ? `<button data-say>🔊</button>` : ''}
       ${m.text && !m.err ? `<button class="rate${m.rate === 1 ? ' on' : ''}" data-rate="1" aria-label="Bun">👍</button><button class="rate${m.rate === -1 ? ' on' : ''}" data-rate="-1" aria-label="Nu prea">👎</button>` : ''}</div>`;
+  }
+  if(me && m.seenAt && seen && !chat.msgs.slice(i + 1).some(x => x.role === 'user')){
+    const d = new Date(m.seenAt), today = dayKey(m.seenAt) === dayKey(Date.now());
+    under += `<div class="seenl">Văzut ${today ? '' : dayKey(m.seenAt) === dayKey(Date.now() - 864e5) ? 'ieri ' : d.toLocaleDateString('ro-RO', {day:'numeric', month:'short'}) + ' '}la ${hhmm(m.seenAt)}</div>`;
   }
   return `<div class="mw${anim ? ' anim' : ''}${m.react ? ' hasreact' : ''}" data-i="${i}"><div class="m ${cls}">${me ? '' : avatarHTML(cur)}${inner}</div>${under}</div>`;
 }
@@ -2659,6 +2692,7 @@ function systemFor(c, ch){
 - Lungime: ${LEN[S.len].t}.
 - Nu folosi liniuțe lungi (— sau –); folosește virgula sau punctul.
 - Variază formulările; nu repeta aceleași gesturi și expresii de la un mesaj la altul.
+- Vorbește ca într-o discuție reală, nu ca într-un interviu: nu încheia fiecare mesaj cu o întrebare (cel mult unul din trei mesaje). Mai des povestește ceva de-al tău, comentează, glumește, reacționează sau vino cu o idee; lasă loc ca ${u} să continue singur.
 - Ții cont de momentul zilei și de pauzele dintre mesaje, notate între paranteze în mesajele lui ${u}; nu le menționa ca note.
 ${S.vmsg !== 'off' ? `- Uneori, când e firesc (cam o dată la ${S.vmsg === 'des' ? '4' : '10'} mesaje), sau oricând ${u} îți cere, poți trimite un mesaj vocal: începe răspunsul cu [vocal] și scrie exact ce spui cu voce tare, ca o persoană care vorbește liber la telefon: propoziții scurte, ezitări firești (păi, adică, mă rog, știi?), reluări, fără *acțiuni* și fără emoji. Unde e firesc, rar, poți pune [râde], [chicotește], [oftează], [șoptește] sau ... pentru o pauză scurtă. 1-4 propoziții.\n` : ''}${ch ? `- Dacă îi promiți lui ${u} că îi scrii tu la un anumit moment (de exemplu „îți scriu mâine la 7:25”, „te caut diseară la 9”), sau el îți cere asta și accepți, adaugă la final, pe un rând separat: [programez: ZIUA HH:MM | despre ce îi scrii], unde ZIUA e azi, mâine, poimâine sau AAAA-LL-ZZ. La ora aceea aplicația îți dă ocazia să-i scrii. Nu programa nimic fără o promisiune clară.\n` : ''}${ch ? `- La finalul fiecărui răspuns, pe un rând separat, notează-ți starea de acum exact așa: [stare: un emoji și 1-3 cuvinte], de exemplu [stare: 😊 bine dispusă]. Starea evoluează firesc din ce se întâmplă și din pauze, fără salturi bruște fără motiv.\n` : ''}- Dacă un mesaj al lui ${u} te amuză sau te emoționează, poți începe răspunsul cu o reacție scrisă exact așa: [❤️] [😂] [😮] [😢] [👍] [🔥] sau [🥰]. Cel mult o dată la câteva mesaje, nu de fiecare dată.
 ${canAutoPhoto(c)
@@ -2821,7 +2855,7 @@ async function reply(target, opts = {}){
     const seenIn = 350 + Math.random() * 500;
     showAt = Date.now() + seenIn + 650;
     setTimeout(() => {
-      um.seen = true;
+      um.seen = true; um.seenAt = um.seenAt || Date.now();
       if(live && live.ch === ch){ live.typing = true; if(chat === ch){ setBusyUI(true); renderMsgs(); } }
     }, seenIn);
     showT = setTimeout(() => { if(m.pending && m.text) draw(); }, seenIn + 660);
@@ -2842,8 +2876,19 @@ async function reply(target, opts = {}){
       const md = extra + (ch.mood && ch.mood.t ? ` (starea ta la ultimul mesaj: ${ch.mood.t}${Date.now() - ch.mood.ts > 3 * 36e5 ? ', acum ' + gapText(Date.now() - ch.mood.ts) : ''})` : '');
       lastU.text = nowNote() + md + ' ' + lastU.text + (ar ? '\n\n' + ar : '') + (opts.fix ? `\n\n(Notă pentru răspunsul ăsta, nu o menționa: ${opts.fix}.)` : '');
     }
-    const meta = {};
-    const full = await stream(systemFor(c, ch), ctx, {max:LEN[S.len].max, signal:busy.signal, cid:c.id, meta,
+    let meta = {}, full;
+    if(opts.three && target){
+      // prima variantă întâi (scrie cache-ul), apoi celelalte două în paralel; nu se afișează până nu alegi
+      const sys = systemFor(c, ch), mk = () => ({}), metas = [mk(), mk(), mk()];
+      const alt = (k) => { const cx = ctx.map(x => ({...x})); const l = [...cx].reverse().find(x => x.role === 'user'); if(l) l.text += k ? `\n\n(Pentru varianta asta alege o abordare diferită de prima idee care îți vine${k === 2 ? ', cu alt ton' : ''}.)` : ''; return cx; };
+      const first = await stream(sys, alt(0), {max:LEN[S.len].max, signal:busy.signal, cid:c.id, meta:metas[0]});
+      const rest = await Promise.all([1, 2].map(k => stream(sys, alt(k), {max:LEN[S.len].max, signal:busy.signal, cid:c.id, meta:metas[k]}).catch(e => { if(e.name === 'AbortError') throw e; return ''; })));
+      const outs = [first, ...rest].map(x => String(x || '').trim()).filter(Boolean);
+      const pick = outs.length > 1 ? await pickVariant(outs, busy.signal) : 0;
+      full = outs[pick];
+      meta = metas[[first, ...rest].map(x => String(x || '').trim()).indexOf(full)] || {};
+      m._others = outs.filter((x, k) => k !== pick);
+    } else full = await stream(systemFor(c, ch), ctx, {max:LEN[S.len].max, signal:busy.signal, cid:c.id, meta,
       onText: t => { m.text = t;
         // mesaj vocal: textul nu apare pe ecran cât timp „înregistrează”
         if(!m.rec && S.vmsg !== 'off' && /^\s*(?:\[[^\]v][^\]]*\]\s*)?\[v/i.test(t)){ m.rec = m.hold = true; if(live){ live.rec = true; if(chat === ch) setBusyUI(true); } if(chat === ch) renderMsgs(); }
@@ -2886,8 +2931,13 @@ async function reply(target, opts = {}){
     }
   }
   clearTimeout(showT); delete m.hold; delete m.rec;
-  if(um) um.seen = true;
-  m.alts[m.alt] = m.text; delete m.pending; m.ts = (opts.at && !m.err) ? opts.at : Date.now();   // mesajul programat poartă ora promisă
+  if(um){ um.seen = true; um.seenAt = um.seenAt || Date.now(); }
+  m.alts[m.alt] = m.text; delete m.pending;
+  if(m._others && !m.err){
+    m.am = m.am || {};
+    for(const o of m._others){ const t = faraLiniute(stripMood(stripReact(o)).replace(AI_VOICE, '')).trim(); if(t){ m.alts.push(t); m.am[m.alts.length - 1] = {voice:false, cut:''}; } }
+  }
+  delete m._others; m.ts = (opts.at && !m.err) ? opts.at : Date.now();   // mesajul programat poartă ora promisă
   if(!m.err && m._stk){ ch.msgs.push({id:uid(), role:'ai', sticker:{k:m._stk.k, l:m._stk.l}, ts:Date.now() + 1}); }
   delete m._stk;
   if(!m.err){ m.am = m.am || {}; m.am[m.alt] = {voice:!!m.voice, cut:m.cut || ''}; }
@@ -3851,7 +3901,7 @@ const aiReady = () => S.prov === 'anthropic' ? !!S.key.trim() : !!(S.oaBase && S
 const FIELDS = {stKey:'key', stModel:'model', stOaBase:'oaBase', stOaKey:'oaKey', stOaModel:'oaModel', stUser:'userName', stAbout:'userAbout',
   stGemKey:'gemKey', stGemModel:'gemModel', stWkBase:'wkBase', stWkTok:'wkTok', stWkModel:'wkModel', stWkSize:'wkSize',
   stFalKey:'falKey', stFalModel:'falModel', stFalSize:'falSize', stImgCost:'imgCost', stPin:'pIn', stPout:'pOut', stElKey:'elKey', stTtsFalKey:'falKey'};
-const SEGS = {stFx:'fx', stFeed:'feed', stCfCap:'cfCap', stCfPlan:'cfPlan', stTts:'tts', stElModel:'elModel', stAux:'aux', stCtx:'ctxN', stVmsg:'vmsg', stJrn:'jrn', stTheme:'theme', stProv:'prov', stLen:'len', stFont:'font', stImg:'imgProv', stImgAlt:'imgProv', stSugg:'sugg', stPro:'pro', stVoice:'voice', stSpont:'spont'};
+const SEGS = {stRegen:'regen3', stFx:'fx', stFeed:'feed', stCfCap:'cfCap', stCfPlan:'cfPlan', stTts:'tts', stElModel:'elModel', stAux:'aux', stCtx:'ctxN', stVmsg:'vmsg', stJrn:'jrn', stTheme:'theme', stProv:'prov', stLen:'len', stFont:'font', stImg:'imgProv', stImgAlt:'imgProv', stSugg:'sugg', stPro:'pro', stVoice:'voice', stSpont:'spont'};
 let setPanel = null, setPanelPushed = false;
 function openSettings(){
   for(const [id, k] of Object.entries(FIELDS)) $('#' + id).value = S[k] ?? '';
@@ -4190,7 +4240,7 @@ function bind(){
     if(e.target.closest('.hero')){ charProfile(cur.id); return; }
     const w = e.target.closest('.mw'); if(!w) return;
     const i = +w.dataset.i, m = chat.msgs[i];
-    if(e.target.closest('[data-regen]')){ if(!busy) reply(m); return; }
+    if(e.target.closest('[data-regen]')){ if(!busy) reply(m, {three:S.regen3 === 'on'}); return; }
     { const rb = e.target.closest('[data-rate]'); if(rb){ rateMsg(i, +rb.dataset.rate); return; } }
     if(e.target.closest('[data-say]')){ say(m.text, m); return; }
     if(e.target.closest('[data-vplay]')){ playVoice(m, e.target.closest('.bub')); return; }
