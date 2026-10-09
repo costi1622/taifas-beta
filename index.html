@@ -302,6 +302,34 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
 .bub.gift .ge{font-size:2.6rem;line-height:1.1;display:block}
 .bub.gift .gn{display:block;font-weight:700;margin-top:4px}
 .bub.gift .gt{display:block;margin-top:6px;font-size:.92rem}
+/* 6.0: avatar viu, Wrapped, carduri */
+.avgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px}
+.avgrid figure{margin:0;position:relative;border-radius:14px;overflow:hidden;background:var(--bg2);aspect-ratio:1}
+.avgrid figure img{width:100%;height:100%;object-fit:cover;display:block}
+.avgrid figure figcaption{position:absolute;left:0;right:0;bottom:0;padding:14px 6px 5px;font-size:.68rem;font-weight:700;color:#fff;background:linear-gradient(transparent,#000a);text-align:center}
+.avgrid figure.now{outline:2px solid var(--acc);outline-offset:-2px}
+.avgrid figure .ph{width:100%;height:100%;display:grid;place-items:center;color:var(--tx3);font-size:1.4rem}
+.wrapv{position:fixed;inset:0;z-index:80;background:var(--bg);overflow:auto;padding:calc(12px + var(--safe-t)) 14px calc(30px + var(--safe-b))}
+.wrapv .wtop{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.wrapv .wtop h2{flex:1;margin:0;font-size:1.35rem;font-weight:800;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+.wrapv select{width:auto;padding:7px 10px}
+.wcard{border-radius:22px;padding:18px;margin-bottom:12px;color:#fff;position:relative;overflow:hidden}
+.wcard h3{margin:0 0 6px;font-size:.78rem;letter-spacing:.8px;text-transform:uppercase;opacity:.85}
+.wcard .big{font-size:2.6rem;font-weight:800;line-height:1.05;letter-spacing:-1px}
+.wcard p{margin:6px 0 0;line-height:1.45;opacity:.95}
+.wcard.g1{background:linear-gradient(135deg,#ff4f9a,#9b5cff)}.wcard.g2{background:linear-gradient(135deg,#22c3a6,#2f6bff)}
+.wcard.g3{background:linear-gradient(135deg,#ffb020,#ff4f6a)}.wcard.g4{background:linear-gradient(135deg,#6a4cff,#1b1622)}
+.wcard.g5{background:linear-gradient(135deg,#5fd39a,#16a085)}.wcard.g6{background:linear-gradient(135deg,#ff6b4a,#c2185b)}
+.hours{display:flex;align-items:flex-end;gap:2px;height:70px;margin-top:10px}
+.hours i{flex:1;background:#fff;opacity:.85;border-radius:2px 2px 0 0;min-height:2px}
+.hours i.pk{background:#ffe66d;opacity:1}
+.hlbl{display:flex;justify-content:space-between;font-size:.66rem;opacity:.8;margin-top:3px}
+.wbars{margin-top:8px}.wbars div{display:flex;align-items:center;gap:8px;margin:5px 0;font-size:.88rem}
+.wbars div span{width:86px;flex:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wbars div b{height:10px;border-radius:5px;background:#fff;opacity:.9;display:block}
+.wgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.wgrid .wcard{margin:0;padding:14px}.wgrid .wcard .big{font-size:1.9rem}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.chips span{background:#ffffff2e;padding:5px 10px;border-radius:99px;font-size:.85rem}
 .chk{display:flex;align-items:center;gap:10px;font-size:.92rem;color:var(--tx2);margin-top:4px}
 .chk input{width:20px;height:20px;accent-color:var(--acc);flex:none}
 .vrow[data-rl]{cursor:pointer}
@@ -615,6 +643,7 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
 <section id="vHome" class="view">
   <header class="top">
     <h1>Taifas</h1>
+    <button class="ib" id="btnWrapped" aria-label="Taifas Wrapped" style="font-size:1.15rem">📊</button>
     <button class="ib" id="btnSearch" aria-label="Caută"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></button>
   </header>
   <div class="scroll" id="homeScroll">
@@ -634,7 +663,7 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
 
 <!-- PROFIL -->
 <section id="vProf" class="view" hidden>
-  <div class="pfTop"><button class="ib" data-back aria-label="Înapoi">‹</button><span id="pfTopName"></span><button class="ib" id="pfEditTop" aria-label="Editează">✏️</button></div>
+  <div class="pfTop"><button class="ib" data-back aria-label="Înapoi">‹</button><span id="pfTopName"></span><button class="ib" id="pfMoreTop" aria-label="Mai mult">⋯</button><button class="ib" id="pfEditTop" aria-label="Editează">✏️</button></div>
   <div class="scroll" id="pfScroll"><div id="pfBody"></div></div>
 </section>
 
@@ -768,6 +797,7 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
       <div class="sgroup"><h4>Date</h4>
         <button class="srow" data-p="cost"><i style="background:linear-gradient(135deg,#5fd39a,#2fa86d)">💰</i><span><b>Consum</b><small id="sum_cost"><span id="stCostMini"></span></small></span><em>›</em></button>
         <button class="srow" data-p="data"><i style="background:linear-gradient(135deg,#8a8f9c,#5e6370)">💾</i><span><b>Backup și restaurare</b><small id="sum_data">Personaje, conversații, poze</small></span><em>›</em></button>
+        <button class="srow" id="stWrapped"><i style="background:linear-gradient(135deg,#ff4f9a,#9b5cff)">📊</i><span><b>Taifas Wrapped</b><small>Luna ta în cifre și momente</small></span><em>›</em></button>
       </div>
       <div class="hint" style="text-align:center;margin-top:18px" id="stVer"></div>
     </div>
@@ -916,6 +946,8 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
         <button type="button" class="btn" id="stImport">⬆ Restaurează</button>
       </div>
       <input type="file" id="stImpFile" accept=".json,application/json" hidden>
+      <div class="btns"><button type="button" class="btn" id="stCardImp">📥 Importă un personaj (card)</button></div>
+      <input type="file" id="stCardFile" accept=".json,application/json" hidden>
       <div class="hint">Backup-ul conține personajele, conversațiile și pozele. Cheile API nu intră în backup.</div>
       <div class="btns"><button type="button" class="btn dan" id="stWipe">Șterge tot</button></div>
     </div>
@@ -927,7 +959,7 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
 
 <script>
 'use strict';
-const APP_VER = '5.9';
+const APP_VER = '6.0';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -1048,8 +1080,27 @@ async function toJpeg(file, max = 1280, q = .9){
 }
 const blobToB64 = b => new Promise((res, rej) => { const f = new FileReader(); f.onload = () => res(String(f.result).split(',')[1]); f.onerror = () => rej(f.error); f.readAsDataURL(b); });
 function b64ToBlob(b64, type = 'image/png'){ const s = atob(b64); const a = new Uint8Array(s.length); for(let i = 0; i < s.length; i++) a[i] = s.charCodeAt(i); return new Blob([a], {type}); }
+// 🖼️ avatar viu: poza mică se schimbă după momentul zilei și dispoziție (doar dacă ai generat variantele)
+const AV_V = [
+  ['dim', '🌅 Dimineața', 'cozy morning at home right after waking up, holding a cup of coffee, soft morning window light, relaxed sleepy smile'],
+  ['zi', '☀️ Ziua', 'casual daytime outfit, natural daylight, relaxed friendly smile'],
+  ['seara', '🌆 Seara', 'evening, warm golden lamp light, cozy atmosphere, gentle smile'],
+  ['noapte', '🌙 Noaptea', 'late night at home, comfortable sweater, dim warm bedside lamp, soft tired expression'],
+  ['vesel', '😄 Vesel', 'laughing happily, bright cheerful light, joyful expression'],
+  ['trist', '😔 Pensiv', 'thoughtful pensive expression, looking slightly away from the camera, soft muted light']];
+function avKeyNow(c){
+  const mo = cur === c && chat && chat.mood && chat.mood.t ? chat.mood.t.toLowerCase() : '';
+  if(/trist|supărat|obosit|melancol|dor|îngrijor|nervos|abătut/.test(mo)) return 'trist';
+  if(/vesel|fericit|râde|entuziasm|amuzat|bine dispus|încântat|jucăuș/.test(mo)) return 'vesel';
+  const h = new Date().getHours();
+  return h >= 5 && h < 11 ? 'dim' : h < 17 ? 'zi' : h < 22 ? 'seara' : 'noapte';
+}
+function photoNow(c){
+  if(!c || !c.avLive || !c.avs) return c && c.photo;
+  return c.avs[avKeyNow(c)] || c.photo;
+}
 function avatarHTML(c, cls = 'av'){
-  if(c && c.photo) return `<img class="${cls}" data-k="${esc(c.photo)}" alt="">`;
+  if(c && c.photo) return `<img class="${cls}" data-k="${esc(photoNow(c))}" alt="">`;
   return `<span class="${cls}" style="background:${colorFor(c)}">${esc((c?.name || '?')[0].toUpperCase())}</span>`;
 }
 function colorFor(c){ let h = 0; for(const ch of (c?.id || 'x')) h = (h * 31 + ch.charCodeAt(0)) % 360; return `linear-gradient(135deg,hsl(${h} 55% 38%),hsl(${(h + 50) % 360} 55% 28%))`; }
@@ -1368,7 +1419,7 @@ function renderHome(){
   const shown = q ? sorted.filter(c => (c.name + ' ' + (c.tag || '')).toLowerCase().includes(q)) : sorted;
   $('#homeChars').innerHTML = (!chars.length ? `<button class="card empty" data-new><b>Niciun personaj încă</b>Apasă ＋ jos ca să creezi primul personaj, din poză sau din imaginație.</button>` : '') +
     shown.map(c => `<button class="card${c.fav ? ' isfav' : ''}" data-open="${c.id}">${c.fav ? '<span class="fav">⭐</span>' : ''}${c.unread ? `<span class="ubadge">${c.unread > 9 ? '9+' : c.unread}</span>` : ''}${c.lastAt && c.last ? `<span class="when">${when(c.lastAt)}</span>` : ''}
-      ${c.photo ? `<img data-k="${esc(c.photo)}" alt="">` : `<div class="ph" style="background:${colorFor(c)}">${esc(c.name[0] || '?')}</div>`}
+      ${c.photo ? `<img data-k="${esc(photoNow(c))}" alt="">` : `<div class="ph" style="background:${colorFor(c)}">${esc(c.name[0] || '?')}</div>`}
       <div class="ov"><b>${esc(c.name)}</b>${c.tag ? `<small>${esc(c.tag)}</small>` : ''}${c.last ? `<em class="lm">${esc(c.last)}</em>` : ''}</div></button>`).join('');
   const withChat = chars.filter(c => c.last).sort((a, b) => (b.lastAt || 0) - (a.lastAt || 0));
   const pinned = withChat.filter(c => c.pinned), rest = withChat.filter(c => !c.pinned);
@@ -1726,6 +1777,149 @@ Răspunde STRICT cu JSON: {"text":"statusul"${wantPic ? ',"poza":"one English se
     }catch(e){ /* statusul pleacă și fără poză */ }
   }
   feedCache.push(p); await saveFeed();
+}
+/* ───────── 🖼️ avatar viu ───────── */
+function drawAv(c){
+  const box = $('#pfAv'); if(!box) return;
+  const can = !!c.aiPortrait && S.imgProv !== 'none' && c.photo;
+  if(!can && !c.avs){ box.innerHTML = `<p style="color:var(--tx3);font-size:.88rem;margin:0">Disponibil pentru personajele cu portret generat în aplicație${S.imgProv === 'none' ? ', cu pozele pornite' : ''}: poza lui mică se schimbă după momentul zilei și dispoziție.</p>`; return; }
+  const now = c.avLive ? avKeyNow(c) : '';
+  box.innerHTML = `<div class="avgrid">${AV_V.map(v => `<figure class="${now === v[0] ? 'now' : ''}">${c.avs && c.avs[v[0]] ? `<img data-k="${esc(c.avs[v[0]])}" data-view="${esc(c.avs[v[0]])}" alt="">` : '<div class="ph">·</div>'}<figcaption>${v[1]}</figcaption></figure>`).join('')}</div>
+    <div class="btns jbtn">${can ? `<button class="btn sm" id="avGen">${c.avs ? '✨ Refă variantele' : '✨ Generează cele 6 variante'}</button>` : ''}${c.avs ? `<button class="btn sm" id="avOn">${c.avLive ? '⏸ Oprește' : '▶ Pornește'}</button>` : ''}</div>
+    <p class="hint" style="margin-top:6px">${c.avs ? (c.avLive ? 'Pornit: poza mică se schimbă singură (dimineața, ziua, seara, noaptea; vesel sau pensiv după dispoziție).' : 'Oprit: rămâne poza de profil.') : `6 poze generate o singură dată (~${neurPerPhoto() ? Math.round(neurPerPhoto() * 6) + ' neuroni' : 'câțiva cenți'}).`}</p>`;
+  hydrate(box);
+  box.onclick = e => { const v = e.target.closest('[data-view]'); if(v) viewImg(v.dataset.view, Object.values(c.avs || {})); };
+  const on = $('#avOn'); if(on) on.onclick = async () => { c.avLive = !c.avLive; await saveChars(); drawAv(c); toast(c.avLive ? '🖼️ Avatarul viu e pornit' : 'Avatarul viu e oprit'); };
+  const g = $('#avGen'); if(g) g.onclick = () => genAvatars(c);
+}
+async function genAvatars(c){
+  if(busy){ toast('Așteaptă să termine răspunsul.'); return; }
+  const b = $('#avGen'); if(b){ b.disabled = true; b.innerHTML = '<span class="spin"></span> 0/6'; }
+  const ref = await DB.get(c.photo); if(!ref){ toast('Nu găsesc poza de profil.'); return; }
+  const avs = {...(c.avs || {})}; let ok = 0;
+  for(const [k, , desc] of AV_V){
+    try{
+      const prompt = `A new head-and-shoulders portrait photo of the same person as in the reference image (keep the face, hair and identity exactly). ${desc}. Framing like a profile picture. ${STIL_TAG[c.stil || 'photo']}`;
+      let bl = await genImage(prompt, ref);
+      try{ if(bl.type === 'image/png') bl = await toJpeg(bl, 1024, .9); }catch(e){}
+      const old = avs[k]; avs[k] = await saveImg(bl); if(old) delImg(old).catch(() => {});
+      addUsage(c.id, imgPrice(), 'img'); ok++;
+      c.avs = {...avs}; await saveChars();
+      if(b && document.body.contains(b)) b.innerHTML = `<span class="spin"></span> ${ok}/6`;
+    }catch(e){ toast('O variantă n-a mers: ' + e.message, 3500); if(e.cap) break; }
+  }
+  if(ok){ c.avLive = true; await saveChars(); toast(`🖼️ ${ok} variante gata. Avatarul viu e pornit.`); }
+  if(profId === c.id) drawAv(c);
+  if(!$('#vHome').hidden) renderHome();
+}
+
+/* ───────── 🗂️ carduri de personaj ───────── */
+const CARD_FIELDS = ['name', 'tag', 'aspect', 'look', 'stil', 'persona', 'speech', 'greet', 'accent', 'bg', 'aiPortrait', 'voice', 'vPitch', 'life', 'lifeOff', 'avLive'];
+async function exportCard(c){
+  toast('Pregătesc cardul…');
+  const out = {app:'taifas-card', v:1, date:new Date().toISOString(), char:{}};
+  for(const k of CARD_FIELDS) if(c[k] !== undefined) out.char[k] = c[k];
+  const b = c.photo ? await DB.get(c.photo) : null; if(b) out.photo = {data:await blobToB64(b), type:b.type};
+  if(c.avs){ out.avs = {}; for(const [k, key] of Object.entries(c.avs)){ const x = await DB.get(key); if(x) out.avs[k] = {data:await blobToB64(x), type:x.type}; } }
+  const name = (c.name || 'personaj').replace(/[^\p{L}\p{N} _-]/gu, '').trim() || 'personaj';
+  const file = new File([JSON.stringify(out)], `${name}.taifas.json`, {type:'application/json'});
+  if(navigator.canShare && navigator.canShare({files:[file]})){ try{ await navigator.share({files:[file], title:c.name}); return; }catch(e){ if(e.name === 'AbortError') return; } }
+  download(file, file.name);
+}
+async function importCard(file){
+  try{
+    const j = JSON.parse(await file.text());
+    if(j.app !== 'taifas-card' || !j.char || !j.char.name) throw new Error('nu e un card de personaj Taifas');
+    const c = {id:uid(), created:Date.now()};
+    for(const k of CARD_FIELDS) if(j.char[k] !== undefined) c[k] = j.char[k];
+    if(chars.some(x => x.name === c.name)) c.name += ' (2)';
+    if(j.photo) c.photo = await saveImg(b64ToBlob(j.photo.data, j.photo.type));
+    if(j.avs){ c.avs = {}; for(const [k, v] of Object.entries(j.avs)) c.avs[k] = await saveImg(b64ToBlob(v.data, v.type)); }
+    chars.push(c); await saveChars(); renderHome();
+    toast(`📥 ${c.name} a fost importat.`);
+    charProfile(c.id);
+  }catch(e){ toast('Cardul nu merge: ' + e.message, 4000); }
+}
+async function duplicateChar(c){
+  const n = {id:uid(), created:Date.now()};
+  for(const k of CARD_FIELDS) if(c[k] !== undefined) n[k] = JSON.parse(JSON.stringify(c[k]));
+  n.name = c.name + ' (copie)';
+  if(c.photo){ const b = await DB.get(c.photo); if(b) n.photo = await saveImg(b); }
+  if(c.avs){ n.avs = {}; for(const [k, key] of Object.entries(c.avs)){ const b = await DB.get(key); if(b) n.avs[k] = await saveImg(b); } }
+  chars.push(n); await saveChars(); renderHome();
+  toast(`🧬 ${n.name} e gata, cu conversație nouă.`);
+  charProfile(n.id);
+}
+
+/* ───────── 📊 Taifas Wrapped ───────── */
+const STOP = new Set('faci face făcut ziceai spus care este sunt acum aici acolo pentru despre foarte doar daca dacă când cand unde cum mult multe putin puțin tine mine ceva cineva nimic totul toate toti toți asta acest aceasta această acel acea aceea dupa după inainte înainte mai iar sau dar însă insa chiar bine bună buna atunci astazi astăzi azi maine mâine fost fiind avea aveam avem aveți aveti face facem fac vreau poti poți poate trebuie pot știu stiu spune zice între intre prin lângă langa catre către fara fără'.split(' '));
+async function wrapData(mo){
+  const res = {mo, msgs:0, mine:0, theirs:0, days:new Set(), hours:Array(24).fill(0), per:{}, pics:0, voice:0, gifts:0, reacts:0, words:{}, emoji:{}, perDay:{}, moments:[]};
+  for(const c of chars){
+    for(const ch of await allChats(c)) for(const m of ch.msgs){
+      if(!m.ts || m.err || m.pending) continue;
+      const d = new Date(m.ts); if(d.toISOString().slice(0, 7) !== mo && dayKey(m.ts).slice(0, 7) !== mo) continue;
+      if(dayKey(m.ts).slice(0, 7) !== mo) continue;
+      res.msgs++; res.days.add(dayKey(m.ts)); res.hours[d.getHours()]++; res.per[c.id] = (res.per[c.id] || 0) + 1; res.perDay[dayKey(m.ts)] = (res.perDay[dayKey(m.ts)] || 0) + 1;
+      if(m.role === 'user'){
+        res.mine++; if(m.gift) res.gifts++; if(m.react) res.reacts++;
+        for(const w of plain(m.text || '').toLowerCase().match(/[\p{L}]{4,}/gu) || []) if(!STOP.has(w)) res.words[w] = (res.words[w] || 0) + 1;
+        for(const e of (m.text || '').match(/\p{Extended_Pictographic}/gu) || []) res.emoji[e] = (res.emoji[e] || 0) + 1;
+      } else { res.theirs++; if(m.img) res.pics++; if(m.voice) res.voice++; }
+    }
+    for(const x of c.moments || []) if(x.day.slice(0, 7) === mo) res.moments.push({c, ...x});
+  }
+  // cea mai lungă serie de zile la rând
+  const ds = [...res.days].sort(); let best = 0, run = 0, prev = null;
+  for(const d of ds){ const t = new Date(d + 'T12:00').getTime(); run = prev && t - prev < 1.5 * 864e5 ? run + 1 : 1; best = Math.max(best, run); prev = t; }
+  res.streak = best;
+  const u = await DB.get('usage') || {months:{}}; const M = u.months[mo]; res.cost = M ? M.txt + M.img + (M.voc || 0) : 0;
+  return res;
+}
+async function wrapMonths(){
+  const set = new Set();
+  for(const c of chars) for(const ch of await allChats(c)) for(const m of ch.msgs) if(m.ts) set.add(dayKey(m.ts).slice(0, 7));
+  return [...set].sort().reverse();
+}
+const moName = mo => new Date(mo + '-15T12:00').toLocaleDateString('ro-RO', {month:'long', year:'numeric'});
+async function openWrapped(mo){
+  const months = await wrapMonths();
+  if(!months.length){ toast('Încă n-ai conversații. Revino după câteva zile de taifas.'); return; }
+  mo = mo || months[0];
+  closeSheet();
+  const v = document.createElement('div'); v.className = 'viewer wrapv';
+  v.innerHTML = `<div class="wtop"><h2>Taifas Wrapped</h2><select id="wMo">${months.map(x => `<option value="${x}"${x === mo ? ' selected' : ''}>${esc(moName(x))}</option>`).join('')}</select><button class="ib" id="wX" aria-label="Închide">✕</button></div><div id="wBody"><p class="hint"><span class="spin"></span> Număr…</p></div>`;
+  document.body.appendChild(v);
+  v.querySelector('#wX').onclick = () => v.remove();
+  v.querySelector('#wMo').onchange = e => { v.remove(); openWrapped(e.target.value); };
+  const r = await wrapData(mo);
+  const top = Object.entries(r.per).map(([id, n]) => [charById(id), n]).filter(x => x[0]).sort((a, b) => b[1] - a[1]);
+  const pk = r.hours.indexOf(Math.max(...r.hours)), mx = Math.max(1, ...r.hours);
+  const words = Object.entries(r.words).sort((a, b) => b[1] - a[1]).slice(0, 8).map(x => x[0]);
+  const emo = Object.entries(r.emoji).sort((a, b) => b[1] - a[1]).slice(0, 5).map(x => x[0]);
+  const bestDay = Object.entries(r.perDay).sort((a, b) => b[1] - a[1])[0];
+  const part = pk < 5 ? 'noaptea târziu 🌙' : pk < 11 ? 'dimineața ☀️' : pk < 14 ? 'la prânz 🍽️' : pk < 18 ? 'după-amiaza 🌤️' : pk < 22 ? 'seara 🌆' : 'noaptea 🌙';
+  const saved = await DB.get('wrapped:' + mo);
+  v.querySelector('#wBody').innerHTML = `
+    <div class="wcard g1"><h3>${esc(moName(mo))}</h3><div class="big">${r.msgs.toLocaleString('ro-RO')}</div><p>mesaje schimbate: ${r.mine.toLocaleString('ro-RO')} ale tale, ${r.theirs.toLocaleString('ro-RO')} ale personajelor.</p></div>
+    <div class="wgrid"><div class="wcard g2"><h3>Zile active</h3><div class="big">${r.days.size}</div></div><div class="wcard g3"><h3>Cea mai lungă serie</h3><div class="big">${r.streak}</div><p>${r.streak === 1 ? 'zi' : 'zile la rând'}</p></div></div>
+    <div class="wcard g4"><h3>Ora voastră</h3><div class="big">${String(pk).padStart(2, '0')}:00</div><p>Vorbești cel mai mult ${part}.</p><div class="hours">${r.hours.map((h, i) => `<i class="${i === pk ? 'pk' : ''}" style="height:${Math.round(h / mx * 100)}%"></i>`).join('')}</div><div class="hlbl"><span>00</span><span>06</span><span>12</span><span>18</span><span>23</span></div></div>
+    ${top.length ? `<div class="wcard g6"><h3>Cu cine ai vorbit cel mai mult</h3><div class="big">${esc(top[0][0].name)}</div><p>${top[0][1].toLocaleString('ro-RO')} mesaje · ${esc(relOf(top[0][0]).name)}</p><div class="wbars">${top.slice(0, 5).map(([c, n]) => `<div><span>${esc(c.name)}</span><b style="width:${Math.max(4, Math.round(n / top[0][1] * 100))}%"></b><small>${n}</small></div>`).join('')}</div></div>` : ''}
+    <div class="wgrid"><div class="wcard g5"><h3>Poze primite</h3><div class="big">${r.pics}</div></div><div class="wcard g2"><h3>Mesaje vocale</h3><div class="big">${r.voice}</div></div>
+      <div class="wcard g3"><h3>Cadouri trimise</h3><div class="big">${r.gifts}</div></div><div class="wcard g1"><h3>Cea mai vorbăreață zi</h3><div class="big">${bestDay ? bestDay[1] : 0}</div><p>${bestDay ? new Date(bestDay[0] + 'T12:00').toLocaleDateString('ro-RO', {day:'numeric', month:'long'}) : ''}</p></div></div>
+    ${words.length ? `<div class="wcard g4"><h3>Cuvintele tale</h3><div class="chips">${words.map(w => `<span>${esc(w)}</span>`).join('')}</div>${emo.length ? `<p style="margin-top:10px;font-size:1.5rem">${emo.join(' ')}</p>` : ''}</div>` : ''}
+    ${r.moments.length ? `<div class="wcard g6"><h3>Momentele lunii</h3>${r.moments.slice(0, 6).map(x => `<p>• ${esc(x.t)} <span style="opacity:.75">(${esc(x.c.name)})</span></p>`).join('')}</div>` : ''}
+    <div class="wcard g1"><h3>Povestea lunii</h3><p id="wStory">${saved ? esc(saved) : 'Lasă-mă să scriu câteva rânduri despre luna ta în Taifas.'}</p><div class="btns" style="margin-top:10px"><button class="btn sm" id="wGen" style="background:#ffffff26;color:#fff">${saved ? '↻ Rescrie' : '✨ Scrie povestea lunii'}</button></div></div>
+    <p class="hint" style="text-align:center">Cost estimat în ${esc(moName(mo))}: ${usd(r.cost)}</p>`;
+  v.querySelector('#wGen').onclick = async () => {
+    const b = v.querySelector('#wGen'); b.disabled = true; b.innerHTML = '<span class="spin"></span>';
+    try{
+      const facts = `Luna: ${moName(mo)}. Mesaje: ${r.msgs} (${r.mine} ale lui). Zile active: ${r.days.size}, serie maximă ${r.streak} zile. Ora preferată: ${pk}:00. Personaje: ${top.slice(0, 5).map(([c, n]) => c.name + ' (' + n + ' mesaje, ' + relOf(c).name + ')').join(', ')}. Poze primite ${r.pics}, mesaje vocale ${r.voice}, cadouri ${r.gifts}. Cuvinte frecvente: ${words.join(', ')}. Momente: ${r.moments.slice(0, 8).map(x => x.t).join(' | ')}.`;
+      const out = await stream('Scrii recapitulări lunare calde și jucăușe, în română corectă, ca Spotify Wrapped.', [{role:'user', text:`${facts}\n\nScrie un paragraf de 4-6 propoziții, la persoana a II-a (către ${S.userName.trim() || 'utilizator'}), cald și cu umor fin, despre luna lui în Taifas. Fără liste, fără titlu.`}], {max:400, aux:true});
+      const t = faraLiniute(plain(out)).trim(); if(t){ await DB.set('wrapped:' + mo, t); v.querySelector('#wStory').textContent = t; b.textContent = '↻ Rescrie'; }
+    }catch(e){ toast('N-a mers: ' + e.message, 3500); b.textContent = '✨ Scrie povestea lunii'; }
+    b.disabled = false;
+  };
 }
 function maybeProactive(){
   if(S.pro !== 'on' || busy || !aiReady() || !chat.msgs.length) return;
@@ -2851,6 +3045,7 @@ async function charProfile(id, push = true){
     <div class="pfSec" id="pfPrefsSec"><h3>🎯 Ce a învățat din notele tale</h3><ul class="facts" id="pfPrefs"></ul></div>
     <div class="pfSec"><h3><span>🗓️ Ziua ${esc(c.name)}</span></h3><div id="pfLife"></div></div>
     <div class="pfSec"><h3><span>💝 Amintiri</span></h3><div id="pfMem"></div></div>
+    <div class="pfSec"><h3><span>🖼️ Avatar viu</span></h3><div id="pfAv"></div></div>
     <div class="pfSec"><h3>🎙️ Vocea</h3><div class="pfVoice"><span id="pfVName">${esc(voiceLabel(c))}</span><button class="btn sm" id="pfVPlay">▶ Ascultă</button><button class="btn sm" id="pfVPick">Schimbă</button></div></div>
     <div class="pfSec"><h3><span>📔 Jurnal</span></h3><div id="pfJrn"></div>
       <div class="btns jbtn"><button class="btn sm" id="pfJrnToday">✍️ Scrie despre azi</button>${(c.journal || []).length > 3 ? '<button class="btn sm" id="pfJrnAll">Vezi tot</button>' : ''}</div></div>
@@ -2900,7 +3095,8 @@ async function charProfile(id, push = true){
     $('#pfPrefs').querySelectorAll('[data-lx]').forEach(b => b.onclick = async () => { c.liked.splice(+b.dataset.lx, 1); await saveChars(); drawPrefs(); });
   };
   drawPrefs();
-  drawLife(c); drawMem(c);
+  drawLife(c); drawMem(c); drawAv(c);
+  $('#pfMoreTop').onclick = () => sheet([['📤', 'Exportă cardul personajului', () => exportCard(c)], ['🧬', 'Duplică personajul', () => duplicateChar(c)]]);
   $('#pfVPlay').onclick = () => voiceSample(c, $('#pfVPlay'));
   $('#pfVPick').onclick = () => pickVoice(c, () => { $('#pfVName').textContent = voiceLabel(c); });
   $('#pfFav').onclick = async () => { c.fav = !c.fav; await saveChars(); $('#pfFav').textContent = c.fav ? '★' : '☆'; toast(c.fav ? '⭐ Adăugat la favorite' : 'Scos de la favorite'); };
@@ -3442,6 +3638,7 @@ async function deleteChar(){
       await DB.del(chatKey(c.id, t.id));
     }
     await delImg(c.photo);
+    for(const k of Object.values(c.avs || {})) await delImg(k).catch(() => {});
     for(const p of feedCache.filter(p => p.cid === c.id)) if(p.img) await delImg(p.img).catch(() => {});
     feedCache = feedCache.filter(p => p.cid !== c.id); await saveFeed();
     chars = chars.filter(x => x !== c); await saveChars();
@@ -3840,6 +4037,10 @@ function bind(){
   });
   $('#stTest').onclick = () => { for(const [id, k] of Object.entries(FIELDS)) S[k] = $('#' + id).value.trim(); saveSettings(); testAI(); };
   $('#stExport').onclick = exportAll;
+  $('#stWrapped').onclick = () => openWrapped();
+  $('#btnWrapped').onclick = () => openWrapped();
+  $('#stCardImp').onclick = () => $('#stCardFile').click();
+  $('#stCardFile').onchange = e => { if(e.target.files[0]) importCard(e.target.files[0]); e.target.value = ''; };
   $('#stImgTest').onclick = testImages;
   $('#stGemList').onclick = () => { S.gemKey = $('#stGemKey').value.trim(); saveSettings(); listGemModels(); };
   $('#stImport').onclick = () => $('#stImpFile').click();
