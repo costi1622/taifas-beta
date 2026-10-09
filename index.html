@@ -1112,7 +1112,7 @@ input:focus,textarea:focus,select:focus{border-color:color-mix(in srgb,var(--acc
 
 <script>
 'use strict';
-const APP_VER = '7.0';
+const APP_VER = '7.1';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -1548,7 +1548,7 @@ async function planShot(c, ch, {promised = '', exclude = null, signal} = {}){
   const recent = hist.slice(-16).map(x => (x.role === 'user' ? u : c.name) + ': ' + plain(stripMood(x.text)).slice(0, 600) + (acts(x.text) ? ' [actions: ' + acts(x.text) + ']' : '')).join('\n');
   const prevShots = ch.msgs.filter(x => x.img && x.scene && x !== exclude).slice(-3).map(x => '- ' + x.scene).join('\n');
   const home = c.home && Object.keys(c.home).length ? Object.entries(c.home).map(([k, v]) => `- ${k}: ${v}`).join('\n') : '';
-  const lf = lifeNow(c);
+  const lf = lifeNow(c), meta = {};
   const out = await stream(`You are the photo planner of a chat app where ${c.name}, a real person, sends ${u} photos from her/his phone. You read the conversation and decide exactly where the character is and how, then describe the photo. The conversation is the only truth. Answer with JSON only.`, [{role:'user', text:
 `Character: ${c.name}.${c.persona ? ' About: ' + plain(c.persona).slice(0, 500) : ''}
 Now: ${todEn()}.${lf ? ' Daily routine says right now: ' + lf.w + ' (use only if the conversation says nothing else).' : ''}
@@ -1567,15 +1567,19 @@ Rules:
 8. Never describe the face, hair, skin or body shape (they come from the reference photo). Describe only place, pose, clothes, expression, light.
 9. If the photo is in a room of the home that is not in the list above, invent its look once (concrete: colors, furniture, window, floor) consistent with the character and the conversation, and return it in "home". Also return in "home" any NEW concrete detail of a room that the conversation revealed.
 
-JSON:
-{"where":{"place":"home / office / café / street …","room":"bedroom | living room | kitchen | bathroom | hallway | balcony | office | other","position":"exact body position and what it rests on","outfit":"what is worn now","activity":"what is being done","light":"light now"},
- "camera":"selfie | mirror selfie | phone propped up with timer | close-up selfie",
+JSON, keys in exactly this order, nothing else:
+{"camera":"selfie | mirror selfie | phone propped up with timer | close-up selfie",
  "shot":"ONE English description for the image generator, 50-80 words: camera and framing, the place with concrete details (reuse the room description), body position and hands, outfit, expression, light",
- "home":{"<room>":"English description, max 45 words"}}`}], {max:900, signal, cid:c.id, aux:true});
+ "where":{"place":"home / office / café / street …","room":"bedroom | living room | kitchen | bathroom | hallway | balcony | office | other","position":"exact body position and what it rests on","outfit":"what is worn now","activity":"what is being done","light":"light now"},
+ "home":{"<room>":"English description, max 45 words; only rooms that are new or changed"}}`}], {max:1500, signal, cid:c.id, aux:true, meta});
+  // 7.1: refuzul filtrului lui Claude se spune ca atare (nu se ocolește); un răspuns tăiat sau fără JSON nu mai oprește poza
+  if(meta.stop === 'refusal' && !promised) throw new Error('Claude a refuzat să descrie poza asta (filtrul lui de siguranță). Încearcă altă scenă.');
   let j = {}; try{ j = parseJSON(out); }catch(e){}
-  // răspuns fără JSON: descrierea scrisă de personaj sau textul primit, ca înainte
-  const shot = String(j.shot || promised || (/[{}]/.test(out) ? '' : out)).trim().replace(/^["„]|["”]$/g, '').replace(/[.\s]+$/, '');
-  if(shot.length < 15) throw new Error('planificatorul n-a descris poza');
+  if(!j.shot){ const mm = String(out).match(/"shot"\s*:\s*"((?:[^"\\]|\\.)*)/); if(mm) j.shot = mm[1].replace(/\\"/g, '"'); }
+  if(!j.camera){ const mm = String(out).match(/"camera"\s*:\s*"([^"]*)"/); if(mm) j.camera = mm[1]; }
+  let shot = String(j.shot || promised || '').trim().replace(/^["„]|["”]$/g, '').replace(/[.\s]+$/, '');
+  if(shot.length < 15) shot = fallbackShot(c, ch, exclude);
+  if(shot.length < 15) throw new Error('Nu am putut descrie poza din conversație. Mai încearcă o dată.');
   if(j.where && typeof j.where === 'object'){
     const w = {}; for(const k of ['place', 'room', 'position', 'outfit', 'activity', 'light']) if(j.where[k]) w[k] = String(j.where[k]).slice(0, 200);
     ch.where = {...w, ts:Date.now()};
@@ -1587,6 +1591,13 @@ JSON:
   }
   const cam = String(j.camera || '');
   return {shot: cam && !shot.toLowerCase().includes(cam.toLowerCase().split(' ')[0]) ? cam + ', ' + shot : shot, where: ch.where};
+}
+// rezervă fără AI: ultima stare cunoscută + acțiunile din ultimul mesaj al personajului (în română; generatorul înțelege și așa)
+function fallbackShot(c, ch, exclude){
+  const w = ch.where || {}, last = [...ch.msgs].reverse().find(x => x !== exclude && x.role === 'ai' && x.text && !x.err);
+  const acts = last ? (last.text.match(/\*[^*]+\*/g) || []).map(a => a.replace(/\*/g, '').trim()).filter(a => !/trimite o poz/i.test(a)).join('; ') : '';
+  const parts = ['selfie', w.room && w.room !== 'other' ? 'in the ' + w.room : w.place, w.position, w.outfit, acts, w.light || todEn()].filter(Boolean);
+  return parts.length > 2 ? parts.join(', ') : '';
 }
 // promptul final + generarea; poza de profil e reperul pentru orice poză (identitate), scena vine din descriere
 async function scenePhoto(c, shot, signal, fix){
@@ -3727,10 +3738,10 @@ async function askPhoto(spont, target, mode){
     if(S.imgProv === 'worker') setTimeout(() => loadNeurons(true), 1500);
   }catch(e){
     const msg = e.message || '';
-    const flag = /3030|flagged|safety|blocked|prohibit|nsfw|SAFETY|IMAGE_OTHER/i.test(msg);
+    const flag = /3030|flagged|safety|blocked|prohibit|nsfw|SAFETY|IMAGE_OTHER|refuzat/i.test(msg);
     if(target && m.img){ if(e.name !== 'AbortError') toast(flag ? 'Serviciul de imagini a respins varianta asta.' : 'Poza nouă n-a mers: ' + msg, 4000); }   // poza veche rămâne
     else if(e.name === 'AbortError') m.err = 'Oprit.';
-    else if(flag){ m.err = 'Serviciul de imagini a respins poza asta.'; m.errKind = 'flag'; }
+    else if(flag){ m.err = /refuzat/.test(msg) ? msg : 'Serviciul de imagini a respins poza asta.'; m.errKind = 'flag'; }
     else m.err = msg || 'Eroare la poză';
   }
   delete m.pendingImg; busy = null; live = null;
