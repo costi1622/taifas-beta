@@ -782,6 +782,42 @@ input:focus,textarea:focus,select:focus{border-color:color-mix(in srgb,var(--acc
 #vChat .m.me .bub{background:linear-gradient(135deg,color-mix(in srgb,var(--acc) 48%,transparent),color-mix(in srgb,var(--acc2) 48%,transparent)),color-mix(in srgb,var(--me) 65%,transparent);backdrop-filter:blur(12px)}
 [data-theme=light] #vChat .m.me .bub{background:linear-gradient(135deg,color-mix(in srgb,var(--acc) 20%,#fffe),color-mix(in srgb,var(--acc2) 18%,#fffe))}
 @media (prefers-reduced-motion:reduce){.card img,button,.btn{transition:none}}
+
+/* ═════════ 7.5: antet cinematic + poze ca de pe telefon ═════════ */
+.hero .ov{padding:28px 20px 16px}
+.hero .ov b{font-size:2.15rem;letter-spacing:-.8px;line-height:1.05;text-shadow:0 4px 24px #000d,0 1px 3px #0009}
+.hero .ov small{font-size:.9rem;opacity:.92;max-width:34ch;margin:6px auto 0}
+.hchips{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;margin-top:12px}
+.hchips span{font-size:.74rem;font-weight:700;color:#fff;padding:5px 11px;border-radius:99px;background:#ffffff1f;backdrop-filter:blur(14px) saturate(1.4);border:1px solid #ffffff2b;text-shadow:none;white-space:nowrap;max-width:62vw;overflow:hidden;text-overflow:ellipsis}
+.hchips .on{color:#bff5d6;background:#22c37a2e;border-color:#5fd39a55}
+.hero:not(.clear) img{animation:kb 22s ease-in-out infinite alternate}
+@keyframes kb{from{transform:scale(1.02)}to{transform:scale(1.1) translateY(-1.5%)}}
+.hero:not(.clear)::after{background:linear-gradient(#0e0c1280 0%,transparent 20%,transparent 50%,#0e0c12b3 80%,var(--bg) 100%)}
+#vChat.bg-clar .hero.clear::before{content:"";position:absolute;inset:auto 0 0 0;height:70%;background:linear-gradient(transparent,#0000008c);pointer-events:none}
+[data-theme=light] #vChat.bg-clar .hero.clear::before{background:linear-gradient(transparent,#00000059)}
+#chTop .chathead .av{box-shadow:0 0 0 2px var(--bg),0 0 0 4px var(--acc);margin-left:2px}
+#chTop .chathead b{font-size:1.02rem;font-weight:800;letter-spacing:-.2px}
+#chTop .ib{border-radius:50%}
+#chTop #sceneBar{width:auto;max-width:calc(100% - 28px);margin:2px auto 0;display:block;padding:6px 14px;border-radius:99px;border:1px solid var(--hair);background:var(--glass);backdrop-filter:blur(16px);font-size:.78rem;font-weight:600;text-align:center;box-shadow:0 4px 14px #0004}
+#chTop:not(.solid) #sceneBar{background:#00000052;color:#fff;border-color:#ffffff24}
+/* poze */
+.picbox{border-radius:24px;box-shadow:0 14px 40px #00000073,0 0 0 1px var(--hair);background:#000}
+.pic.big{border-radius:0;box-shadow:none}
+.pic.dev{filter:blur(22px) brightness(1.5) saturate(.5);transform:scale(1.04)}
+.pic.dev.go{animation:develop 2.2s cubic-bezier(.3,.7,.2,1) forwards}
+@keyframes develop{0%{filter:blur(22px) brightness(1.5) saturate(.5);transform:scale(1.04)}55%{filter:blur(4px) brightness(1.12) saturate(.9)}100%{filter:none;transform:none}}
+.picbox .tm,.picbox .ploc{background:#00000059;backdrop-filter:blur(12px);border:1px solid #ffffff1f;font-weight:600}
+.picbox .ploc{position:absolute;left:10px;bottom:9px;font-size:.7rem;color:#fff;padding:3px 9px;border-radius:99px;max-width:60%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.picload{position:relative;overflow:hidden;background:#000;animation:none;display:block}
+.picload .plbg{position:absolute;inset:-10%;width:120%;height:120%;object-fit:cover;filter:blur(30px) brightness(.55) saturate(1.2);animation:plpulse 2.4s ease-in-out infinite alternate}
+@keyframes plpulse{from{transform:scale(1)}to{transform:scale(1.08)}}
+.picload .plin{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;color:#fff;text-align:center;padding:20px}
+.picload .plin b{font-size:.95rem;text-shadow:0 1px 8px #000a}
+.picload .plin small{font-size:.78rem;opacity:.8}
+.shut{width:58px;height:58px;border-radius:50%;border:3px solid #ffffffd9;display:grid;place-items:center;margin-bottom:6px;box-shadow:0 0 0 6px #ffffff1a}
+.shut i{width:40px;height:40px;border-radius:50%;background:#fff;animation:shut 1.6s ease-in-out infinite}
+@keyframes shut{0%,70%,100%{transform:scale(1);opacity:.95}80%{transform:scale(.72);opacity:.7}}
+@media (prefers-reduced-motion:reduce){.hero img,.picload .plbg,.shut i{animation:none!important}.pic.dev{filter:none;transform:none}}
 </style>
 </head>
 <body>
@@ -1123,7 +1159,7 @@ input:focus,textarea:focus,select:focus{border-color:color-mix(in srgb,var(--acc
 
 <script>
 'use strict';
-const APP_VER = '7.4';
+const APP_VER = '7.5';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -1224,7 +1260,9 @@ async function delPhotoIfUnused(c, k){
 function cutAt(ch, i){ if((ch.sumUpTo || 0) > i){ ch.sumUpTo = 0; ch.summary = ''; } }
 async function hydrate(root = document){
   for(const el of root.querySelectorAll('img[data-k]')){
-    const u = await imgUrl(el.dataset.k); if(u) el.src = u; el.removeAttribute('data-k');
+    const u = await imgUrl(el.dataset.k);
+    if(el.classList.contains('dev')){ el.onload = () => el.classList.add('go'); }
+    if(u) el.src = u; el.removeAttribute('data-k');
   }
   for(const el of root.querySelectorAll('[data-bgk]')){
     const u = await imgUrl(el.dataset.bgk); el.style.backgroundImage = u ? `url("${u}")` : ''; el.removeAttribute('data-bgk');
@@ -2524,11 +2562,14 @@ function msgHTML(m, i, lastAi, anim){
   const seen = me && (m.seen || chat.msgs.slice(i + 1).some(x => x.role === 'ai' && !x.pending));
   const tm = `<span class="tm">${hhmm(m.ts)}${me ? `<i class="tick${seen ? ' seen' : ''}">${seen ? '✓✓' : '✓'}</i>` : ''}</span>`;
   let inner, cls = me ? 'me' : 'ai';
-  if(m.pendingImg){ inner = `<div class="picload">📷 ${esc(cur.name)} îți face o poză…</div>`; cls += ' picm'; }
+  if(m.pendingImg){ inner = `<div class="picload">${cur.photo ? `<img class="plbg" data-k="${esc(photoNow(cur))}" alt="">` : ''}<div class="plin"><span class="shut"><i></i></span><b>${esc(cur.name)} îți face o poză</b><small>${esc(whereIn(chat.where) || 'se aranjează…')}</small></div></div>`; cls += ' picm'; }
   else if(m.err) inner = `<div class="bub err${m.errKind === 'flag' ? ' flag' : ''}">${m.errKind === 'flag' ? '🚫' : '⚠️'} ${esc(m.err)}</div>`;
   else if(m.img && !me){
     cls += ' picm';
-    inner = `<div class="picbox"><img class="pic big" data-k="${esc(m.img)}" data-view="${esc(m.img)}" alt="">${tm}${reactHTML(m)}</div>${m.text ? `<div class="bub">${fmtMsg(m.text)}</div>` : ''}`;
+    const fresh = !devDone.has(m.img) && m.ts && Date.now() - m.ts < 3 * 60e3;   // poza abia sosită „se developează”
+    const loc = whereIn(m.where);
+    inner = `<div class="picbox"><img class="pic big${fresh ? ' dev' : ''}" data-k="${esc(m.img)}" data-view="${esc(m.img)}" alt="">${loc ? `<span class="ploc">📍 ${esc(loc)}</span>` : ''}${tm}${reactHTML(m)}</div>${m.text ? `<div class="bub">${fmtMsg(m.text)}</div>` : ''}`;
+    if(fresh) devDone.add(m.img);
   }
   else if(m.img) inner = `<div class="bub picwrap">${quoteHTML(m)}<img class="pic" data-k="${esc(m.img)}" data-view="${esc(m.img)}" alt="">${m.text ? `<div class="cap">${fmtMsg(m.text)}</div>` : ''}${tm}${reactHTML(m)}</div>`;
   else if(m.voice && !m.pending) inner = `<div class="bub">${voiceHTML(m)}${tm}${reactHTML(m)}</div>`;
@@ -2960,9 +3001,15 @@ async function pickVoice(c, done){
   };
 }
 const seenMap = new WeakMap();
+const devDone = new Set();   // 7.5: pozele deja „developate” în sesiunea asta
+const ROOM_IN = {bedroom:'în dormitor', 'living room':'în sufragerie', kitchen:'în bucătărie', bathroom:'în baie', hallway:'pe hol', balcony:'pe balcon', office:'la birou', 'home office':'la birou'};
+// „în dormitor”, „în bucătărie”… din starea scenei (doar camerele cunoscute; locurile în engleză nu se afișează)
+const whereIn = w => w && w.room && ROOM_IN[String(w.room).toLowerCase()] || '';
 function heroHTML(){
   const mode = cur.bg || 'clar', clear = mode === 'clar' && cur.photo;
-  const ov = `<div class="ov"><b>${esc(cur.name)}</b>${cur.tag ? `<small>${esc(cur.tag)}</small>` : ''}</div>`;
+  const online = cur.lastAt && Date.now() - cur.lastAt < 10 * 60e3, wi = chat && chat.where && Date.now() - (chat.where.ts || 0) < 6 * 36e5 ? whereIn(chat.where) : '', lf = lifeNow(cur);
+  const chips = [online ? '<span class="on">● online</span>' : '', cur.rel ? `<span>💞 ${esc(relOf(cur).name)}</span>` : '', wi ? `<span>📍 ${esc(wi)}</span>` : lf && lf.w ? `<span>${LIFE_E[lf.b]} ${esc(lf.w)}</span>` : ''].filter(Boolean).join('');
+  const ov = `<div class="ov"><b>${esc(cur.name)}</b>${cur.tag ? `<small>${esc(cur.tag)}</small>` : ''}${chips ? `<div class="hchips">${chips}</div>` : ''}</div>`;
   if(clear) return `<div class="hero clear">${ov}</div>`;
   return `<div class="hero">${cur.photo ? `<img data-k="${esc(cur.photo)}" alt="">` : `<div class="ph" style="background:${colorFor(cur)}">${esc((cur.name || '?')[0])}</div>`}${ov}</div>`;
 }
