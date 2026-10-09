@@ -1159,7 +1159,7 @@ input:focus,textarea:focus,select:focus{border-color:color-mix(in srgb,var(--acc
 
 <script>
 'use strict';
-const APP_VER = '7.7';
+const APP_VER = '7.8';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -1534,7 +1534,7 @@ function todEn(){
 // trăsăturile fizice + poziția feței, citite o singură dată per poză de profil (c.faceBox: {k, x,y,w,h | none, phys})
 async function identityOf(c, force){
   if(!c.photo) return null;
-  if(!force && c.faceBox && c.faceBox.k === c.photo && c.faceBox.phys !== undefined) return c.faceBox;
+  if(!force && c.faceBox && c.faceBox.k === c.photo && c.faceBox.phys !== undefined && (c.faceBox.phys || !aiReady() || Date.now() - (c.faceBox.at || 0) < 864e5)) return c.faceBox;
   const full = await DB.get(c.photo); if(!full) return null;
   let b = null, phys = '';
   if(aiReady()){
@@ -1554,7 +1554,7 @@ JSON: {"x":0.0,"y":0.0,"w":0.0,"h":0.0,"physique":"..."} (if no face is visible,
       if(f){ const r = f.boundingBox; b = {x:r.x / im.naturalWidth, y:r.y / im.naturalHeight, w:r.width / im.naturalWidth, h:r.height / im.naturalHeight, by:'tel'}; } }catch(e){}
     finally{ URL.revokeObjectURL(u); }
   }
-  c.faceBox = b ? {k:c.photo, ...b, phys} : {k:c.photo, none:true, phys};
+  c.faceBox = b ? {k:c.photo, ...b, phys, at:Date.now()} : {k:c.photo, none:true, phys, at:Date.now()};
   await saveChars();
   return c.faceBox;
 }
@@ -2079,8 +2079,10 @@ async function annCheck(c){
   return true;
 }
 // ce adaugă aplicația la mesajul tău (nu în promptul de sistem, ca să rămână în cache)
-function turnExtras(c){
+function turnExtras(c, ch, opts = {}){
   let x = '';
+  const chat = ch;   // 7.8: conversația pentru care se scrie răspunsul (nu cea deschisă pe ecran)
+  const freshTurn = !opts.pro && !opts.sched && !opts.cont;   // răspuns la un mesaj nou de-al tău
   // dacă ultimele răspunsuri s-au terminat toate cu întrebări, cerem explicit o pauză de la întrebări
   const ais = (chat && chat.msgs || []).filter(m => m.role === 'ai' && m.text && !m.err && !m.pending).slice(-3);
   const q = ais.filter(m => /\?\s*(\*[^*]*\*\s*)?$/.test(stripMood(m.text).trim())).length;
@@ -2088,7 +2090,7 @@ function turnExtras(c){
   // 7.7: după o pauză de peste 3 ore: întreabă de ce urma să i se întâmple + o întâmplare măruntă din ziua personajului
   const ms = (chat && chat.msgs || []).filter(m => !m.err && m.ts && !m.pending), li = ms.map(m => m.role).lastIndexOf('user');
   const gapNow = li > 0 ? ms[li].ts - ms[li - 1].ts : 0;
-  if(gapNow > 3 * 36e5){
+  if(freshTurn && gapNow > 3 * 36e5){
     const f = (c.facts || []).find(z => z.k === 'urm' && !z.asked && Date.now() - (z.ts || 0) > 6 * 36e5);
     if(f){ f.asked = Date.now(); saveChars(); x += ` (îți amintești că urma să i se întâmple: „${f.t}”. Întreabă-l firesc cum a fost, dacă se potrivește cu ce-ți scrie acum)`; }
     x += ' (între timp, în ziua ta s-a întâmplat ceva mărunt, potrivit cu programul și viața ta; dacă se leagă, povestește-i scurt, din proprie inițiativă)';
@@ -2101,7 +2103,7 @@ function turnExtras(c){
   if(chat && chat.plot && Date.now() - (chat.plot.ts || 0) < 12 * 36e5) x += ` (scena în desfășurare: „${chat.plot.t}”. Continuă de unde ați rămas, cu pasul următor, mic și firesc, fără să sari peste etape; dacă ${S.userName.trim() || 'el'} a schimbat planul sau subiectul, urmează-l)`;
   // 6.7: întrebările din ultimul tău mesaj sunt numite explicit, ca personajul să nu le ocolească
   const lu = [...(chat && chat.msgs || [])].reverse().find(m => m.role === 'user' && m.text && !m.err);
-  if(lu){ const qs = plain(lu.text).split(/(?<=[?])/).map(x => x.trim()).filter(x => x.endsWith('?') && x.length > 3).slice(-4);
+  if(lu && freshTurn){ const qs = plain(lu.text).split(/(?<=[?])/).map(x => x.trim()).filter(x => x.endsWith('?') && x.length > 3).slice(-4);
     if(qs.length) x += ` (${S.userName.trim() || 'el'} te-a întrebat: ${qs.map(q => '„' + q.slice(-160) + '”').join(' ')}; răspunde-i concret la ${qs.length > 1 ? 'fiecare' : 'ea'}, în felul tău)`; }
   const lf = lifeNow(c);
   if(lf) x += ` (după programul tău, acum ești: ${lf.w}${lf.b === 1 ? '; ești ocupat(ă), deci răspunzi mai scurt, ca din pauză' : lf.b === 2 ? '; dormeai, te-a trezit mesajul' : ''})`;
@@ -3326,7 +3328,7 @@ async function reply(target, opts = {}){
       // punctul de cache: ultimul mesaj al personajului dinaintea mesajului tău nou (istoricul de până acolo nu se mai schimbă)
       const li = ctx.lastIndexOf(lastU);
       for(let k = li - 1; k >= 0; k--) if(ctx[k].role === 'assistant'){ ctx[k]._cache = true; break; }
-      let extra = turnExtras(c);
+      let extra = turnExtras(c, ch, opts);
       const acts = (lastU.text.match(/\*[^*\n]{2,200}\*/g) || []).map(a => a.slice(1, -1).trim());
       if(acts.length) extra += ` (acțiunile mele de acum, care se întâmplă: ${acts.map(a => '„' + a + '”').join(', ')}; reacționează la ele)`;
       const md = extra + (ch.mood && ch.mood.t ? ` (starea ta la ultimul mesaj: ${ch.mood.t}${Date.now() - ch.mood.ts > 3 * 36e5 ? ', acum ' + gapText(Date.now() - ch.mood.ts) : ''})` : '');
@@ -3818,7 +3820,7 @@ function profScroll(){
 // target = mesajul-poză de refăcut; mode: 'same' (aceeași scenă, altă variantă) sau 'new' (altă scenă)
 async function askPhoto(spont, target, mode){
   if(busy){ if(!spont) toast('Așteaptă să termine ' + (live ? live.c.name : '') + '.'); return; }
-  if(spont && capLeft() < (neurPerPhoto() || 5000)) return;   // limita zilnică atinsă: fără poze spontane
+  if(spont && capLeft() < (neurPerPhoto(S.imgProv === 'worker' ? (S.wkChat || S.wkModel) : undefined) || 5000)) return;   // limita zilnică atinsă: fără poze spontane
   if(S.imgProv === 'none'){ toast('Pornește pozele din Setări.'); return; }
   const c = cur, ch = chat;
   let m;
