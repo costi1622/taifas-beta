@@ -309,7 +309,7 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
 .avgrid figure figcaption{position:absolute;left:0;right:0;bottom:0;padding:14px 6px 5px;font-size:.68rem;font-weight:700;color:#fff;background:linear-gradient(transparent,#000a);text-align:center}
 .avgrid figure.now{outline:2px solid var(--acc);outline-offset:-2px}
 .avgrid figure .ph{width:100%;height:100%;display:grid;place-items:center;color:var(--tx3);font-size:1.4rem}
-.wrapv{position:fixed;inset:0;z-index:80;background:var(--bg);overflow:auto;padding:calc(12px + var(--safe-t)) 14px calc(30px + var(--safe-b))}
+.wrapv{position:fixed;inset:0;z-index:80;background:var(--bg);overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;touch-action:pan-y;padding:calc(12px + var(--safe-t)) 14px calc(30px + var(--safe-b))}
 .wrapv .wtop{display:flex;align-items:center;gap:10px;margin-bottom:12px}
 .wrapv .wtop h2{flex:1;margin:0;font-size:1.35rem;font-weight:800;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
 .wrapv select{width:auto;padding:7px 10px}
@@ -485,7 +485,9 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
 #btnSend{width:44px;height:44px}
 #inp{min-width:0;min-height:44px;padding:11px 14px}
 #inp::placeholder{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--tx3)}
-.chathead small{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.3;font-size:.74rem}
+.chathead small{white-space:normal;display:block;overflow:hidden;line-height:1.3;font-size:.74rem}
+.chathead small .s1,.chathead small .s2{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chathead small .s2{color:var(--tx3)}
 #chTop .chathead .ib{flex:none}
 
 /* ===== 3.5 ===== */
@@ -990,7 +992,7 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
 
 <script>
 'use strict';
-const APP_VER = '6.1';
+const APP_VER = '6.3';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -1419,12 +1421,12 @@ function back(){
 window.addEventListener('popstate', () => {
   // intrarea-gardă de la pornire: Înapoi închide ce e deschis; abia pe Acasă, fără nimic deschis, iese din aplicație
   if(history.state && history.state.root){
-    if($('.scrim,.viewer,.rscrim') || setPanel || $('#vHome').hidden){ closeSheet(); closeReactPicker(); if(setPanel) closeSetPanel(true); if($('#vHome').hidden) goHome(); history.pushState(null, ''); }
+    if($('.scrim,.viewer,.wrapv,.rscrim') || setPanel || $('#vHome').hidden){ closeSheet(); closeReactPicker(); if(setPanel) closeSetPanel(true); if($('#vHome').hidden) goHome(); history.pushState(null, ''); }
     else history.back();
     return;
   }
   if($('.rscrim')){ closeReactPicker(); history.pushState(history.state, ''); return; }
-  if($('.scrim,.viewer')){ closeSheet(); history.pushState(history.state, ''); return; }
+  if($('.scrim,.viewer,.wrapv')){ closeSheet(); history.pushState(history.state, ''); return; }
   if(!$('#vSet').hidden && setPanel && !setPanelPushed){ closeSetPanel(); history.pushState({v:'vSet'}, ''); return; }
   const v = history.state && history.state.v;
   if(!$('#vSet').hidden && setPanel){ closeSetPanel(); return; }
@@ -1920,7 +1922,7 @@ async function openWrapped(mo){
   if(!months.length){ toast('Încă n-ai conversații. Revino după câteva zile de taifas.'); return; }
   mo = mo || months[0];
   closeSheet();
-  const v = document.createElement('div'); v.className = 'viewer wrapv';
+  const v = document.createElement('div'); v.className = 'wrapv';
   v.innerHTML = `<div class="wtop"><h2>Taifas Wrapped</h2><select id="wMo">${months.map(x => `<option value="${x}"${x === mo ? ' selected' : ''}>${esc(moName(x))}</option>`).join('')}</select><button class="ib" id="wX" aria-label="Închide">✕</button></div><div id="wBody"><p class="hint"><span class="spin"></span> Număr…</p></div>`;
   document.body.appendChild(v);
   v.querySelector('#wX').onclick = () => v.remove();
@@ -2291,6 +2293,8 @@ function moodOf(){
   for(const [re, e, n] of MOODS) if(re.test(acts)) return e + ' ' + n;
   return null;
 }
+// starea din antet, pe două rânduri scurte: 1) prezență + ce face acum  2) dispoziție, mesaj programat, fir
+const shortMood = t => { const x = String(t || '').trim(); const m = x.match(/^(\p{Extended_Pictographic}️?\s*)?(.*)$/u); let w = (m[2] || '').split(/[,;.]/)[0].trim().split(/\s+/).slice(0, 2).join(' '); return ((m[1] || '') + w).trim(); };
 function statusLine(){
   const last = [...chat.msgs].reverse().find(m => m.ts && !m.err);
   const ago = last ? Date.now() - last.ts : Infinity;
@@ -2298,13 +2302,14 @@ function statusLine(){
   if(ago < 10 * 60e3) st = '<span class="dot"></span>online';
   else {
     const min = Math.round(ago / 60e3), h = Math.round(min / 60), d = Math.round(h / 24);
-    st = '<span class="dot off"></span>ultima dată ' + (min < 60 ? `acum ${min} min` : h < 24 ? `acum ${h} h` : d === 1 ? 'ieri' : `acum ${d} zile`);
+    st = '<span class="dot off"></span>' + (min < 60 ? `acum ${min} min` : h < 24 ? `acum ${h} h` : d === 1 ? 'ieri' : `acum ${d} zile`);
   }
+  const lf = lifeNow(cur); if(lf && lf.w) st += ' · ' + (LIFE_E[lf.b] || '') + ' ' + esc(lf.w);
   const mood = moodOf();
   const ts = threadsOf(cur), t = ts.length > 1 ? ts.find(x => x.id === (cur.thread || 'main')) : null;
-  const lf = lifeNow(cur); if(lf && lf.w) st += ' · ' + (LIFE_E[lf.b] || '') + ' ' + esc(lf.w.length > 26 ? lf.w.slice(0, 25) + '…' : lf.w);
   const nx = (cur.sched || []).find(x => x.tid === (chat.tid || 'main') && x.at > Date.now());
-  return st + (mood ? ' · ' + mood : '') + (nx ? ' · ⏰ ' + esc(whenText(nx.at)) : '') + (t ? ' · 🧵 ' + esc(t.title) : '');
+  const l2 = [mood ? esc(shortMood(mood)) : '', nx ? '⏰ ' + esc(whenText(nx.at)) : '', t ? '🧵 ' + esc(t.title) : ''].filter(Boolean).join(' · ');
+  return `<span class="s1">${st}</span>${l2 ? `<span class="s2">${l2}</span>` : ''}`;
 }
 // buton „jos" + contor de mesaje noi
 let jumpCount = 0;
@@ -3485,7 +3490,7 @@ function openSheet(html){
   s.addEventListener('click', e => { if(e.target === s || e.target.closest('[data-close]')) closeSheet(); });
   document.body.appendChild(s);
 }
-function closeSheet(){ $$('.scrim,.viewer').forEach(x => x.remove()); }
+function closeSheet(){ $$('.scrim,.viewer,.wrapv').forEach(x => x.remove()); }
 function sheet(opts){
   openSheet(opts.map((o, k) => `<button class="opt ${o[3] || ''}" data-k="${k}"><i>${o[0]}</i>${esc(o[1])}</button>`).join(''));
   $$('.sheet .opt').forEach(b => b.onclick = () => { closeSheet(); opts[+b.dataset.k][2](); });
