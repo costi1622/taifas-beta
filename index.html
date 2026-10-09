@@ -1008,7 +1008,7 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
 
 <script>
 'use strict';
-const APP_VER = '6.7';
+const APP_VER = '6.8';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -1419,18 +1419,27 @@ function framingOf(shot){
 // promptul pozei dintr-o scenă: scena e prima și decide totul; referința dă doar fața
 async function scenePhoto(c, shot, signal){
   const stil = STIL_TAG[c.stil || 'photo'], fr = framingOf(shot);
-  if(S.imgProv === 'worker' || S.imgProv === 'fal'){
-    const ref = await faceRef(c);
-    const prompt = ref
-      ? `${fr.p}. ${shot}. The person is the same as in the reference image. The reference is only a tight crop of the face, used ONLY for identity: keep that exact face, eyes, eyebrows, hair color and hairstyle. Do NOT copy the framing or zoom of the reference${fr.k === 'close' ? '' : ': zoom out, the face is small in the frame so the body, the pose and the place are visible'}. Take the location, background, body position and pose, clothing, camera angle and lighting only from the scene description above, exactly as written; nothing from the reference except the face. ${stil}`
-      : [c.look || '', shot, stil].filter(Boolean).join('. ');
-    return {prompt, blob: await genImage(prompt, ref, signal)};
+  // 6.8: poza de profil ÎNTREAGĂ e reperul principal pentru orice poză din chat (identitate: față, corp, păr, ten);
+  // fața decupată merge ca al doilea reper (detaliile feței la rezoluție bună). Scena și încadrarea vin primele în prompt.
+  const full = c.photo ? await DB.get(c.photo) : null;
+  if(full && S.imgProv === 'worker'){
+    let face = null; try{ face = await faceRef(c); }catch(e){}
+    const prompt = `${fr.p}. ${shot}. The person in this photo is exactly the same person as in the reference images: image 1 is her profile photo (whole appearance), ${face ? 'image 2 is a close-up of the same face. ' : ''}Keep the identity identical to the reference: the same face and facial features, skin tone, eyes, eyebrows, nose, lips, hair color, hair texture and hairstyle, the same body type. Do NOT copy the background, the location, the outfit, the pose or the framing of image 1: this is a new photo, where the location, background, body position, clothing, camera angle and lighting come only from the scene description above. ${stil}`;
+    return {prompt, blob: await genImage(prompt, full, signal, face)};
   }
-  const ref = c.photo ? await DB.get(c.photo) : null;   // Gemini: poza întreagă, ține bine fața și urmează scena
+  if(full && S.imgProv === 'fal'){
+    const prompt = `${fr.p}. ${shot}. Same person as in the reference image (same face, skin tone, hair, body type); new location, outfit, pose and light exactly as described, not those of the reference. ${stil}`;
+    return {prompt, blob: await genImage(prompt, full, signal)};
+  }
+  if(S.imgProv === 'worker' || S.imgProv === 'fal'){
+    const prompt = [c.look || '', fr.p, shot, stil].filter(Boolean).join('. ');
+    return {prompt, blob: await genImage(prompt, null, signal)};
+  }
+  const ref = full;   // Gemini: poza întreagă, ține bine fața și urmează scena
   const prompt = [fr.p, shot, ref ? 'Same person as in the reference image; take only the face and hair from it, everything else (place, pose, clothing, light) from this description' : c.look || '', stil].filter(Boolean).join('. ');
   return {prompt, blob: await genImage(prompt, ref, signal)};
 }
-async function genImage(prompt, ref, signal){
+async function genImage(prompt, ref, signal, ref2){
   if(S.imgProv === 'gemini'){
     if(!S.gemKey) throw new Error('Lipsește cheia Google în Setări → Poze.');
     const parts = [{text: ref ? 'Keep the exact same person from the reference image (same face, identity, hair). New photo: ' + prompt : prompt}];
@@ -1453,7 +1462,9 @@ async function genImage(prompt, ref, signal){
     fd.append('prompt', prompt); fd.append('model', S.wkModel || 'ancorat'); fd.append('size', S.wkSize || '576x768');
     fd.append('seed', String(Math.floor(Math.random() * 1e9)));
     // poza de referință micșorată la 512 px: o singură bucată de intrare → cost minim
-    if(ref) fd.append('image', await toJpeg(ref, 512, .9), 'ref.jpg');
+    // 6.8: poza de profil la 768 px (identitate mai bună) + fața decupată ca al doilea reper (Worker v5: image_1)
+    if(ref) fd.append('image', await toJpeg(ref, ref2 ? 768 : 512, .9), 'ref.jpg');
+    if(ref && ref2) fd.append('image_1', ref2, 'face.jpg');
     const r = await fetch(wkUrl() + '/images/generations', {method:'POST', signal, body:fd,
       headers: S.wkTok ? {authorization:'Bearer ' + S.wkTok.trim()} : {}});
     if(!r.ok) throw new Error(await errText(r));
@@ -1912,7 +1923,7 @@ function drawPics(c){
   $('#pfPicsOn').onclick = async () => { c.sendPics = !on; await saveChars(); drawPics(c); toast(c.sendPics ? '📷 ' + c.name + ' îți poate trimite poze' : c.name + ' nu mai trimite poze singur'); };
   if(c.photo && (S.imgProv === 'worker' || S.imgProv === 'fal')){
     const fb = c.faceBox && c.faceBox.k === c.photo ? c.faceBox : null;
-    box.insertAdjacentHTML('beforeend', `<div class="faceref"><div class="fimg" id="pfFace">${fb ? '<span class="spin"></span>' : '?'}</div><div><b>Fața folosită pentru poze</b><small>${fb ? (fb.none ? 'Nu am găsit fața; folosesc partea de sus a pozei.' : 'Doar fața merge la generator; locul, poziția și hainele vin din scenă.') : 'Se caută la prima poză.'}</small><button class="btn sm" id="pfFaceRe">${fb ? '↻ Caută din nou' : '🔍 Caută acum'}</button></div></div>`);
+    box.insertAdjacentHTML('beforeend', `<div class="faceref"><div class="fimg" id="pfFace">${fb ? '<span class="spin"></span>' : '?'}</div><div><b>Fața (al doilea reper)</b><small>${fb ? (fb.none ? 'Nu am găsit fața; folosesc partea de sus a pozei.' : 'Al doilea reper, pentru detaliile feței. Reperul principal rămâne poza de profil întreagă.') : 'Se caută la prima poză.'}</small><button class="btn sm" id="pfFaceRe">${fb ? '↻ Caută din nou' : '🔍 Caută acum'}</button></div></div>`);
     const show = async force => { const el = $('#pfFace'); if(!el) return; el.innerHTML = '<span class="spin"></span>';
       try{ const b = await faceRef(c, force); if(profId !== c.id) return; const u = URL.createObjectURL(b); el.innerHTML = `<img src="${u}" alt="">`; if(force) drawPics(c); }catch(e){ el.textContent = '!'; toast('N-am putut decupa fața: ' + e.message, 3500); } };
     if(fb) show(false);
@@ -4083,8 +4094,9 @@ const tiles = (w, h) => Math.ceil(w / 512) * Math.ceil(h / 512);
 function neurPerPhoto(model = S.wkModel, size = S.wkSize){
   // Worker-ul folosește automat klein 4B (eco) când primește poză de referință și modelul ales nu o acceptă
   if(!['eco', 'ancorat', 'ancorat+'].includes(model)) model = 'eco';
-  const [w, h] = String(size || '768x1024').split('x').map(Number), mp = w * h / 1048576, refMp = 512 * 512 / 1048576;
-  if(model === 'eco') return tiles(w, h) * 26.05 + 5.37;
+  // 6.8: referințe = poza de profil la 768 px (~4 bucăți) + fața 512 px (1 bucată)
+  const [w, h] = String(size || '768x1024').split('x').map(Number), mp = w * h / 1048576, refMp = (576 * 768 + 512 * 512) / 1048576;
+  if(model === 'eco') return tiles(w, h) * 26.05 + 5 * 5.37;
   if(model === 'ancorat') return 1363.64 + Math.max(0, mp - 1) * 181.82 + refMp * 181.82;
   return null;                                  // FLUX.2 dev: depinde de pași, mult mai scump
 }
