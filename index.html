@@ -1462,7 +1462,7 @@ input:focus,textarea:focus,select:focus{border-color:color-mix(in srgb,var(--acc
       </div>
       <label style="margin-top:14px">Verificare automată a pozelor din chat</label>
       <div class="seg" id="stImgCheck"><button data-v="on">Pornită</button><button data-v="off">Oprită</button></div>
-      <p class="hint">Pornită: după fiecare poză, Claude Haiku o compară cu poza de profil și cu scena din chat. Dacă nu seamănă sau nu e locul, o reface o dată și păstrează varianta mai bună (~0,2 cenți verificarea; o poză în plus doar când e nevoie).</p>
+      <p class="hint">Pornită: după fiecare poză, Claude Haiku compară identitatea cu poza de profil și verifică scena. Dacă fața diferă sau scena nu corespunde, o reface o dată și păstrează varianta mai bună. Identitatea și proporțiile corpului rămân fixe; locul, hainele, poziția și camera se adaptează conversației. Verificarea folosește modelul AI configurat.</p>
       <div class="btns" id="stImgTestWrap"><button type="button" class="btn sm" id="stImgTest">🧪 Testează pozele</button></div>
       <div class="status" id="stImgRes"></div>
       <div id="stAltWrap" hidden>
@@ -1579,7 +1579,7 @@ input:focus,textarea:focus,select:focus{border-color:color-mix(in srgb,var(--acc
 
 <script>
 'use strict';
-const APP_VER = '8.11';
+const APP_VER = '8.12';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -1618,7 +1618,7 @@ const DEF = {
   imgProv:'none', gemKey:'', gemModel:'gemini-2.5-flash-image',
   wkBase:'', wkTok:'', wkModel:'eco', wkSize:'768x1024',
   sugg:'off', pro:'on', feed:'text', fx:'on', regen3:'on', voice:'tap', tts:'tel', cfPlan:'free', cfCap:'free', elKey:'', elModel:'eleven_v3', theme:'dark', vmsg:'rar', jrn:'on', aux:'on', ctxN:'30',
-  imgCheck:'on', story:'on', sky:'on', social:'on', userBday:'', lock:'off', pushOn:false, bkEvery:'week', bkLast:0, userPhoto:'', userPhys:'', userBox:null, wkChat:'', wkRef:'auto', falKey:'', falModel:'fal-ai/flux-pulid', falSize:'576x768', spont:'rar', imgAlt:'fal', sv:34, imgCost:'', pIn:'', pOut:''
+  imgCheck:'on', story:'on', sky:'on', social:'on', userBday:'', lock:'off', pushOn:false, bkEvery:'week', bkLast:0, userPhoto:'', userPhys:'', userBox:null, wkChat:'ancorat', wkRef:'auto', falKey:'', falModel:'fal-ai/flux-pulid', falSize:'576x768', spont:'rar', imgAlt:'fal', sv:34, imgCost:'', pIn:'', pOut:''
 };
 let S = {...DEF};
 let chars = [];            // [{id,name,tag,photo,aspect,look,stil,persona,speech,greet,created,lastAt,last}]
@@ -2081,7 +2081,7 @@ function idPrompt(c, shot, fr, R, fix, two){
   const refs = two
     ? 'image 1 is a close-up of the face (the exact identity to keep: face shape, eyes, eyebrows, nose, lips, skin tone and skin texture), image 2 shows the same person\'s hair, skin tone and body type' + (nx ? `, image${nx > 1 ? 's 3 and 4 are' : ' 3 is'} the same face from other angles` : '')
     : 'the reference image shows the same person (face, hair, skin tone, body type)';
-  return `${fr.p}. ${shot}.${fix ? ` Important corrections from the previous attempt: ${fix}.` : ''} The person in this photo is exactly the same real person as in the reference images: ${refs}. Keep the identity identical: the same face and facial features, the same skin tone, the same hair color, texture and hairstyle, the same body type and proportions.${phys} Do NOT copy the background, the outfit, the pose or the framing of the references: location, background, body position, clothing, camera angle and lighting come only from the scene description above. ${STIL_TAG[c.stil || 'photo']}`;
+  return `${fr.p}. ${shot}.${fix ? ` Important corrections from the previous attempt: ${fix}.` : ''} IDENTITY LOCK — the reference images define one specific character, not a lookalike. Reproduce the same individual: preserve face shape, eye spacing and shape, eyebrows, nose, lips, jaw, apparent age, skin tone and texture, hairline, hair color, curl/strand texture and hairstyle. Preserve the exact body build and proportions visible in the reference; do not slim, enlarge, reshape or replace the body. ${refs}.${phys} SCENE FLEXIBILITY — do not copy the reference photo's background, outfit, pose, expression, camera angle or framing. Those are allowed to change and must follow the current scene description above. Change only temporary details required by the scene; the character's identity and natural body proportions stay fixed. ${STIL_TAG[c.stil || 'photo']}`;
 }
 // încadrarea scrisă explicit la început (altfel modelul copiază încadrarea referinței)
 function framingOf(shot){
@@ -2198,13 +2198,13 @@ async function scenePhoto(c, shot, signal, fix, opt = {}){
   // 8.3: pozele din chat prin fal.ai PuLID (model făcut să păstreze fața), restul aplicației rămâne pe Worker
   if(full && S.imgProv === 'worker' && S.wkChat === 'fal' && S.falKey){
     const face = await cropFace(full, id && !id.none ? id : null);
-    const prompt = `${fr.p}. ${shot}.${fix ? ` Important corrections from the previous attempt: ${fix}.` : ''}${physFull(c, id) ? ' The person: ' + physFull(c, id) + '.' : ''} ${stil}`;
+    const prompt = `${fr.p}. ${shot}.${fix ? ` Important corrections from the previous attempt: ${fix}.` : ''} Use the supplied face reference as a strict identity anchor, not as inspiration: this must be the same individual, with the same facial geometry, eye shape and spacing, nose, lips, jaw, skin tone and texture, hairline, hair color and texture. Do not generate a similar-looking substitute. Keep the character's natural body build and proportions consistent with the permanent traits below; do not reshape the body. ${physFull(c, id) ? 'Permanent face and body traits: ' + physFull(c, id) + '.' : ''} Only the location, clothing, pose, expression, camera angle and lighting may change, following this scene description. ${stil}`;
     return {prompt, blob: await genImage(prompt, face, signal, null, {prov:'fal'})};
   }
   if(full && S.imgProv === 'worker'){
     const R = await idRefs(c);
     const prompt = idPrompt(c, shot, fr, R, fix, true);
-    return {prompt, blob: await genImage(prompt, R.face, signal, R.body, {model: S.wkChat && S.wkChat !== 'fal' ? S.wkChat : S.wkModel, p1: idPrompt(c, shot, fr, R, fix, false), extra: R.extra})};
+    return {prompt, blob: await genImage(prompt, R.face, signal, R.body, {model: S.wkChat && S.wkChat !== 'fal' ? S.wkChat : (S.wkModel === 'eco' ? 'ancorat' : S.wkModel), p1: idPrompt(c, shot, fr, R, fix, false), extra: R.extra})};
   }
   if(full && S.imgProv === 'fal'){
     const prompt = `${fr.p}. ${shot}.${fixLine} Same person as in the reference image (same face, skin tone, hair, body type).${phys} New location, outfit, pose and light exactly as described, not those of the reference. ${stil}`;
@@ -2222,12 +2222,12 @@ async function checkPhoto(c, blob, shot, signal, together){
   pstage(signal, '🔍 Se uită dacă a ieșit bine', 97);
   const full = c.photo ? await DB.get(c.photo) : null; if(!full || !aiReady()) return null;
   const out = await stream('You are a strict photo checker. Answer with JSON only.', [{role:'user', images:[await blobToB64(await toJpeg(full, 768, .85)), await blobToB64(await toJpeg(blob, 768, .85))], text:
-`Image 1 is the reference profile photo of a person. Image 2 was generated and must show the SAME person in this scene: "${shot}".${together ? ' Image 2 must show two people together (this person and a companion); judge "face" only for the person of image 1, and "scene" also checks that there are exactly two people in one single photo (not a collage or split screen).' : ''}
+`Image 1 is the character's profile reference. Image 2 must depict that exact same individual in this scene: "${shot}". Identity is more important than artistic variation. Compare facial geometry, eye spacing, nose, lips, jaw, skin tone, hairline and hairstyle; if the body is visible in both images, also compare overall build and proportions. Do not penalize legitimate changes in clothing, pose, expression, lighting, camera angle or location when those follow the scene description.${together ? ' Image 2 must show exactly two people together in one natural photo (not a collage or split screen); score the character from image 1 for identity.' : ''}
 Score strictly from 0 to 10:
-- "face": is image 2 recognisably the same person as image 1 (face shape, features, skin tone, hair color and style)? 10 = clearly the same person, 5 = similar type but a different person, 0 = clearly someone else.
-- "scene": does image 2 show the described place, body position and clothes (not the background/outfit of image 1)?
-- "framing": does the framing match the description (full body / mirror selfie / selfie)?
-"fix": if anything scores below 7, ONE short English instruction for the next attempt that names concretely what to correct; otherwise "".
+- "face": is this unmistakably the same person, not merely a similar-looking person? 10 = strong match, 5 = noticeable identity drift, 0 = different person.
+- "scene": does the generated photo match the requested place, activity, clothing and pose?
+- "framing": does the camera framing match the requested selfie / mirror / full-body / close-up view?
+"fix": if face is below 8 or scene below 6 or framing below 5, give ONE short concrete English correction prioritizing identity first, then scene; otherwise "".
 JSON: {"face":0,"scene":0,"framing":0,"fix":""}`}], {max:220, signal, cid:c.id, aux:true});
   const j = parseJSON(out), n = k => Math.max(0, Math.min(10, Math.round(+j[k] || 0)));
   return {face:n('face'), scene:n('scene'), framing:n('framing'), fix:String(j.fix || '').slice(0, 300)};
@@ -2237,7 +2237,7 @@ async function makeScenePhoto(c, shot, signal, opt = {}){
   let a = await scenePhoto(c, shot, signal, null, opt);
   if(S.imgCheck === 'off' || !aiReady()) return a;
   try{ a.check = await checkPhoto(c, a.blob, shot, signal, opt.together); }catch(e){ if(e.name === 'AbortError') throw e; return a; }
-  const bad = x => x && (x.face < 7 || x.scene < 6 || x.framing < 5);
+  const bad = x => x && (x.face < 8 || x.scene < 6 || x.framing < 5);
   if(!bad(a.check) || (S.wkChat !== 'fal' && capLeft() < (neurPerPhoto(S.wkChat || S.wkModel) || 5000))) return a;
   let b;
   try{ b = await scenePhoto(c, shot, signal, a.check.fix || 'follow the scene and keep the face of the reference', opt); addUsage(c.id, imgPrice(), 'img'); }
@@ -6010,9 +6010,9 @@ function drawChatHint(){
   const el = $('#stWkChatHint'); if(!el) return;
   const e = neurPerPhoto('eco'), f = neurPerPhoto('ancorat');
   if(S.wkChat === 'fal'){ el.innerHTML = 'Pozele din chat merg prin fal.ai PuLID, un model făcut special să păstreze aceeași față (din fața decupată din poza de profil). Plătit separat la fal.ai, câțiva cenți pe poză; nu consumă neuroni Cloudflare. Stickerele, avatarul, statusurile și pozele împreună rămân pe Worker.' + (S.falKey ? '' : ' <b>Pune cheia fal.ai mai jos.</b>'); return; }
-  el.innerHTML = S.wkChat === 'ancorat'
+  el.innerHTML = S.wkChat === 'ancorat' || !S.wkChat
     ? `9B ține fața mult mai bine. ~${Math.round(f).toLocaleString('ro-RO')} neuroni pe poză: cam ${Math.floor(10000 / f)} poze pe zi în cota gratuită, apoi ~${usd(f * NEUR_USD)} pe poză (limita zilnică din Setări rămâne în vigoare). Stickerele, avatarul și statusurile rămân pe modelul de mai jos.`
-    : `Eco: ~${Math.round(e)} neuroni pe poză (cam ${Math.floor(10000 / e)} pe zi gratuit). Ține bine scena, mai slab fața. Fidel (9B): ~${Math.round(f).toLocaleString('ro-RO')} neuroni pe poză.`;
+    : `Fidel (9B) este recomandat pentru chat: ~${Math.round(f).toLocaleString('ro-RO')} neuroni pe poză și folosește repere pentru față și aspectul corpului. Eco: ~${Math.round(e)} neuroni pe poză, mai ieftin dar cu risc mai mare de schimbare a identității.`;
 }
 async function refTest(){
   const c = (cur && cur.photo) ? cur : chars.find(x => x.photo);
@@ -6316,6 +6316,8 @@ async function init(){
   S = {...DEF, ...(saved || {})};
   if(saved) S.sv = saved.sv || 0;                     // setări vechi fără versiune: rulăm migrările
   if(saved && (S.sv || 0) < 25){ if(S.spont === 'off') S.spont = 'rar'; S.sv = 25; saveSettings(); }
+  // 8.12: pozele din chat prioritizează fidelitatea identității, nu modelul eco.
+  if((S.sv || 0) < 35){ if(!S.wkChat) S.wkChat = 'ancorat'; S.sv = 35; saveSettings(); }
   chars = (await DB.get('chars') || []).filter(c => c && c.id && c.name);
   if((S.sv || 0) < 34){
     if(S.wkModel === 'ancorat') S.wkModel = 'eco';
