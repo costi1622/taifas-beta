@@ -849,7 +849,8 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
 .plst.chg{animation:plchg .4s cubic-bezier(.2,.8,.3,1)}
 @keyframes plchg{from{opacity:0;transform:translateY(6px)}}
 .plbar{width:60%;max-width:220px;height:4px;border-radius:4px;background:#ffffff26;overflow:hidden;margin-top:8px}
-.plbar i{display:block;height:100%;border-radius:4px;background:var(--grad);transition:width 28s cubic-bezier(.1,.7,.3,1);box-shadow:0 0 12px var(--acc)}
+.plbar i{display:block;height:100%;border-radius:4px;background:var(--grad);transition:width .15s linear;box-shadow:0 0 12px var(--acc)}
+.plpct{margin-top:6px;font-size:.78rem;font-weight:800;font-variant-numeric:tabular-nums;opacity:.9}
 .plgrain{position:absolute;inset:0;opacity:.1;mix-blend-mode:overlay;background-image:radial-gradient(#fff 1px,transparent 1px);background-size:3px 3px;animation:grain .5s steps(4) infinite}
 @keyframes grain{25%{transform:translate(-1px,1px)}50%{transform:translate(1px,-1px)}75%{transform:translate(1px,1px)}}
 .picbox.flash::after{content:"";position:absolute;inset:0;border-radius:inherit;background:#fff;pointer-events:none;animation:flashw .7s ease-out forwards}
@@ -857,6 +858,10 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
 .picbox{position:relative}
 .pic.dev.go{animation-duration:3.2s!important}
 @media (prefers-reduced-motion:reduce){.plgrain,.picbox.flash::after{animation:none;display:none}}
+.bodyn small{display:block;color:var(--tx2);font-size:.8rem;line-height:1.4;margin-top:4px}
+.bodyn small i{color:var(--tx3)}
+.bodyn textarea{margin-top:8px;width:100%}
+.bodyn .btns{margin-top:8px}
 #toast{position:fixed;left:50%;bottom:calc(90px + var(--safe-b));transform:translateX(-50%);background:#2a2433;border:1px solid var(--line);padding:10px 16px;border-radius:12px;z-index:99;max-width:90vw;font-size:.9rem;box-shadow:0 6px 20px #0008;transition:opacity .2s;pointer-events:none}
 #toast:empty{opacity:0}
 
@@ -1014,8 +1019,10 @@ input:focus,textarea:focus,select:focus{border-color:color-mix(in srgb,var(--acc
 .mephoto small{display:block;color:var(--tx3);font-size:.8rem;margin-top:6px;line-height:1.4}
 
 /* 8.2: textul informativ nu se mai taie cu „…”; se rupe pe rânduri (rămân scurtate doar previzualizările din liste și numele) */
-.chathead small,.chathead small .s1,.chathead small .s2{white-space:normal;overflow:visible;text-overflow:clip;line-height:1.3}
-.chathead small .s2{margin-top:1px}
+.chathead small{white-space:normal;overflow:visible;line-height:1.35}
+/* 8.9.2: antetul stă pe cel mult două rânduri, fiecare tăiat curat cu „…” (textul întreg e în profil) */
+.chathead small .s1,.chathead small .s2{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.35;padding:1px 0}
+.chathead small .s2{margin-top:0}
 .card .cst{white-space:normal;overflow:visible;line-height:1.3}
 .srow small{white-space:normal;overflow:visible;line-height:1.35}
 #sceneBar,#chTop #sceneBar{white-space:normal;overflow:visible;text-overflow:clip;line-height:1.35}
@@ -1479,7 +1486,7 @@ input:focus,textarea:focus,select:focus{border-color:color-mix(in srgb,var(--acc
 
 <script>
 'use strict';
-const APP_VER = '8.9.1';
+const APP_VER = '8.9.2';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -1883,18 +1890,21 @@ function todEn(){
 // trăsăturile fizice + poziția feței, citite o singură dată per poză de profil (c.faceBox: {k, x,y,w,h | none, phys})
 async function identityOf(c, force){
   if(!c.photo) return null;
-  if(!force && c.faceBox && c.faceBox.k === c.photo && c.faceBox.phys !== undefined && (c.faceBox.phys || !aiReady() || Date.now() - (c.faceBox.at || 0) < 864e5)) return c.faceBox;
+  if(!force && c.faceBox && c.faceBox.k === c.photo && c.faceBox.phys !== undefined && (c.faceBox.v === 2 || !aiReady()) && (c.faceBox.phys || !aiReady() || Date.now() - (c.faceBox.at || 0) < 864e5)) return c.faceBox;
   const full = await DB.get(c.photo); if(!full) return null;
   let b = null, phys = '';
   if(aiReady()){
     try{
       const out = await stream('You analyse reference photos for an image generator. Answer with JSON only.', [{role:'user', image:await blobToB64(await toJpeg(full, 1024, .85)), text:
 `1. Find the main person's face (forehead to chin, ear to ear) as fractions 0-1 of the image width/height, top-left origin.
-2. Describe ONLY the permanent physical traits of that person, in English, comma-separated, max 55 words: apparent age, skin tone, face shape, eye color and shape, eyebrows, nose, lips, hair (exact color, length, texture, parting, style), glasses if worn, body build and proportions, distinctive marks (moles, freckles, tattoos, piercings). NO clothing, NO jewelry except glasses/piercings, NO background, NO pose, NO expression.
-JSON: {"x":0.0,"y":0.0,"w":0.0,"h":0.0,"physique":"..."} (if no face is visible, x,y,w,h = 0)`}], {max:400, aux:true});
+2. "physique": ONLY the permanent traits of the face and head, in English, comma-separated, max 50 words: apparent age, ethnicity-neutral skin tone, face shape, eye color and shape, eyebrows, nose, lips, hair (exact color, length, texture, parting, style), glasses if worn, distinctive marks (moles, freckles, tattoos, piercings).
+3. "body": the body exactly as it looks in the photo, in neutral factual English, comma-separated, max 45 words: apparent height (petite / average / tall), build (slim, slender, athletic, average, curvy, full-figured, plus-size, muscular), shoulders, waist, hips and legs proportions, overall body shape, skin tone on the body. If the body is not visible, write "not visible".
+NO clothing, NO jewelry except glasses/piercings, NO background, NO pose, NO expression.
+JSON: {"x":0.0,"y":0.0,"w":0.0,"h":0.0,"physique":"...","body":"..."} (if no face is visible, x,y,w,h = 0)`}], {max:600, aux:true});
       const j = parseJSON(out), n = k => Math.min(1, Math.max(0, +j[k] || 0));
       if(n('w') > .02 && n('h') > .02) b = {x:n('x'), y:n('y'), w:n('w'), h:n('h'), by:'ai'};
       phys = String(j.physique || '').trim().slice(0, 500);
+      const bd = String(j.body || '').trim(); if(bd && !/not visible/i.test(bd)) phys += (phys ? '; body: ' : 'body: ') + bd.slice(0, 400);
     }catch(e){}
   }
   if(!b && 'FaceDetector' in window){
@@ -1903,7 +1913,7 @@ JSON: {"x":0.0,"y":0.0,"w":0.0,"h":0.0,"physique":"..."} (if no face is visible,
       if(f){ const r = f.boundingBox; b = {x:r.x / im.naturalWidth, y:r.y / im.naturalHeight, w:r.width / im.naturalWidth, h:r.height / im.naturalHeight, by:'tel'}; } }catch(e){}
     finally{ URL.revokeObjectURL(u); }
   }
-  c.faceBox = b ? {k:c.photo, ...b, phys, at:Date.now()} : {k:c.photo, none:true, phys, at:Date.now()};
+  c.faceBox = b ? {k:c.photo, ...b, phys, at:Date.now(), v:2} : {k:c.photo, none:true, phys, at:Date.now(), v:2};
   await saveChars();
   return c.faceBox;
 }
@@ -1931,7 +1941,23 @@ async function faceRef(c, force){
 /* 8.3: Cloudflare (FLUX.2) primește reperele ca imagini de 512×512. Poza de profil întreagă micșorată la 512 lasă fața
    de câțiva pixeli, deci identitatea se pierde. Acum: reperul 1 = fața decupată (512, cât mai mulți pixeli pe față),
    reperul 2 = poza de profil decupată pătrat de la cap la talie (păr, ten, siluetă). Reper unic (Worker fără 2 repere): reperul 2. */
+// 8.9.2: trăsăturile citite din poza de profil + ce ai scris tu despre corp (are prioritate)
+function physFull(c, id){
+  const a = id && id.phys ? id.phys : '', u = c && c.physEn ? c.physEn : '';
+  return u ? (a ? a + '. ' : '') + 'Exact body and looks, this overrides anything else: ' + u : a;
+}
 async function bodySquare(blob, b){
+  // 8.9.2: dacă poza de profil e cu tot corpul (fața mică), reperul 2 e toată poza, încadrată, ca proporțiile corpului să ajungă la generator
+  if(b && !b.none && b.h < .2){
+    const u = URL.createObjectURL(blob);
+    try{
+      const im = await loadImgEl(u), W = im.naturalWidth, H = im.naturalHeight, k = 512 / Math.max(W, H);
+      const cv = document.createElement('canvas'); cv.width = cv.height = 512; const g = cv.getContext('2d');
+      g.filter = 'blur(24px) brightness(.8)'; g.drawImage(im, -40, -40, 592, 592); g.filter = 'none';
+      g.drawImage(im, (512 - W * k) / 2, (512 - H * k) / 2, W * k, H * k);
+      return await new Promise(r => cv.toBlob(r, 'image/jpeg', .92));
+    } finally { URL.revokeObjectURL(u); }
+  }
   const u = URL.createObjectURL(blob);
   try{
     const im = await loadImgEl(u), W = im.naturalWidth, H = im.naturalHeight;
@@ -1967,7 +1993,7 @@ async function faceBoxOf(blob){
   }catch(e){ return null; }
 }
 function idPrompt(c, shot, fr, R, fix, two){
-  const phys = R && R.id && R.id.phys ? ` Permanent physical traits (exactly as in the reference): ${R.id.phys}.` : '';
+  const phys = physFull(c, R && R.id) ? ` Permanent physical traits (exactly as in the reference): ${physFull(c, R && R.id)}.` : '';
   const nx = two && R && R.extra ? R.extra.length : 0;
   const refs = two
     ? 'image 1 is a close-up of the face (the exact identity to keep: face shape, eyes, eyebrows, nose, lips, skin tone and skin texture), image 2 shows the same person\'s hair, skin tone and body type' + (nx ? `, image${nx > 1 ? 's 3 and 4 are' : ' 3 is'} the same face from other angles` : '')
@@ -1988,14 +2014,26 @@ function framingOf(shot){
 // 8.9: etapele pozei, afișate în locul pozei care „se developează”
 function pstage(signal, t, p){
   if(!busy || !signal || busy.signal !== signal || !live || !live.photo) return;
-  live.stage = {t, p};
+  live.stage = {t, p, pv:Math.max(live.stage ? live.stage.pv || 0 : 0, 0)};
   const el = $('#msgs .picload'); if(!el) return;
-  const st = el.querySelector('.plst'), bar = el.querySelector('.plbar i');
+  const st = el.querySelector('.plst');
   if(st && st.textContent !== t){ st.textContent = t; st.classList.remove('chg'); void st.offsetWidth; st.classList.add('chg'); }
-  if(bar){ bar.style.transitionDuration = p >= 80 ? '1s' : '28s'; bar.style.width = p + '%'; }
+}
+// 8.9.2: bara se umple continuu: urcă spre ținta etapei curente, tot mai încet, fără s-o atingă până nu trece la etapa următoare
+function pTick(){
+  if(!live || !live.photo || !live.stage) return;
+  const g = live.stage, gap = g.p - (g.pv || 0);
+  if(gap > 0) g.pv = (g.pv || 0) + Math.max(.03, gap * (g.p <= 30 ? .045 : g.p >= 95 ? .06 : .011));
+  pDraw(g.pv);
+}
+function pDraw(v){
+  const el = $('#msgs .picload'); if(!el) return;
+  const bar = el.querySelector('.plbar i'), pc = el.querySelector('.plpct');
+  if(bar) bar.style.width = Math.min(100, v) + '%';
+  if(pc) pc.textContent = Math.min(100, Math.floor(v)) + '%';
 }
 async function planShot(c, ch, {promised = '', exclude = null, signal, together = false} = {}){
-  pstage(signal, '🎬 Își alege locul și cadrul', 18);
+  pstage(signal, '🎬 Își alege locul și cadrul', 22);
   const u = S.userName.trim() || 'User';
   const hist = ch.msgs.filter(x => x !== exclude && x.text && !x.err && !x.pending);
   const acts = t => (t.match(/\*[^*]+\*/g) || []).join(' ');
@@ -2066,18 +2104,18 @@ async function scenePhoto(c, shot, signal, fix, opt = {}){
     const ref = await pairRef(full, me, cb, ub);
     const head = `${togetherFraming(shot)}. ${shot}.${fix ? ` Important corrections from the previous attempt: ${fix}.` : ''} Exactly two people in this photo, ${c.name} and ${u}, together in the scene described above.`;
     const tail = `Keep both identities exactly as in the references: the same faces, facial features, skin tones, hair and body types. This is ONE single natural photo of the two of them together: not a collage, not a split screen, no border, no gray background; the location, clothing, poses and light come only from the scene description. ${stil}`;
-    const pPair = `${head} The reference image shows the two of them side by side: on the LEFT is ${c.name}${id && id.phys ? ' (' + id.phys + ')' : ''}; on the RIGHT is ${u}${S.userPhys ? ' (' + S.userPhys + ')' : ''}. ${tail}`;
-    const pTwo = `${head} Image 1 is a close-up of ${c.name}'s face${id && id.phys ? ' (' + id.phys + ')' : ''}; image 2 is a close-up of ${u}'s face${S.userPhys ? ' (' + S.userPhys + ')' : ''}. ${tail}`;
+    const pPair = `${head} The reference image shows the two of them side by side: on the LEFT is ${c.name}${physFull(c, id) ? ' (' + physFull(c, id) + ')' : ''}; on the RIGHT is ${u}${S.userPhys ? ' (' + S.userPhys + ')' : ''}. ${tail}`;
+    const pTwo = `${head} Image 1 is a close-up of ${c.name}'s face${physFull(c, id) ? ' (' + physFull(c, id) + ')' : ''}; image 2 is a close-up of ${u}'s face${S.userPhys ? ' (' + S.userPhys + ')' : ''}. ${tail}`;
     const model = S.imgProv === 'worker' ? (S.wkChat && S.wkChat !== 'fal' ? S.wkChat : S.wkModel) : undefined;
     if(S.imgProv === 'worker') return {prompt:pTwo, blob: await genImage(pTwo, await cropFace(full, cb), signal, await cropFace(me, ub), {model, p1:pPair, one:ref})};
     return {prompt:pPair, blob: await genImage(pPair, ref, signal, null, {model})};
   }
-  const phys = id && id.phys ? ` Her/his permanent physical traits (exactly as in the reference): ${id.phys}.` : '';
+  const phys = physFull(c, id) ? ` Her/his permanent physical traits (exactly as in the reference): ${physFull(c, id)}.` : '';
   const fixLine = fix ? ` Important corrections from the previous attempt: ${fix}.` : '';
   // 8.3: pozele din chat prin fal.ai PuLID (model făcut să păstreze fața), restul aplicației rămâne pe Worker
   if(full && S.imgProv === 'worker' && S.wkChat === 'fal' && S.falKey){
     const face = await cropFace(full, id && !id.none ? id : null);
-    const prompt = `${fr.p}. ${shot}.${fix ? ` Important corrections from the previous attempt: ${fix}.` : ''}${id && id.phys ? ' The person: ' + id.phys + '.' : ''} ${stil}`;
+    const prompt = `${fr.p}. ${shot}.${fix ? ` Important corrections from the previous attempt: ${fix}.` : ''}${physFull(c, id) ? ' The person: ' + physFull(c, id) + '.' : ''} ${stil}`;
     return {prompt, blob: await genImage(prompt, face, signal, null, {prov:'fal'})};
   }
   if(full && S.imgProv === 'worker'){
@@ -2098,7 +2136,7 @@ async function scenePhoto(c, shot, signal, fix, opt = {}){
 }
 // 5. verificarea: seamănă cu poza de profil? e locul/poziția/încadrarea din scenă? (Haiku, ~0,2 cenți)
 async function checkPhoto(c, blob, shot, signal, together){
-  pstage(signal, '🔍 Se uită dacă a ieșit bine', 92);
+  pstage(signal, '🔍 Se uită dacă a ieșit bine', 97);
   const full = c.photo ? await DB.get(c.photo) : null; if(!full || !aiReady()) return null;
   const out = await stream('You are a strict photo checker. Answer with JSON only.', [{role:'user', images:[await blobToB64(await toJpeg(full, 768, .85)), await blobToB64(await toJpeg(blob, 768, .85))], text:
 `Image 1 is the reference profile photo of a person. Image 2 was generated and must show the SAME person in this scene: "${shot}".${together ? ' Image 2 must show two people together (this person and a companion); judge "face" only for the person of image 1, and "scene" also checks that there are exactly two people in one single photo (not a collage or split screen).' : ''}
@@ -2131,7 +2169,8 @@ let wkSimple = false;   // 7.2: Worker-ul a refuzat 2 repere în sesiunea asta
 let lastImgModel = '';  // 7.3: modelul folosit la ultima poză (pentru cost)
 let lastImgProv = '';   // 8.3: furnizorul folosit la ultima poză (fal pentru chat)
 async function genImage(prompt, ref, signal, ref2, opt = {}){
-  pstage(signal, live && live.stage && live.stage.p >= 88 ? '🔁 Nu-i place, mai face una' : '📸 Face poza', live && live.stage && live.stage.p >= 88 ? 60 : 85);
+  if(live && live.stage && live.stage.p >= 95 && busy && busy.signal === signal){ live.stage.pv = 50; }   // a doua încercare: bara coboară la jumătate
+  pstage(signal, live && live.stage && live.stage.p >= 95 ? '🔁 Nu-i place, mai face una' : '📸 Face poza', 92);
   const prov = opt.prov || S.imgProv; lastImgProv = prov;
   if(prov === 'gemini'){
     if(!S.gemKey) throw new Error('Lipsește cheia Google în Setări → Poze.');
@@ -2998,6 +3037,25 @@ function drawHome(c, box){
   };
 }
 /* 📷 6.5: personajul îți trimite poze în conversație (și cu poză de profil urcată) */
+// 8.9.2: ce scrii tu despre cum arată (corp, înălțime, piele, păr) are prioritate la fiecare poză
+function drawBodyNote(c, box){
+  const auto = c.faceBox && c.faceBox.k === c.photo && c.faceBox.phys ? c.faceBox.phys : '';
+  box.insertAdjacentHTML('beforeend', `<div class="refbox bodyn"><b>🧍 Cum arată, pentru poze</b>
+    <small>${auto ? 'Citit automat din poza de profil: <i>' + esc(auto) + '</i>' : 'Se citește automat din poza de profil la prima poză.'}</small>
+    <small style="margin-top:6px">Dacă ceva nu iese cum trebuie (siluetă, înălțime, piele, păr, semne), scrie aici în română. Are prioritate față de ce citește aplicația.</small>
+    <textarea id="pfBody2" rows="3" maxlength="400" placeholder="ex. 1,58 m, siluetă plinuță cu șolduri late, piele bronzată, păr negru drept până la mijlocul spatelui, aluniță pe obrazul stâng">${esc(c.physUser || '')}</textarea>
+    <div class="btns"><button class="btn sm pri" id="pfBodySave">Salvează</button>${c.photo ? '<button class="btn sm" id="pfBodyRe">↻ Recitește poza</button>' : ''}</div></div>`);
+  $('#pfBodySave').onclick = async () => {
+    const t = $('#pfBody2').value.trim(), b = $('#pfBodySave'); b.disabled = true; b.innerHTML = '<span class="spin"></span>';
+    try{
+      c.physUser = t; c.physEn = '';
+      if(t) c.physEn = aiReady() ? faraLiniute((await stream('You translate physical descriptions for an image generator. Answer with the English translation only.', [{role:'user', text:'Translate to concise, neutral English (comma-separated traits, keep every detail, no additions):\n' + t}], {max:250, aux:true, cid:c.id})).trim()).slice(0, 500) : t;
+      await saveChars(); toast('✓ Salvat: se folosește la următoarele poze');
+    }catch(e){ toast('N-am putut salva: ' + e.message, 3500); }
+    b.disabled = false; b.textContent = 'Salvează';
+  };
+  const re = $('#pfBodyRe'); if(re) re.onclick = async () => { re.disabled = true; re.innerHTML = '<span class="spin"></span> Citesc…'; try{ await identityOf(c, true); }catch(e){} drawPics(c); };
+}
 function drawPics(c){
   const box = $('#pfPics'); if(!box) return;
   const on = sendPicsOn(c);
@@ -3005,6 +3063,7 @@ function drawPics(c){
   box.innerHTML = `<div class="pfVoice"><span>${on ? '✅ Pornit' : '⏸ Oprit'}${why ? ' · ' + why : ''}</span><button class="btn sm" id="pfPicsOn">${on ? '⏸ Oprește' : '▶ Pornește'}</button></div>
     <p class="hint" style="margin-top:6px">${on ? `${esc(c.name)} îți poate trimite poze în chat: când vrea, când i-o ceri, plus cele spontane (Setări → Poze) și cele din statusuri. Fața vine din poza de profil.` : `${esc(c.name)} nu trimite poze singur${c.aiPortrait ? '' : ' (implicit doar personajele cu portret generat în aplicație o fac)'}. 📷 Cere o poză din ＋ merge oricum.`}</p>`;
   $('#pfPicsOn').onclick = async () => { c.sendPics = !on; await saveChars(); drawPics(c); toast(c.sendPics ? '📷 ' + c.name + ' îți poate trimite poze' : c.name + ' nu mai trimite poze singur'); };
+  drawBodyNote(c, box);
   drawRefs(c, box);
   drawHome(c, box);
   if(c.photo && (S.imgProv === 'worker' || S.imgProv === 'fal')){
@@ -3348,8 +3407,8 @@ function msgHTML(m, i, lastAi, anim, g = ''){
   const seen = me && (m.seen || chat.msgs.slice(i + 1).some(x => x.role === 'ai' && !x.pending));
   const tm = `<span class="tm">${hhmm(m.ts)}${me ? `<i class="tick${seen ? ' seen' : ''}">${seen ? '✓✓' : '✓'}</i>` : ''}</span>`;
   let inner, cls = me ? 'me' : 'ai';
-  if(m.pendingImg){ const stg = live && live.ch === chat && live.stage || {t:'✨ Se pregătește', p:6};
-    inner = `<div class="picload">${cur.photo ? `<img class="plbg" data-k="${esc(photoNow(cur))}" alt="">` : ''}<div class="plgrain"></div><div class="plin"><span class="shut"><i></i></span><b>${esc(cur.name)} îți face o poză</b><small>${esc(whereIn(chat.where) || 'se aranjează…')}</small><span class="plst">${esc(stg.t)}</span><span class="plbar"><i style="width:${stg.p}%"></i></span></div></div>`; cls += ' picm'; }
+  if(m.pendingImg){ const stg = live && live.ch === chat && live.stage || {t:'✨ Se pregătește', p:8, pv:0};
+    inner = `<div class="picload">${cur.photo ? `<img class="plbg" data-k="${esc(photoNow(cur))}" alt="">` : ''}<div class="plgrain"></div><div class="plin"><span class="shut"><i></i></span><b>${esc(cur.name)} îți face o poză</b><small>${esc(whereIn(chat.where) || 'se aranjează…')}</small><span class="plst">${esc(stg.t)}</span><span class="plbar"><i style="width:${stg.pv || 0}%"></i></span><span class="plpct">${Math.floor(stg.pv || 0)}%</span></div></div>`; cls += ' picm'; }
   else if(m.err) inner = `<div class="bub err${m.errKind === 'flag' ? ' flag' : ''}">${m.errKind === 'flag' ? '🚫' : '⚠️'} ${esc(m.err)}</div>`;
   else if(m.img && !me){
     cls += ' picm';
@@ -3535,7 +3594,7 @@ function moodOf(){
   return null;
 }
 // starea din antet, pe două rânduri scurte: 1) prezență + ce face acum  2) dispoziție, mesaj programat, fir
-const shortMood = t => { const x = String(t || '').trim(); const m = x.match(/^(\p{Extended_Pictographic}️?\s*)?(.*)$/u); let w = (m[2] || '').split(/[,;.]/)[0].trim().split(/\s+/).slice(0, 2).join(' '); return ((m[1] || '') + w).trim(); };
+const shortMood = t => { const x = String(t || '').trim(); const m = x.match(/^(\p{Extended_Pictographic}️?\s*)?(.*)$/u); let w = (m[2] || '').split(/[,;.]/)[0].trim().split(/\s+/).slice(0, 2).join(' ').replace(/\s+(și|si|cu|de|la|în|in|dar|pe|a|un|o)$/i, ''); return ((m[1] || '') + w).trim(); };
 function statusLine(){
   const last = [...chat.msgs].reverse().find(m => m.ts && !m.err);
   const ago = last ? Date.now() - last.ts : Infinity;
@@ -3549,7 +3608,10 @@ function statusLine(){
   const mood = moodOf();
   const ts = threadsOf(cur), t = ts.length > 1 ? ts.find(x => x.id === (cur.thread || 'main')) : null;
   const nx = (cur.sched || []).find(x => x.tid === (chat.tid || 'main') && x.at > Date.now());
-  const pl = chat.plot && Date.now() - (chat.plot.ts || 0) < 12 * 36e5 ? chat.plot.t.split('›')[0].trim() : '';
+  let pl = chat.plot && Date.now() - (chat.plot.ts || 0) < 12 * 36e5 ? chat.plot.t.split('›')[0].trim() : '';
+  const norm = x => String(x || '').toLowerCase().replace(/[^\p{L}\p{N} ]/gu, '').trim();
+  if(pl && lf && lf.w && (norm(pl).includes(norm(lf.w)) || norm(lf.w).includes(norm(pl)))) pl = '';   // 8.9.2: fără dubluri (programul = scena)
+  if(/^discuție liberă$/i.test(pl)) pl = '';
   const l2 = [pl ? '🎬 ' + esc(pl) : '', mood ? esc(shortMood(mood)) : '', nx ? '⏰ ' + esc(whenText(nx.at)) : '', t ? '🧵 ' + esc(t.title) : ''].filter(Boolean).join(' · ');
   return `<span class="s1">${st}</span>${l2 ? `<span class="s2">${l2}</span>` : ''}`;
 }
@@ -4650,8 +4712,9 @@ async function askPhoto(spont, target, mode, opt = {}){
     ch.sinceImg = 0;
     ch.msgs.push(m); renderMsgs(true);
   }
-  busy = new AbortController(); live = {c, ch, photo:true}; setBusyUI(true);
+  busy = new AbortController(); live = {c, ch, photo:true, stage:{t:'✨ Se pregătește', p:8, pv:0}}; setBusyUI(true);
   $('#sugg').innerHTML = '';
+  const pT = setInterval(pTick, 120);
   try{
     const promised = !target && spont && ch.nextShot ? ch.nextShot.t : '';      // descrierea scrisă chiar de personaj când a trimis poza
     if(promised) delete ch.nextShot;
@@ -4661,6 +4724,7 @@ async function askPhoto(spont, target, mode, opt = {}){
     let {prompt, blob, check, retried} = await makeScenePhoto(c, shot, busy.signal, {together});
     try{ if(blob.type === 'image/png') blob = await toJpeg(blob, 2048, .92); }catch(e){}   // PNG → JPEG: de ~5 ori mai puțin spațiu
     const k = await saveImg(blob);
+    clearInterval(pT); if(live && live.stage){ live.stage.t = '✅ Gata'; live.stage.pv = 100; const st = $('#msgs .picload .plst'); if(st) st.textContent = '✅ Gata'; pDraw(100); await new Promise(r => setTimeout(r, 420)); }
     if(target){
       if(!m.imgAlts && m.img) m.imgAlts = [m.img];
       // variantele rămân pe mesaj: le poți compara cu ‹ › și păstra pe cea mai bună (cel mult 5)
@@ -4680,6 +4744,7 @@ async function askPhoto(spont, target, mode, opt = {}){
     else if(flag){ m.err = /refuzat/.test(msg) ? msg : 'Serviciul de imagini a respins poza asta.'; m.errKind = 'flag'; }
     else m.err = msg || 'Eroare la poză';
   }
+  clearInterval(pT);
   delete m.pendingImg; busy = null; live = null;
   if(!m.err && !(chat === ch && !$('#vChat').hidden)) c.unread = (c.unread || 0) + 1;
   await saveChat(c, ch);
@@ -5715,7 +5780,7 @@ async function refTest(){
     const [lbl, o] = tests[i], fig = $('#rt' + i);
     try{
       let b;
-      try{ b = o.prov === 'fal' ? await genImage(`${fr.p}. ${shot}.${R.id && R.id.phys ? ' The person: ' + R.id.phys + '.' : ''} ${STIL_TAG[c.stil || 'photo']}`, R.face, null, null, o) : await genImage(p2, R.face, null, R.body, o); }
+      try{ b = o.prov === 'fal' ? await genImage(`${fr.p}. ${shot}.${physFull(c, R.id) ? ' The person: ' + physFull(c, R.id) + '.' : ''} ${STIL_TAG[c.stil || 'photo']}`, R.face, null, null, o) : await genImage(p2, R.face, null, R.body, o); }
       catch(e){ if(o.force && o.force.two){ if(o.model === 'eco') twoOk = false; b = await genImage(p2, R.face, null, R.body, {model:o.model, force:{two:false, px:512}, p1}); fig.querySelector('figcaption').textContent = lbl.replace('2 repere', '1 reper') + ' (2 repere: eroare)'; } else throw e; }
       if(o.model === 'eco' && o.force && o.force.two && twoOk === null) twoOk = true;
       fig.querySelector('.ph').outerHTML = `<img src="${URL.createObjectURL(b)}" data-big alt="">`;
