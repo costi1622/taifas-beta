@@ -397,7 +397,7 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
 .me .bub .tm{color:#ffffff80}
 .bub.typing>.say:last-child::after,.bub.typing>.act:last-child::after,.bub.typing>.para:last-child>:last-child::after{content:"▍";color:var(--acc);animation:blink 1s steps(2) infinite;margin-left:1px}
 @keyframes blink{50%{opacity:0}}
-.mw.anim{animation:pop .3s cubic-bezier(.2,.8,.3,1)}
+.mw.anim{}
 @keyframes pop{from{opacity:0;transform:translateY(10px) scale(.98)}}
 .m.picm{max-width:100%;width:100%;flex-direction:column;align-items:flex-start;gap:6px}
 .m.picm .av{display:none}
@@ -517,11 +517,27 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
 
 /* ===== 3.5 ===== */
 /* tranziții între ecrane */
-.view.vin-f{animation:vinf .3s cubic-bezier(.2,.8,.2,1)}
-.view.vin-b{animation:vinb .3s cubic-bezier(.2,.8,.2,1)}
-@keyframes vinf{from{transform:translateX(30%);opacity:.3}}
-@keyframes vinb{from{transform:translateX(-22%);opacity:.3}}
-@media (prefers-reduced-motion:reduce){.view.vin-f,.view.vin-b,.step,.panel{animation:none!important}}
+/* 8.9: tranziții ca într-o aplicație nativă: ecranul nou alunecă peste cel vechi, care se retrage puțin */
+.view[hidden].vout-f,.view[hidden].vout-b,.view[hidden].vout-z{display:flex!important;pointer-events:none}
+.view.vin-f{z-index:5;animation:vinf .36s cubic-bezier(.22,.9,.25,1);box-shadow:-18px 0 40px #0007}
+.view.vout-f{z-index:4;animation:voutf .36s cubic-bezier(.22,.9,.25,1) forwards}
+.view.vin-b{z-index:4;animation:vinb .36s cubic-bezier(.22,.9,.25,1)}
+.view.vout-b{z-index:5;animation:voutb .36s cubic-bezier(.22,.9,.25,1) forwards;box-shadow:-18px 0 40px #0007}
+.view.vin-z{z-index:5;animation:vinz .34s cubic-bezier(.2,.8,.3,1)}
+.view.vout-z{z-index:4;animation:voutz .34s ease-out forwards}
+@keyframes vinf{from{transform:translateX(100%)}}
+@keyframes voutf{to{transform:translateX(-24%);filter:brightness(.6)}}
+@keyframes vinb{from{transform:translateX(-24%);filter:brightness(.6)}}
+@keyframes voutb{to{transform:translateX(100%)}}
+@keyframes vinz{from{opacity:0;transform:scale(1.04)}}
+@keyframes voutz{to{opacity:.4;transform:scale(.96)}}
+#homeScroll.tabin > :not([hidden]){animation:tabin .28s cubic-bezier(.2,.8,.3,1)}
+@keyframes tabin{from{opacity:0;transform:translateY(10px)}}
+.mw.anim .m.ai{animation:inL .32s cubic-bezier(.2,.8,.3,1)}
+.mw.anim .m.me{animation:inR .32s cubic-bezier(.2,.8,.3,1)}
+@keyframes inL{from{opacity:0;transform:translateX(-14px) scale(.97)}}
+@keyframes inR{from{opacity:0;transform:translateX(14px) scale(.97)}}
+@media (prefers-reduced-motion:reduce){.view.vin-f,.view.vin-b,.view.vin-z,.view.vout-f,.view.vout-b,.view.vout-z,.step,.panel,#homeScroll.tabin > *,.mw.anim .m{animation:none!important}}
 /* setări */
 .scard{display:flex;align-items:center;gap:14px;padding:16px;margin-bottom:18px;border-radius:var(--r);background:var(--bg2)}
 .scard .av{width:54px;height:54px;font-size:1.3rem;background:var(--grad);color:#fff}
@@ -733,6 +749,114 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
 .evi span{flex:1;display:flex;flex-direction:column;gap:2px}.evi b{font-size:.76rem;color:var(--acc);text-transform:capitalize}
 .evi.big{border-color:color-mix(in srgb,var(--acc) 55%,var(--line))}.evi.past{opacity:.6}
 .evi .x{background:none;border:0;color:var(--tx3);font-size:1rem;padding:4px 8px;cursor:pointer}
+/* 8.9: profil ca Instagram */
+#vProf .pfHero{height:min(46vh,400px)}
+.igHead{position:relative;z-index:2;display:flex;align-items:flex-end;gap:16px;margin:-52px 16px 0}
+.igAv{flex:none;width:104px;height:104px;border-radius:50%;padding:4px;background:var(--bg);display:grid;place-items:center;cursor:pointer;border:0}
+.igAv .av{width:100%;height:100%;border-radius:50%;object-fit:cover;font-size:2.2rem;display:grid;place-items:center;color:#fff;font-weight:800}
+.igAv.ring{background:conic-gradient(from 210deg,#ff4f9a,#ffb020,#9b5cff,#ff4f9a);padding:4px}
+.igAv.ring:not(.un){background:var(--line)}
+.igAv.ring .av{border:3px solid var(--bg);box-sizing:border-box}
+.igStats{flex:1;display:grid;grid-template-columns:repeat(3,1fr);padding-bottom:10px}
+.igStats div{text-align:center}
+.igStats b{display:block;font-size:1.25rem;font-weight:800;letter-spacing:-.3px}
+.igStats small{font-size:.74rem;color:var(--tx2)}
+.igBio{padding:10px 18px 0}
+.igBio h1{margin:0;font-size:1.35rem;font-weight:800;letter-spacing:-.3px}
+.igBio .igTag{margin:2px 0 0;color:var(--acc);font-weight:600;font-size:.9rem}
+.igBio #pfAbout{margin:6px 0 0;font-size:.9rem;line-height:1.45;color:var(--tx);white-space:pre-line}
+.clamp3{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.igBio .more{background:none;border:0;color:var(--tx3);font-weight:700;padding:2px 0;font-size:.85rem}
+.igBio .pfchips{justify-content:flex-start;margin-top:10px;flex-wrap:wrap}
+.igBio .pfchips span{background:var(--bg2);color:var(--tx);border-color:var(--hair);backdrop-filter:none}
+.igActs{display:flex;gap:8px;margin:14px 16px 4px}
+.igActs .btn{flex:none;width:48px;padding:10px 0;font-size:1.05rem}
+.igActs .btn.pri{flex:1;width:auto;font-size:.95rem}
+.igHi{display:flex;gap:14px;overflow-x:auto;padding:14px 16px 6px;scrollbar-width:none}
+.igHi::-webkit-scrollbar{display:none}
+.igHi button{flex:none;display:flex;flex-direction:column;align-items:center;gap:5px;background:none;border:0;color:var(--tx);cursor:pointer;padding:0}
+.igHi span{width:62px;height:62px;border-radius:50%;padding:2px;border:1.5px solid var(--line);display:block}
+.igHi img{width:100%;height:100%;border-radius:50%;object-fit:cover;display:block}
+.igHi small{font-size:.72rem;font-weight:600}
+.pftabs.ig button{display:flex;align-items:center;justify-content:center;gap:6px}
+.igGrid{padding:0!important;background:none!important;border:0!important;box-shadow:none!important;margin:0 0 12px!important}
+.igGrid .pfGal{display:grid;grid-template-columns:repeat(3,1fr);gap:2px;margin:0}
+.igGrid .pfGal button{position:relative;padding:0;border:0;background:var(--card);aspect-ratio:4/5;overflow:hidden;cursor:zoom-in}
+.igGrid .pfGal img{width:100%;height:100%;object-fit:cover;border-radius:0;aspect-ratio:auto;display:block;transition:transform .3s}
+.igGrid .pfGal button:active img{transform:scale(.96)}
+.igGrid .pfGal i{position:absolute;top:6px;right:6px;font-style:normal;font-size:.8rem;filter:drop-shadow(0 1px 3px #000a);z-index:1}
+.igEmpty{text-align:center;color:var(--tx3);padding:30px 20px;font-size:1.6rem;line-height:1.5}
+.igEmpty small{font-size:.82rem}
+.igEmpty{font-size:.95rem}
+/* 8.9: Acasă */
+.strow{grid-column:1/-1}
+.bkslim{grid-column:1/-1;display:flex;align-items:center;gap:8px;padding:8px 8px 8px 12px;border-radius:16px;background:linear-gradient(135deg,color-mix(in srgb,var(--acc) 14%,var(--bg2)),color-mix(in srgb,var(--acc2) 12%,var(--bg2)));border:1px solid color-mix(in srgb,var(--acc) 30%,transparent)}
+.bkslim .bkt{flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.25}
+.bkslim .bkt b{font-size:.86rem}.bkslim .bkt small{font-size:.72rem;color:var(--tx2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bkslim .btn{flex:none;padding:7px 10px}
+.bkx{background:none;border:0;color:var(--tx3);font-size:.95rem;padding:6px}
+.hhero{grid-column:1/-1;position:relative;display:block;height:230px;border-radius:26px;overflow:hidden;padding:0;border:0;text-align:left;color:#fff;background:var(--card);box-shadow:0 18px 40px #0006,0 0 0 1px var(--hair);margin-top:4px;cursor:pointer;transition:transform .2s}
+.hhero:active{transform:scale(.985)}
+.hhero.unr{box-shadow:0 18px 40px #0006,0 0 0 2px var(--acc)}
+.hhero .hhbg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center 22%;animation:kb 26s ease-in-out infinite alternate}
+.hhero::after{content:"";position:absolute;inset:0;background:linear-gradient(100deg,#000c 0%,#0008 45%,#0000 75%),linear-gradient(transparent 55%,#0009)}
+.hhov{position:absolute;inset:0;z-index:1;display:flex;flex-direction:column;justify-content:flex-end;gap:4px;padding:16px 18px}
+.hhtop{font-size:.74rem;font-weight:700;opacity:.9;display:flex;align-items:center;gap:6px}
+.hhtop i.on{width:8px;height:8px;border-radius:50%;background:#3ddc84;box-shadow:0 0 0 3px #3ddc8433}
+.hhtop em{font-style:normal;color:#ffb3d6}
+.hhero b{font-size:1.7rem;font-weight:800;letter-spacing:-.5px;line-height:1.05}
+.hhero small{font-size:.8rem;opacity:.85;max-width:75%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hhmsg{margin-top:6px;align-self:flex-start;max-width:72%;font-size:.86rem;line-height:1.35;padding:8px 12px;border-radius:16px 16px 16px 5px;background:#ffffff26;backdrop-filter:blur(14px);border:1px solid #ffffff2e;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.hhmsg.mine{border-radius:16px 16px 5px 16px;background:color-mix(in srgb,var(--acc) 45%,#0000)}
+.hhgo{position:absolute;right:14px;bottom:14px;display:flex;align-items:center;gap:2px;font-size:.84rem;font-weight:800;padding:9px 12px 9px 15px;border-radius:99px;background:var(--grad);box-shadow:0 8px 20px color-mix(in srgb,var(--acc) 45%,transparent)}
+.hnowr{grid-column:1/-1;display:flex;gap:10px;overflow-x:auto;margin:0 -14px;padding:4px 14px 6px;scroll-padding-inline:14px;scrollbar-width:none;scroll-snap-type:x proximity}
+.hnowr::-webkit-scrollbar{display:none}
+.hnow{flex:none;scroll-snap-align:start;display:flex;align-items:center;gap:10px;width:200px;padding:10px 12px 10px 10px;border-radius:18px;background:var(--bg2);border:1px solid var(--hair);text-align:left;color:var(--tx);cursor:pointer}
+.hnow.unr{border-color:color-mix(in srgb,var(--acc) 60%,transparent)}
+.hnav{position:relative;flex:none}
+.hnav .av{width:46px;height:46px;border-radius:50%;object-fit:cover;display:grid;place-items:center;color:#fff;font-weight:800}
+.hnav i.on{position:absolute;right:0;bottom:1px;width:11px;height:11px;border-radius:50%;background:#3ddc84;border:2px solid var(--bg2)}
+.hnav em{position:absolute;top:-4px;right:-6px;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--acc);color:#fff;font-size:.66rem;font-style:normal;font-weight:800;display:grid;place-items:center;border:2px solid var(--bg2)}
+.hnt{min-width:0;display:flex;flex-direction:column;gap:2px}
+.hnt b{font-size:.9rem}.hnt small{font-size:.74rem;color:var(--tx2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* bara de jos plutitoare */
+#vHome #nav{position:absolute;left:12px;right:12px;bottom:calc(10px + var(--safe-b));border-radius:26px;border:1px solid var(--hair);padding:4px 6px;box-shadow:0 14px 36px #0009;background:color-mix(in srgb,var(--bg2) 72%,transparent)}
+#vHome #nav button.on::after{bottom:-1px}
+#vHome #homeScroll{padding-bottom:calc(96px + var(--safe-b))}
+[data-theme=light] #vHome #nav{box-shadow:0 12px 30px #0002}
+/* 8.9: grupare și „scrie…” viu */
+.mw.gp{margin-top:-7px}
+.mw.gp .m.ai .bub{border-top-left-radius:6px}
+.mw.gp .m.me .bub{border-top-right-radius:6px}
+.mw.gn .bub > .tm{display:none}
+.m .av.ghost{visibility:hidden;background:none!important;box-shadow:none!important}
+.typrow{animation:pop .25s cubic-bezier(.2,.8,.3,1)}
+.typrow .av{animation:ring 1.4s infinite,tbob 1.4s ease-in-out infinite}
+@keyframes tbob{50%{transform:translateY(-2px)}}
+.tdots{display:flex;align-items:center;gap:5px;padding:14px 16px!important;min-height:0}
+.tdots > i{width:8px;height:8px;border-radius:50%;background:var(--tx2);animation:tdot 1.2s ease-in-out infinite}
+.tdots > i:nth-child(2){animation-delay:.15s}.tdots > i:nth-child(3){animation-delay:.3s}
+@keyframes tdot{0%,60%,100%{transform:translateY(0);opacity:.35}30%{transform:translateY(-5px);opacity:1}}
+.tdots.rec{gap:8px;padding:10px 14px!important}
+.tmic{font-size:1rem;animation:tdot 1.6s ease-in-out infinite}
+.twave{display:flex;align-items:center;gap:3px;height:20px}
+.twave i{width:3px;border-radius:2px;background:var(--acc);animation:twv .9s ease-in-out infinite}
+.twave i:nth-child(1){animation-delay:0s}.twave i:nth-child(2){animation-delay:.12s}.twave i:nth-child(3){animation-delay:.24s}.twave i:nth-child(4){animation-delay:.36s}.twave i:nth-child(5){animation-delay:.48s}
+@keyframes twv{0%,100%{height:5px}50%{height:18px}}
+@media (prefers-reduced-motion:reduce){.tdots > i,.twave i,.tmic,.typrow .av{animation:none}}
+/* 8.9: poza care se developează */
+.plst{margin-top:10px;font-size:.82rem;font-weight:700;padding:5px 12px;border-radius:99px;background:#ffffff1f;backdrop-filter:blur(10px);border:1px solid #ffffff26}
+.plst.chg{animation:plchg .4s cubic-bezier(.2,.8,.3,1)}
+@keyframes plchg{from{opacity:0;transform:translateY(6px)}}
+.plbar{width:60%;max-width:220px;height:4px;border-radius:4px;background:#ffffff26;overflow:hidden;margin-top:8px}
+.plbar i{display:block;height:100%;border-radius:4px;background:var(--grad);transition:width 28s cubic-bezier(.1,.7,.3,1);box-shadow:0 0 12px var(--acc)}
+.plgrain{position:absolute;inset:0;opacity:.1;mix-blend-mode:overlay;background-image:radial-gradient(#fff 1px,transparent 1px);background-size:3px 3px;animation:grain .5s steps(4) infinite}
+@keyframes grain{25%{transform:translate(-1px,1px)}50%{transform:translate(1px,-1px)}75%{transform:translate(1px,1px)}}
+.picbox.flash::after{content:"";position:absolute;inset:0;border-radius:inherit;background:#fff;pointer-events:none;animation:flashw .7s ease-out forwards}
+@keyframes flashw{0%{opacity:.95}100%{opacity:0}}
+.picbox{position:relative}
+.pic.dev.go{animation-duration:3.2s!important}
+@media (prefers-reduced-motion:reduce){.plgrain,.picbox.flash::after{animation:none;display:none}}
 #toast{position:fixed;left:50%;bottom:calc(90px + var(--safe-b));transform:translateX(-50%);background:#2a2433;border:1px solid var(--line);padding:10px 16px;border-radius:12px;z-index:99;max-width:90vw;font-size:.9rem;box-shadow:0 6px 20px #0008;transition:opacity .2s;pointer-events:none}
 #toast:empty{opacity:0}
 
@@ -848,9 +972,9 @@ input:focus,textarea:focus,select:focus{border-color:color-mix(in srgb,var(--acc
 /* poze */
 .picbox{border-radius:24px;box-shadow:0 14px 40px #00000073,0 0 0 1px var(--hair);background:#000}
 .pic.big{border-radius:0;box-shadow:none}
-.pic.dev{filter:blur(22px) brightness(1.5) saturate(.5);transform:scale(1.04)}
+.pic.dev{filter:blur(20px) brightness(1.75) sepia(.55) saturate(.35);transform:scale(1.04)}
 .pic.dev.go{animation:develop 2.2s cubic-bezier(.3,.7,.2,1) forwards}
-@keyframes develop{0%{filter:blur(22px) brightness(1.5) saturate(.5);transform:scale(1.04)}55%{filter:blur(4px) brightness(1.12) saturate(.9)}100%{filter:none;transform:none}}
+@keyframes develop{0%{filter:blur(20px) brightness(1.75) sepia(.55) saturate(.35);transform:scale(1.04)}45%{filter:blur(5px) brightness(1.25) sepia(.3) saturate(.7)}80%{filter:blur(.5px) brightness(1.04) sepia(.06)}100%{filter:none;transform:none}}
 .picbox .tm,.picbox .ploc{background:#00000059;backdrop-filter:blur(12px);border:1px solid #ffffff1f;font-weight:600}
 .picbox .ploc{position:absolute;left:10px;bottom:9px;font-size:.7rem;color:#fff;padding:3px 9px;border-radius:99px;max-width:60%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .picload{position:relative;overflow:hidden;background:#000;animation:none;display:block}
@@ -1355,7 +1479,7 @@ input:focus,textarea:focus,select:focus{border-color:color-mix(in srgb,var(--acc
 
 <script>
 'use strict';
-const APP_VER = '8.8';
+const APP_VER = '8.9';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -1832,7 +1956,17 @@ function framingOf(shot){
   return {k:'mid', p:'Medium-wide photo: the body visible from head to knees, the surroundings clearly visible'};
 }
 // 2+3. planificatorul de scenă: conversația → starea personajului + descrierea pozei (+ camere noi ale casei)
+// 8.9: etapele pozei, afișate în locul pozei care „se developează”
+function pstage(signal, t, p){
+  if(!busy || !signal || busy.signal !== signal || !live || !live.photo) return;
+  live.stage = {t, p};
+  const el = $('#msgs .picload'); if(!el) return;
+  const st = el.querySelector('.plst'), bar = el.querySelector('.plbar i');
+  if(st && st.textContent !== t){ st.textContent = t; st.classList.remove('chg'); void st.offsetWidth; st.classList.add('chg'); }
+  if(bar){ bar.style.transitionDuration = p >= 80 ? '1s' : '28s'; bar.style.width = p + '%'; }
+}
 async function planShot(c, ch, {promised = '', exclude = null, signal, together = false} = {}){
+  pstage(signal, '🎬 Își alege locul și cadrul', 18);
   const u = S.userName.trim() || 'User';
   const hist = ch.msgs.filter(x => x !== exclude && x.text && !x.err && !x.pending);
   const acts = t => (t.match(/\*[^*]+\*/g) || []).join(' ');
@@ -1935,6 +2069,7 @@ async function scenePhoto(c, shot, signal, fix, opt = {}){
 }
 // 5. verificarea: seamănă cu poza de profil? e locul/poziția/încadrarea din scenă? (Haiku, ~0,2 cenți)
 async function checkPhoto(c, blob, shot, signal, together){
+  pstage(signal, '🔍 Se uită dacă a ieșit bine', 92);
   const full = c.photo ? await DB.get(c.photo) : null; if(!full || !aiReady()) return null;
   const out = await stream('You are a strict photo checker. Answer with JSON only.', [{role:'user', images:[await blobToB64(await toJpeg(full, 768, .85)), await blobToB64(await toJpeg(blob, 768, .85))], text:
 `Image 1 is the reference profile photo of a person. Image 2 was generated and must show the SAME person in this scene: "${shot}".${together ? ' Image 2 must show two people together (this person and a companion); judge "face" only for the person of image 1, and "scene" also checks that there are exactly two people in one single photo (not a collage or split screen).' : ''}
@@ -1967,6 +2102,7 @@ let wkSimple = false;   // 7.2: Worker-ul a refuzat 2 repere în sesiunea asta
 let lastImgModel = '';  // 7.3: modelul folosit la ultima poză (pentru cost)
 let lastImgProv = '';   // 8.3: furnizorul folosit la ultima poză (fal pentru chat)
 async function genImage(prompt, ref, signal, ref2, opt = {}){
+  pstage(signal, live && live.stage && live.stage.p >= 88 ? '🔁 Nu-i place, mai face una' : '📸 Face poza', live && live.stage && live.stage.p >= 88 ? 60 : 85);
   const prov = opt.prov || S.imgProv; lastImgProv = prov;
   if(prov === 'gemini'){
     if(!S.gemKey) throw new Error('Lipsește cheia Google în Setări → Poze.');
@@ -2052,15 +2188,20 @@ async function genImage(prompt, ref, signal, ref2, opt = {}){
 
 /* ───────── navigare ───────── */
 const VIEWS = ['vHome', 'vChat', 'vEdit', 'vSet', 'vWelcome', 'vProf'];
+let flyNext = false, vtT = 0;
 function show(id, push = true, dir){
   const was = VIEWS.find(v => !$('#' + v).hidden);
   VIEWS.forEach(v => $('#' + v).hidden = v !== id);
   const el = $('#' + id);
-  if(was && was !== id){
-    el.classList.remove('vin-f', 'vin-b'); void el.offsetWidth;
-    el.classList.add((dir || (push ? 'f' : (id === 'vHome' ? 'b' : 'f'))) === 'f' ? 'vin-f' : 'vin-b');
-    setTimeout(() => el.classList.remove('vin-f', 'vin-b'), 350);
+  // 8.9: ecranul vechi rămâne vizibil cât timp alunecă (are deja `hidden`, deci logica îl vede închis)
+  $$('.view').forEach(v => v.classList.remove('vin-f', 'vin-b', 'vin-z', 'vout-f', 'vout-b', 'vout-z')); clearTimeout(vtT);
+  if(was && was !== id && fxOn()){
+    const d = flyNext ? 'z' : (dir || (push ? 'f' : (id === 'vHome' ? 'b' : 'f'))) === 'f' ? 'f' : 'b';
+    const old = $('#' + was); void el.offsetWidth;
+    el.classList.add('vin-' + d); old.classList.add('vout-' + d);
+    vtT = setTimeout(() => { el.classList.remove('vin-' + d); old.classList.remove('vout-' + d); }, 380);
   }
+  flyNext = false;
   if(push && id !== 'vHome' && !(history.state && history.state.v === id)) history.pushState({v:id}, '');
 }
 function back(){
@@ -2085,9 +2226,45 @@ window.addEventListener('popstate', () => {
   if(v === 'vChat' && cur && charById(cur.id)) openChat(cur.id, false, undefined, 'b');
   else goHome();
 });
-function goHome(){ cur = null; chat = null; show('vHome', false); renderHome(); }
+function goHome(){
+  // 8.9: la întoarcere, avatarul din antet zboară înapoi în listă
+  const av = !$('#vChat').hidden && cur ? $('#chAv') : null, cid = cur && cur.id;
+  const from = av && av.getBoundingClientRect(), url = av && av.tagName === 'IMG' ? (av.currentSrc || av.src) : '';
+  cur = null; chat = null; show('vHome', false); renderHome();
+  if(!from || !url || !from.width || !fxOn()) return;
+  requestAnimationFrame(() => {
+    const t = [...$$('#vHome [data-open="' + cid + '"] img')].find(i => { if(i.closest('[hidden]')) return false; const r = i.getBoundingClientRect(); return r.width && r.width <= 140 && r.bottom > 60 && r.top < innerHeight - 90; });
+    if(!t) return;
+    const r0 = t.getBoundingClientRect(), vr = $('#vHome').getBoundingClientRect(), rad = getComputedStyle(t).borderRadius || '50%';
+    const to = {left:r0.left - vr.left, top:r0.top - vr.top, width:r0.width, height:r0.height};   // poziția de după alunecare
+    const f = document.createElement('img'); f.className = 'flyav'; f.src = url; document.body.appendChild(f); t.style.visibility = 'hidden';
+    const a = f.animate([{left:from.left + 'px', top:from.top + 'px', width:from.width + 'px', height:from.height + 'px', borderRadius:'50%'},
+      {left:to.left + 'px', top:to.top + 'px', width:to.width + 'px', height:to.height + 'px', borderRadius:rad}], {duration:360, easing:'cubic-bezier(.2,.8,.3,1)', fill:'forwards'});
+    const end = () => { t.style.visibility = ''; f.remove(); }; a.onfinish = end; setTimeout(end, 700);
+  });
+}
 
 /* ───────── ACASĂ ───────── */
+// 8.9: cardul mare „continuă” + „ce fac acum”
+function homeHeroHTML(recent){
+  if(!recent.length) return '';
+  const c = recent[0], online = c.lastAt && Date.now() - c.lastAt < 10 * 60e3, lf = lifeNow(c);
+  const mood = c.moodNow && Date.now() - c.moodNow.ts < 12 * 36e5 ? shortMood(c.moodNow.t) : '';
+  const sub = [lf && lf.w ? LIFE_E[lf.b] + ' ' + lf.w : '', mood].filter(Boolean).join(' · ');
+  const last = String(c.last || '').replace(/^Tu: /, '');
+  const mine = /^Tu: /.test(c.last || '');
+  let h = `<button class="hhero${c.unread ? ' unr' : ''}" data-open="${c.id}">${c.photo ? `<img class="hhbg" data-k="${esc(photoNow(c))}" alt="">` : `<span class="hhbg ph" style="background:${colorFor(c)}"></span>`}
+    <span class="hhov"><span class="hhtop">${online ? '<i class="on"></i>online' : esc(when(c.lastAt))}${c.unread ? ` · <em>${c.unread === 1 ? 'un mesaj nou' : c.unread + ' mesaje noi'}</em>` : ''}</span>
+    <b>${esc(c.name)}</b>${sub ? `<small>${esc(sub)}</small>` : ''}
+    ${last ? `<span class="hhmsg${mine ? ' mine' : ''}">${mine ? 'Tu: ' : ''}${esc(last)}</span>` : ''}
+    <span class="hhgo">Continuă <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="m9 6 6 6-6 6"/></svg></span></span></button>`;
+  const rest = recent.slice(1, 9);
+  if(rest.length) h += `<div class="hsec">Ce fac acum</div><div class="hnowr">${rest.map(x => {
+    const on = x.lastAt && Date.now() - x.lastAt < 10 * 60e3, l = lifeNow(x), md = x.moodNow && Date.now() - x.moodNow.ts < 12 * 36e5 ? shortMood(x.moodNow.t) : '';
+    const what = charBdayToday(x) ? '🎂 își serbează ziua' : l && l.w ? LIFE_E[l.b] + ' ' + l.w : md || ('💬 ' + when(x.lastAt));
+    return `<button class="hnow${x.unread ? ' unr' : ''}" data-open="${x.id}"><span class="hnav">${avatarHTML(x)}${on ? '<i class="on"></i>' : ''}${x.unread ? `<em>${x.unread > 9 ? '9+' : x.unread}</em>` : ''}</span><span class="hnt"><b>${esc(x.name)}</b><small>${esc(what)}</small></span></button>`; }).join('')}</div>`;
+  return h;
+}
 let homeTab = 'chars';
 function renderHome(){
   $$('#nav [data-tab]').forEach(b => b.classList.toggle('on', b.dataset.tab === homeTab));
@@ -2105,11 +2282,9 @@ function renderHome(){
   const recent = q ? [] : chars.filter(c => c.last).sort((a, b) => (b.unread ? 1 : 0) - (a.unread ? 1 : 0) || (b.lastAt || 0) - (a.lastAt || 0)).slice(0, 12);
   const unreadN = chars.reduce((n, c) => n + (c.unread || 0), 0);
   const top = q || !chars.length ? '' : `<div class="hhello"><b>${salut}${S.userName.trim() ? ', ' + esc(S.userName.trim()) : ''}</b><small>${unreadN ? `Ai ${unreadN === 1 ? 'un mesaj nou' : unreadN + ' mesaje noi'} 💌` : 'Cu cine stai la taifas azi?'}</small></div>` + storyRowHTML()
-    + (recent.length ? `<div class="hsec">Continuă conversația</div><div class="hcont">${recent.map(c => {
-        const online = c.lastAt && Date.now() - c.lastAt < 10 * 60e3;
-        return `<button class="hc${c.unread ? ' unr' : ''}" data-open="${c.id}"><span class="hcav">${c.photo ? `<img data-k="${esc(photoNow(c))}" alt="">` : `<span class="ph" style="background:${colorFor(c)}">${esc(c.name[0] || '?')}</span>`}${online ? '<i class="on"></i>' : ''}${c.unread ? `<em>${c.unread > 9 ? '9+' : c.unread}</em>` : ''}</span><b>${esc(c.name)}</b><small>${esc(when(c.lastAt))}</small></button>`; }).join('')}</div>` : '')
+    + homeHeroHTML(recent)
     + `<div class="hsec">Personajele tale <span>${chars.length}</span></div>`;
-  const bk = !q && bkDue() ? `<div class="bkcard"><b>💾 Backup: ${esc(bkAgo())}</b><small>Personajele, conversațiile și pozele stau doar în telefonul ăsta. Un backup durează câteva secunde.</small><div class="btns"><button class="btn sm pri" data-bk="share">📤 Trimite în Drive</button><button class="btn sm" data-bk="dl">⬇ Salvează</button><button class="btn sm" data-bk="later">Mai târziu</button></div></div>` : '';
+  const bk = !q && bkDue() ? `<div class="bkslim"><span>💾</span><span class="bkt"><b>Backup: ${esc(bkAgo())}</b><small>Totul stă doar în telefonul ăsta</small></span><button class="btn sm pri" data-bk="share">📤 Drive</button><button class="btn sm" data-bk="dl" aria-label="Salvează">⬇</button><button class="bkx" data-bk="later" aria-label="Mai târziu">✕</button></div>` : '';
   $('#homeChars').innerHTML = bk + top + (!chars.length ? `<button class="card empty" data-new><b>Niciun personaj încă</b>Apasă ＋ jos ca să creezi primul personaj, din poză sau din imaginație.</button>` : '') +
     shown.map(c => `<button class="card${c.fav ? ' isfav' : ''}" data-open="${c.id}">${c.fav ? '<span class="fav">⭐</span>' : ''}${c.unread ? `<span class="ubadge">${c.unread > 9 ? '9+' : c.unread}</span>` : ''}${c.lastAt && c.last ? `<span class="when">${when(c.lastAt)}</span>` : ''}
       ${c.photo ? `<img data-k="${esc(photoNow(c))}" alt="">` : `<div class="ph" style="background:${colorFor(c)}">${esc(c.name[0] || '?')}</div>`}
@@ -2614,17 +2789,17 @@ function storyRowHTML(){
 }
 function bindStoryRow(root){ root.querySelectorAll('[data-story]').forEach(b => b.onclick = e => { e.stopPropagation(); openStories(b.dataset.story); }); }
 let stv = null;
-function openStories(cid){
-  const all = storyLive(), order = [...new Set(all.sort((a, b) => a.ts - b.ts).map(p => p.cid))];
+function openStories(cid, custom){
+  const all = custom || storyLive(), order = [...new Set(all.sort((a, b) => a.ts - b.ts).map(p => p.cid))];
   const un = order.filter(id => all.some(p => p.cid === id && !p.sv)), rest = order.filter(id => !un.includes(id));
-  const q = [cid, ...un.filter(id => id !== cid), ...rest.filter(id => id !== cid)];
+  const q = custom ? [cid] : [cid, ...un.filter(id => id !== cid), ...rest.filter(id => id !== cid)];
   closeStories();
   const el = document.createElement('div'); el.id = 'storyV';
   el.innerHTML = `<div class="sbars"></div><div class="shead"></div><img class="simg" alt=""><div class="scap"></div><div class="stap l"></div><div class="stap r"></div>
     <div class="sfoot"><div class="sreact">${['❤️', '😂', '😮', '🔥'].map(e => `<button data-sr="${e}">${e}</button>`).join('')}</div><div class="sin"><input id="stInp" maxlength="500" autocomplete="off"><button id="stSend" aria-label="Trimite">➤</button></div></div>`;
   document.body.appendChild(el);
   stv = {el, q, ci:0, i:0, t0:0, el0:0, paused:false, raf:0, DUR:6000};
-  const ps = () => storyLive().filter(p => p.cid === stv.q[stv.ci]).sort((a, b) => a.ts - b.ts);
+  const ps = () => (custom || storyLive()).filter(p => p.cid === stv.q[stv.ci]).sort((a, b) => a.ts - b.ts);
   const show = async () => {
     const list = ps(); if(!list.length) return next(1, true);
     const p = list[stv.i], c = charById(p.cid); p.sv = 1; p.seen = 1; saveFeed();
@@ -2667,7 +2842,7 @@ function openStories(cid){
   el.querySelectorAll('[data-sr]').forEach(b => b.onclick = () => { fxBurst(b.dataset.sr, 10); const p = cur(); setTimeout(() => storyReply(p, b.dataset.sr), 450); });
   show();
 }
-function closeStories(){ if(!stv) return; cancelAnimationFrame(stv.raf); stv.el.remove(); stv = null; feedDot(); if(!$('#vHome').hidden) renderHome(); }
+function closeStories(){ if(!stv) return; cancelAnimationFrame(stv.raf); stv.el.remove(); stv = null; feedDot(); if(!$('#vHome').hidden) renderHome(); const ab = $('#pfAvBtn'); if(ab && !$('#vProf').hidden && !storyLive().some(x => profId === x.cid && !x.sv)) ab.classList.remove('un'); }
 async function storyReply(p, text){
   if(!p) return;
   const c = charById(p.cid); closeStories(); if(!c) return;
@@ -3012,6 +3187,7 @@ async function openWithFly(o){
   const src = o.querySelector('img');
   const from = src && src.complete && src.naturalWidth ? src.getBoundingClientRect() : null;
   const url = from ? (src.currentSrc || src.src) : '';
+  flyNext = !!from && fxOn();
   await openChat(o.dataset.open);
   if(!from || !fxOn()) return;
   const av = $('#chAv'); if(!av) return;
@@ -3124,19 +3300,33 @@ function maybeProactive(){
 function newChat(){ return {msgs:[], summary:'', sumUpTo:0}; }
 function greetMsg(c){ return {id:uid(), role:'ai', text:c.greet, alts:[c.greet], alt:0, ts:Date.now()}; }
 
-function msgHTML(m, i, lastAi, anim){
+// 8.9: „scrie…” ca bulă vie în conversație
+function typingNow(){ return !!(busy && live && cur && chat && live.ch === chat && live.typing !== false && !live.photo && !chat.msgs.some(m => m.pending && m.text && !m.hold)); }
+function typingHTML(){
+  if(!typingNow()) return '';
+  return `<div class="mw typrow"><div class="m ai">${avatarHTML(cur)}<div class="bub tdots${live.rec ? ' rec' : ''}">${live.rec ? '<span class="tmic">🎙️</span><span class="twave">' + '<i></i>'.repeat(5) + '</span>' : '<i></i><i></i><i></i>'}</div></div></div>`;
+}
+function syncTyping(){
+  const box = $('#msgs'); if(!box || $('#vChat').hidden) return;
+  const has = box.querySelector('.typrow'), want = typingNow();
+  if(want && !has){ const near = box.scrollHeight - box.scrollTop - box.clientHeight < 160; box.insertAdjacentHTML('beforeend', typingHTML()); hydrate(box); if(near) box.scrollTop = box.scrollHeight; }
+  else if(!want && has) has.remove();
+  else if(want && has && !!has.querySelector('.rec') !== !!live.rec){ has.outerHTML = typingHTML(); hydrate(box); }
+}
+function msgHTML(m, i, lastAi, anim, g = ''){
   const me = m.role === 'user';
   if(m.pending && (!m.text || m.hold)) return '';            // „scrie…” apare în bara de jos
   const seen = me && (m.seen || chat.msgs.slice(i + 1).some(x => x.role === 'ai' && !x.pending));
   const tm = `<span class="tm">${hhmm(m.ts)}${me ? `<i class="tick${seen ? ' seen' : ''}">${seen ? '✓✓' : '✓'}</i>` : ''}</span>`;
   let inner, cls = me ? 'me' : 'ai';
-  if(m.pendingImg){ inner = `<div class="picload">${cur.photo ? `<img class="plbg" data-k="${esc(photoNow(cur))}" alt="">` : ''}<div class="plin"><span class="shut"><i></i></span><b>${esc(cur.name)} îți face o poză</b><small>${esc(whereIn(chat.where) || 'se aranjează…')}</small></div></div>`; cls += ' picm'; }
+  if(m.pendingImg){ const stg = live && live.ch === chat && live.stage || {t:'✨ Se pregătește', p:6};
+    inner = `<div class="picload">${cur.photo ? `<img class="plbg" data-k="${esc(photoNow(cur))}" alt="">` : ''}<div class="plgrain"></div><div class="plin"><span class="shut"><i></i></span><b>${esc(cur.name)} îți face o poză</b><small>${esc(whereIn(chat.where) || 'se aranjează…')}</small><span class="plst">${esc(stg.t)}</span><span class="plbar"><i style="width:${stg.p}%"></i></span></div></div>`; cls += ' picm'; }
   else if(m.err) inner = `<div class="bub err${m.errKind === 'flag' ? ' flag' : ''}">${m.errKind === 'flag' ? '🚫' : '⚠️'} ${esc(m.err)}</div>`;
   else if(m.img && !me){
     cls += ' picm';
     const fresh = !devDone.has(m.img) && m.ts && Date.now() - m.ts < 3 * 60e3;   // poza abia sosită „se developează”
     const loc = whereIn(m.where);
-    inner = `<div class="picbox"><img class="pic big${fresh ? ' dev' : ''}" data-k="${esc(m.img)}" data-view="${esc(m.img)}" alt="">${loc ? `<span class="ploc">📍 ${esc(loc)}</span>` : ''}${tm}${reactHTML(m)}</div>${m.text ? `<div class="bub">${fmtMsg(m.text)}</div>` : ''}`;
+    inner = `<div class="picbox${fresh ? ' flash' : ''}"><img class="pic big${fresh ? ' dev' : ''}" data-k="${esc(m.img)}" data-view="${esc(m.img)}" alt="">${loc ? `<span class="ploc">📍 ${esc(loc)}</span>` : ''}${tm}${reactHTML(m)}</div>${m.text ? `<div class="bub">${fmtMsg(m.text)}</div>` : ''}`;
     if(fresh) devDone.add(m.img);
   }
   else if(m.img) inner = `<div class="bub picwrap">${quoteHTML(m)}<img class="pic" data-k="${esc(m.img)}" data-view="${esc(m.img)}" alt="">${m.text ? `<div class="cap">${fmtMsg(m.text)}</div>` : ''}${tm}${reactHTML(m)}</div>`;
@@ -3164,7 +3354,7 @@ function msgHTML(m, i, lastAi, anim){
     const d = new Date(m.seenAt), today = dayKey(m.seenAt) === dayKey(Date.now());
     under += `<div class="seenl">Văzut ${today ? '' : dayKey(m.seenAt) === dayKey(Date.now() - 864e5) ? 'ieri ' : d.toLocaleDateString('ro-RO', {day:'numeric', month:'short'}) + ' '}la ${hhmm(m.seenAt)}</div>`;
   }
-  return `<div class="mw${anim ? ' anim' : ''}${m.react ? ' hasreact' : ''}" data-i="${i}"><div class="m ${cls}">${me ? '' : avatarHTML(cur)}${inner}</div>${under}</div>`;
+  return `<div class="mw${anim ? ' anim' : ''}${m.react ? ' hasreact' : ''}${g}" data-i="${i}"><div class="m ${cls}">${me ? '' : g.includes('gn') ? '<span class="av ghost"></span>' : avatarHTML(cur)}${inner}</div>${under}</div>`;
 }
 const REACTS = ['❤️', '😂', '😮', '😢', '👍', '🔥'];
 const AI_REACT = /^\s*\[(❤️|❤|😂|😮|😢|👍|🔥|🥰)\]\s*/u;
@@ -3592,16 +3782,21 @@ function renderMsgs(toBottom){
   let seen = seenMap.get(chat);
   if(!seen){ seen = new Set(chat.msgs.map(m => m.id)); seenMap.set(chat, seen); }
   let html = heroHTML(), prevDay = '';
+  // 8.9: mesaje grupate (același autor, la mai puțin de 3 minute): colțuri lipite, ora și avatarul doar la ultimul
+  const vis = chat.msgs.map((m, i) => !(m.pending && (!m.text || m.hold)) ? i : -1).filter(i => i >= 0);
+  const solo = m => m.img || m.pendingImg || m.err || m.sticker || m.gift || m.voice;
+  const same = (a, b) => a && b && a.role === b.role && !solo(a) && !solo(b) && !b.reply && Math.abs((b.ts || 0) - (a.ts || 0)) < 3 * 60e3 && dayKey(a.ts || 0) === dayKey(b.ts || 0);
+  const grp = {}; vis.forEach((i, k) => { const a = chat.msgs[vis[k - 1]], m = chat.msgs[i], b = chat.msgs[vis[k + 1]]; grp[i] = (same(a, m) ? ' gp' : '') + (same(m, b) ? ' gn' : ''); });
   chat.msgs.forEach((m, i) => {
     const d = new Date(m.ts || Date.now()).toDateString();
     if(d !== prevDay && !(m.pending && (!m.text || m.hold))){ html += `<div class="day"><span>${dayLabel(m.ts || Date.now())}</span></div>`; prevDay = d; }
     const show = !(m.pending && (!m.text || m.hold));
     const fresh = show && !seen.has(m.id);
-    html += msgHTML(m, i, lastAi, fresh);
+    html += msgHTML(m, i, lastAi, fresh, grp[i] || '');
     if(fresh && !near && !toBottom && m.role === 'ai') jumpCount++;
     if(show) seen.add(m.id);
   });
-  box.innerHTML = html;
+  box.innerHTML = html + typingHTML();
   hydrate(box);
   if(toBottom || near) box.scrollTop = box.scrollHeight;
   updateHead(); updateJump();
@@ -3651,12 +3846,7 @@ function setBusyUI(on){
   b.setAttribute('aria-label', on ? 'Oprește' : 'Trimite');
   $('#btnPlus').disabled = on;
   updateComposer();
-  const tb = $('#typingBar');
-  if(on && live && cur && live.ch === chat && live.typing !== false){
-    tb.hidden = false;
-    $('#tbAv').innerHTML = avatarHTML(cur); hydrate(tb);
-    $('#tbTxt').textContent = cur.name + (live.photo ? ' îți face o poză…' : live.rec ? ' înregistrează un mesaj vocal…' : ' scrie…');
-  } else tb.hidden = true;
+  $('#typingBar').hidden = true; syncTyping();
   const t = $('#chTag');
   if(on && live && cur && live.ch === chat && live.typing !== false){ t.textContent = live.photo ? 'îți face o poză…' : live.rec ? 'înregistrează audio…' : 'scrie…'; t.classList.add('typing'); }
   else if(cur && chat){ t.innerHTML = statusLine(); t.classList.remove('typing'); }
@@ -4291,6 +4481,7 @@ function pfTabsInit(){
   secs.forEach(x => x.dataset.pt = of(x));
   const gal = secs.find(x => x.querySelector('.pfGal')), pics = secs.find(x => x.querySelector('#pfPics'));
   if(gal && pics) pics.before(gal);          // galeria e prima în „Poze”
+  if(pics) pics.querySelector('h3') && (pics.querySelector('h3').innerHTML = '<span>⚙️ Poze trimise în chat</span>');
   const set = t => { profTab = t; tabs.querySelectorAll('[data-pt]').forEach(b => b.classList.toggle('on', b.dataset.pt === t)); secs.forEach(x => x.hidden = x.dataset.pt !== t); };
   tabs.querySelectorAll('[data-pt]').forEach(b => b.onclick = () => { set(b.dataset.pt); const y = tabs.offsetTop - 70; if($('#pfScroll').scrollTop > y) $('#pfScroll').scrollTo({top:y, behavior:'smooth'}); });
   set(profTab);
@@ -4300,7 +4491,14 @@ async function charProfile(id, push = true){
   profId = id;
   const chats = await allChats(c);
   const picsM = chats.flatMap(ch => ch.msgs.filter(m => m.img && m.role === 'ai').map(m => ({k:m.img, ts:m.ts, scene:m.scene}))).sort((a, b) => b.ts - a.ts);
+  for(const fp of feedCache.filter(x => x.cid === id && x.img && !picsM.some(y => y.k === x.img))) picsM.push({k:fp.img, ts:fp.ts, scene:fp.scene, story:fp.story});
+  picsM.sort((a, b) => b.ts - a.ts);
   const pics = picsM.map(x => x.k), picMeta = Object.fromEntries(picsM.map(x => [x.k, x]));
+  if(push) profTab = pics.length ? 'poze' : 'despre';
+  // 8.9: momente (ca evidențierile de pe Instagram): pozele grupate pe zile
+  const hiDays = []; for(const x of picsM){ const d = dayKey(x.ts); let g = hiDays.find(h => h.d === d); if(!g){ if(hiDays.length >= 10) continue; g = {d, items:[]}; hiDays.push(g); } g.items.push(x); }
+  const hiLabel = d => { const n = daysSince(new Date(d + 'T12:00').getTime()); return n === 0 ? 'Azi' : n === 1 ? 'Ieri' : new Date(d + 'T12:00').toLocaleDateString('ro-RO', {day:'numeric', month:'short'}); };
+  const hasStory = storyLive().some(x => x.cid === id), storyUn = storyLive().some(x => x.cid === id && !x.sv);
   const msgs = chats.reduce((n, ch) => n + ch.msgs.filter(m => !m.err && (m.text || m.img)).length, 0);
   const first = Math.min(c.created || Date.now(), ...chats.flatMap(ch => ch.msgs.map(m => m.ts || Date.now())));
   const days = Math.max(1, Math.ceil((Date.now() - first) / 864e5));
@@ -4310,20 +4508,24 @@ async function charProfile(id, push = true){
   $('#pfTopName').textContent = c.name;
   $('#pfBody').innerHTML = `
     <div class="pfHero">${c.photo ? `<img data-k="${esc(c.photo)}" data-view="${esc(c.photo)}" alt="">` : `<div class="ph" style="background:${colorFor(c)}">${esc(c.name[0])}</div>`}</div>
-    <div class="pfHead"><h1>${esc(c.name)}</h1>${c.tag ? `<p>${esc(c.tag)}</p>` : ''}${pfChips(c)}</div>
-    <div class="pfActs">
-      <button class="btn pri" id="pfChat">💬 ${fromChat ? 'Înapoi la conversație' : 'Conversație'}</button>
-      <button class="btn round" id="pfFav" aria-label="Favorit">${c.fav ? '★' : '☆'}</button>
-      <button class="btn round" id="pfEdit" aria-label="Editează">✏️</button>
+    <div class="igHead">
+      <button class="igAv${hasStory ? ' ring' + (storyUn ? ' un' : '') : ''}" id="pfAvBtn" aria-label="${hasStory ? 'Vezi story-ul' : 'Poza de profil'}">${avatarHTML(c)}</button>
+      <div class="igStats">
+        <div><b>${msgs.toLocaleString('ro-RO')}</b><small>mesaje</small></div>
+        <div><b>${days}</b><small>${days === 1 ? 'zi' : 'zile'}</small></div>
+        <div><b>${pics.length}</b><small>${pics.length === 1 ? 'poză' : 'poze'}</small></div>
+      </div>
     </div>
-    <div class="pfStats">
-      <div><b>${msgs.toLocaleString('ro-RO')}</b><small>mesaje</small></div>
-      <div><b>${days}</b><small>${days === 1 ? 'zi' : 'zile'} împreună</small></div>
-      <div><b>${pics.length}</b><small>${pics.length === 1 ? 'poză' : 'poze'}</small></div>
-      <div><b>${threadsOf(c).length}</b><small>${threadsOf(c).length === 1 ? 'conversație' : 'conversații'}</small></div>
+    <div class="igBio"><h1>${esc(c.name)}</h1>${c.tag ? `<p class="igTag">${esc(c.tag)}</p>` : ''}${c.persona ? `<p class="clamp3" id="pfAbout">${esc(c.persona)}</p><button class="more" id="pfMore" hidden>mai mult</button>` : ''}${pfChips(c)}</div>
+    <div class="igActs">
+      <button class="btn pri" id="pfChat">💬 ${fromChat ? 'Înapoi la chat' : 'Mesaj'}</button>
+      <button class="btn" id="pfCall" aria-label="Sună">📞</button>
+      <button class="btn" id="pfGift" aria-label="Cadou">🎁</button>
+      <button class="btn" id="pfFav" aria-label="Favorit">${c.fav ? '★' : '☆'}</button>
     </div>
-    <div class="pftabs" id="pfTabs"><button data-pt="despre">✨ Despre</button><button data-pt="poze">🖼️ Poze</button><button data-pt="memorie">🧠 Memorie</button></div>
-    ${c.persona ? `<div class="pfSec"><h3>Despre</h3><p class="clamp" id="pfAbout">${esc(c.persona)}</p><button class="more" id="pfMore" hidden>Mai mult</button></div>` : ''}
+    ${hiDays.length ? `<div class="igHi">${hiDays.map((h, k) => `<button data-hi="${k}"><span><img data-k="${esc(h.items[0].k)}" alt=""></span><small>${esc(hiLabel(h.d))}</small></button>`).join('')}</div>` : ''}
+    <div class="pftabs ig" id="pfTabs"><button data-pt="poze"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>Poze</button><button data-pt="despre">✨ Despre</button><button data-pt="memorie">🧠 Memorie</button></div>
+    <div class="pfSec igGrid"><div class="pfGal">${pics.length ? pics.map(k => `<button data-view="${esc(k)}">${picMeta[k].story ? '<i>📸</i>' : ''}<img data-k="${esc(k)}" alt="" loading="lazy"></button>`).join('') : ''}</div>${pics.length ? '' : `<p class="igEmpty">📷<br>Încă nicio poză de la ${esc(c.name)}.<br><small>Cere-i una din ＋ în conversație.</small></p>`}</div>
     ${c.aspect ? `<div class="pfSec"><h3>Cum arată</h3><p>${esc(c.aspect)}</p></div>` : ''}
     <div class="pfSec"><h3><span>💞 Relația voastră</span></h3><div class="relbox"><span class="lv" id="pfRelName"></span><small id="pfRelSub"></small><button class="btn sm" id="pfRelSet" style="margin-left:auto">Schimbă</button></div><div class="relbar"><i id="pfRelBar"></i></div></div>
     <div class="pfSec" id="pfPrefsSec"><h3>🎯 Ce a învățat din notele tale</h3><ul class="facts" id="pfPrefs"></ul></div>
@@ -4341,13 +4543,12 @@ async function charProfile(id, push = true){
       <ul class="facts" id="pfFacts"></ul>
       <div class="addfact"><input id="pfFactIn" placeholder="Adaugă ceva ce să știe"><button class="btn sm" id="pfFactAdd">＋</button><button class="btn sm" id="pfFactScan" title="Caută fapte noi în conversație">🔄</button></div>
     </div>
-    ${pics.length ? `<div class="pfSec"><h3>Galerie · ${pics.length}</h3><div class="pfGal">${pics.map(k => `<img data-k="${esc(k)}" data-view="${esc(k)}" alt="" loading="lazy">`).join('')}</div></div>` : ''}
     <div class="pfFoot">Creat pe ${new Date(c.created || first).toLocaleDateString('ro-RO', {day:'numeric', month:'long', year:'numeric'})} · cost estimat ${usd(spent)}</div>`;
   const body = $('#pfBody');
   hydrate(body);
   show('vProf', push);
   $('#pfScroll').scrollTop = 0; profScroll();
-  const ab = $('#pfAbout'); if(ab) requestAnimationFrame(() => { if(ab.scrollHeight > ab.clientHeight + 4){ $('#pfMore').hidden = false; $('#pfMore').onclick = () => { ab.classList.remove('clamp'); $('#pfMore').hidden = true; }; } });
+  const ab = $('#pfAbout'); if(ab) requestAnimationFrame(() => { if(ab.scrollHeight > ab.clientHeight + 4){ $('#pfMore').hidden = false; $('#pfMore').onclick = () => { ab.classList.remove('clamp3'); $('#pfMore').hidden = true; }; } });
   body.onclick = e => { const v = e.target.closest('[data-view]'); if(v) viewImg(v.dataset.view, pics.includes(v.dataset.view) ? pics : [v.dataset.view], picMeta); };
   const drawFacts = () => {
     $('#pfFacts').innerHTML = (c.facts || []).length ? c.facts.map((f, k) => `<li><span>${f.k === 'urm' ? '🗓️ ' : f.k === 'gluma' ? '😄 ' : ''}${esc(f.t)}</span><button data-fx="${k}" aria-label="Șterge">✕</button></li>`).join('')
@@ -4392,7 +4593,11 @@ async function charProfile(id, push = true){
   $('#pfVPlay').onclick = () => voiceSample(c, $('#pfVPlay'));
   $('#pfVPick').onclick = () => pickVoice(c, () => { $('#pfVName').textContent = voiceLabel(c); });
   $('#pfFav').onclick = async () => { c.fav = !c.fav; await saveChars(); $('#pfFav').textContent = c.fav ? '★' : '☆'; toast(c.fav ? '⭐ Adăugat la favorite' : 'Scos de la favorite'); };
-  $('#pfEdit').onclick = $('#pfEditTop').onclick = () => openEditor(id);
+  $('#pfEditTop').onclick = () => openEditor(id);
+  $('#pfCall').onclick = async () => { if(!fromChat) await openChat(id); else history.back(); setTimeout(startCall, 350); };
+  $('#pfGift').onclick = async () => { if(!fromChat) await openChat(id); else history.back(); setTimeout(giftSheet, 350); };
+  $('#pfAvBtn').onclick = () => { if(storyLive().some(x => x.cid === id)) openStories(id); else if(c.photo) viewImg(c.photo, [c.photo]); };
+  body.querySelectorAll('[data-hi]').forEach(b => b.onclick = e => { e.stopPropagation(); const h = hiDays[+b.dataset.hi]; openStories(id, h.items.slice().reverse().map(x => ({id:'h' + x.k, cid:id, ts:x.ts, text:'', img:x.k, scene:x.scene}))); });
   $('#pfChat').onclick = () => { if(fromChat) history.back(); else openChat(id); };
 }
 function profScroll(){
@@ -5573,7 +5778,7 @@ function autoSize(){ const t = $('#inp'); t.style.height = 'auto'; t.style.heigh
 function bind(){
   $$('[data-back]').forEach(b => b.onclick = back);
   $('#btnSettings').onclick = openSettings;
-  $$('#nav [data-tab]').forEach(b => b.onclick = () => { homeTab = b.dataset.tab; renderHome(); $('#homeScroll').scrollTop = 0; });
+  $$('#nav [data-tab]').forEach(b => b.onclick = () => { if(homeTab === b.dataset.tab){ $('#homeScroll').scrollTo({top:0, behavior:'smooth'}); return; } homeTab = b.dataset.tab; renderHome(); $('#homeScroll').scrollTop = 0; const sc = $('#homeScroll'); sc.classList.remove('tabin'); void sc.offsetWidth; sc.classList.add('tabin'); });
   $('#obStart').onclick = () => openSettings();
   $('#stTtsTest').onclick = () => voiceSample(chars[0] || {id:'test', name:'Taifas', look:'woman'}, $('#stTtsTest'));
   // lista de conversații: glisare spre stânga = Fixează / Golește
