@@ -1,7 +1,7 @@
 /* Taifas 2 — service worker
    Pagina vine din rețea întâi (versiunea nouă se vede imediat), cache-ul e doar plasă offline.
    API-urile și orice alt domeniu trec direct la rețea. */
-const CACHE = 'taifas2-v70';   // ↑ crește la fiecare versiune
+const CACHE = 'taifas2-v71';   // ↑ crește la fiecare versiune
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './icon-512-maskable.png', './icon-180.png', './fonts/pjs-latin.woff2', './fonts/pjs-latin-ext.woff2', './fonts/pjs-latin-italic.woff2', './fonts/pjs-latin-ext-italic.woff2'];
 
 self.addEventListener('install', e => {
@@ -38,7 +38,8 @@ self.addEventListener('push', e => e.waitUntil((async () => {
   let items = [];
   if (c && c.wk) { try { const r = await fetch(c.wk + '/push/pending', { headers: c.tok ? { authorization: 'Bearer ' + c.tok } : {} }); items = (await r.json()).items || [] } catch (er) {} }
   const open = (await self.clients.matchAll({ type: 'window', includeUncontrolled: true })).some(w => w.visibilityState === 'visible');
-  if (open) return;                                   // aplicația e pe ecran: nu deranjăm
+  const test = items.length && items.every(i => i.id === 'test');
+  if (open && !test) return;                          // aplicația e pe ecran: nu deranjăm (testul apare oricum)
   if (!items.length) items = [{ id: 'msg', title: 'Taifas', body: '💬 Ai un mesaj nou', url: './' }];
   for (const it of items) await self.registration.showNotification(it.title || 'Taifas', { body: it.body || '', icon: 'icon-512-maskable.png', badge: 'icon-192.png', tag: it.id || 'taifas', renotify: true, data: { url: it.url || './' } });
 })()));

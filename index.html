@@ -1309,7 +1309,7 @@ input:focus,textarea:focus,select:focus{border-color:color-mix(in srgb,var(--acc
 
 <script>
 'use strict';
-const APP_VER = '8.7.1';
+const APP_VER = '8.7.2';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -4520,7 +4520,14 @@ function drawPush(){
       <li>Aici: „Pornește notificările”, apoi „Trimite o notificare de test”.</li></ol></details>`;
   const res = $('#stPushRes');
   const on = $('#stPushOn'); if(on) on.onclick = async () => { res.className = 'status'; res.innerHTML = '<span class="spin"></span> Pornesc…'; try{ await pushEnable(); drawPush(); $('#stPushRes').className = 'status ok'; $('#stPushRes').textContent = '✓ Pornite. Trimite o notificare de test.'; }catch(e){ res.className = 'status err'; res.textContent = '✗ ' + e.message; } };
-  const te = $('#stPushTest'); if(te) te.onclick = async () => { res.className = 'status'; res.innerHTML = '<span class="spin"></span> Trimit…'; try{ await pushCfgToSW(); const r = await wkFetch('/push/test', {method:'POST', body:'{}'}); res.className = 'status ok'; res.textContent = '✓ Trimisă (' + r.push + '). Închide aplicația câteva secunde: notificarea apare doar când Taifas nu e pe ecran.'; }catch(e){ res.className = 'status err'; res.textContent = '✗ ' + e.message; } };
+  const te = $('#stPushTest'); if(te) te.onclick = async () => { res.className = 'status'; res.innerHTML = '<span class="spin"></span> Trimit…'; try{
+      const reg = await navigator.serviceWorker.getRegistration(); if(reg) await reg.update().catch(() => {});
+      await pushCfgToSW(); const r = await wkFetch('/push/test', {method:'POST', body:'{}'});
+      const sub = reg && await reg.pushManager.getSubscription();
+      const diag = ` · permisiune: ${Notification.permission} · abonament: ${sub ? 'da' : 'NU'}`;
+      if(r.push !== 201 && r.push !== 200){ res.className = 'status err'; res.textContent = '✗ Serviciul de notificări a răspuns: ' + r.push + diag + '. Apasă Oprește, apoi Pornește din nou.'; return; }
+      res.className = 'status ok'; res.textContent = '✓ Trimisă (' + r.push + ')' + diag + '. Notificarea de test ar trebui să apară în câteva secunde, chiar cu aplicația deschisă. Dacă nu apare, problema e la permisiunile telefonului.';
+    }catch(e){ res.className = 'status err'; res.textContent = '✗ ' + e.message; } };
   const off = $('#stPushOff'); if(off) off.onclick = async () => { try{ const reg = await navigator.serviceWorker.ready; const sub = await reg.pushManager.getSubscription(); if(sub) await sub.unsubscribe(); }catch(e){} S.pushOn = false; saveSettings(); drawPush(); };
 }
 /* ───────── 🌦️ 8.6: vremea reală din orașul personajului (Open-Meteo, gratuit, fără cheie) ───────── */
