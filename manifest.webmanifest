@@ -35,9 +35,10 @@
       "url": "./?go=last",
       "icons": [
         {
-          "src": "icon-512-maskable.png",
-          "sizes": "512x512",
-          "type": "image/png"
+          "src": "sc-last.png",
+          "sizes": "192x192",
+          "type": "image/png",
+          "purpose": "any"
         }
       ]
     },
@@ -47,21 +48,23 @@
       "url": "./?go=fav",
       "icons": [
         {
-          "src": "icon-512-maskable.png",
-          "sizes": "512x512",
-          "type": "image/png"
+          "src": "sc-fav.png",
+          "sizes": "192x192",
+          "type": "image/png",
+          "purpose": "any"
         }
       ]
     },
     {
       "name": "Întreabă-le pe toate",
-      "short_name": "📣 Toate",
+      "short_name": "Scrie tuturor",
       "url": "./?go=bcast",
       "icons": [
         {
-          "src": "icon-512-maskable.png",
-          "sizes": "512x512",
-          "type": "image/png"
+          "src": "sc-all.png",
+          "sizes": "192x192",
+          "type": "image/png",
+          "purpose": "any"
         }
       ]
     },
@@ -71,9 +74,10 @@
       "url": "./?go=new",
       "icons": [
         {
-          "src": "icon-512-maskable.png",
-          "sizes": "512x512",
-          "type": "image/png"
+          "src": "sc-new.png",
+          "sizes": "192x192",
+          "type": "image/png",
+          "purpose": "any"
         }
       ]
     }
