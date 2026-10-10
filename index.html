@@ -1479,7 +1479,7 @@ input:focus,textarea:focus,select:focus{border-color:color-mix(in srgb,var(--acc
 
 <script>
 'use strict';
-const APP_VER = '8.9';
+const APP_VER = '8.9.1';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -1769,10 +1769,39 @@ function trimToSentence(t){
   if(best > t.length * .45) return t.slice(0, best).trimEnd();
   return t.replace(/\s+\S*$/, '') + '…';
 }
+// 8.9.1: JSON tolerant: ghilimele neescapate în texte, rânduri noi, virgule în plus, răspuns tăiat la jumătate
+function repairJSON(s){
+  let out = '', inStr = false; const stack = [];
+  for(let i = 0; i < s.length; i++){
+    const ch = s[i];
+    if(inStr){
+      if(ch === '\\'){ out += ch + (s[i + 1] ?? ''); i++; continue; }
+      if(ch === '"'){ let j = i + 1; while(j < s.length && /\s/.test(s[j])) j++; const nx = s[j]; if(nx === undefined || ',}]:'.includes(nx)){ inStr = false; out += ch; } else out += '\\"'; continue; }
+      if(ch === '\n'){ out += '\\n'; continue; }
+      if(ch === '\r' || ch === '\t'){ out += ' '; continue; }
+      out += ch; continue;
+    }
+    if(ch === '"'){ inStr = true; out += ch; continue; }
+    if(ch === '{' || ch === '[') stack.push(ch === '{' ? '}' : ']');
+    else if(ch === '}' || ch === ']') stack.pop();
+    out += ch;
+  }
+  if(inStr) out += '"';
+  out = out.replace(/,\s*$/, '');
+  while(stack.length) out += stack.pop();
+  return out.replace(/,\s*([}\]])/g, '$1');
+}
 function parseJSON(t){
-  const s = String(t), a = s.indexOf('{'), b = s.lastIndexOf('}');
-  if(a < 0 || b < a) throw new Error('Răspuns neașteptat de la AI.');
-  return JSON.parse(s.slice(a, b + 1));
+  const s = String(t).replace(/```(?:json)?/gi, ''), a = s.indexOf('{'), b = s.lastIndexOf('}');
+  if(a < 0) throw new Error('Răspuns neașteptat de la AI.');
+  if(b > a){ try{ return JSON.parse(s.slice(a, b + 1)); }catch(e){} }
+  let src = s.slice(a);
+  for(let k = 0; k < 40 && src.length > 1; k++){
+    try{ return JSON.parse(repairJSON(src)); }catch(e){}
+    const cut = Math.max(src.lastIndexOf(','), src.lastIndexOf('{', src.length - 2), src.lastIndexOf('[', src.length - 2));   // renunțăm la ultimul element neterminat
+    if(cut <= 0) break; src = src.slice(0, cut);
+  }
+  throw new Error('Răspunsul AI n-a ieșit complet. Mai încearcă.');
 }
 
 /* ───────── poză → descriere 1:1 ───────── */
@@ -2464,7 +2493,7 @@ async function genLife(c){
   const out = await stream('Creezi rutine zilnice realiste pentru personaje. Răspunzi DOAR cu JSON valid.', [{role:'user', text:
 `Personaj: ${c.name}. ${c.tag ? 'Pe scurt: ' + c.tag + '. ' : ''}${c.persona ? 'Descriere: ' + c.persona.slice(0, 1200) : ''}
 Scrie programul unei zile obișnuite de lucru și al unei zile de weekend pentru acest personaj, în română, acoperind toate cele 24 de ore, 6-10 intervale pe zi (inclusiv somnul). Fiecare interval: de la, până la (HH:MM), ce face (3-8 cuvinte, la persoana a III-a, fără nume, ex: „la cafeneaua de lângă birou”) și starea: liber, ocupat sau doarme.
-JSON: {"lucru":[{"de":"07:00","pana":"08:00","ce":"…","stare":"liber"}],"weekend":[…]}`}], {max:1400, cid:c.id});
+Fără ghilimele în texte. JSON: {"lucru":[{"de":"07:00","pana":"08:00","ce":"…","stare":"liber"}],"weekend":[…]}`}], {max:2400, cid:c.id});
   const j = parseJSON(out);
   const conv = a => (Array.isArray(a) ? a : []).map(x => ({f:String(x.de || '').slice(0, 5), t:String(x.pana || '').slice(0, 5), w:String(x.ce || '').trim().slice(0, 60), b:/doarm|somn/i.test(x.stare) ? 2 : /ocup/i.test(x.stare) ? 1 : 0})).filter(x => /^\d{2}:\d{2}$/.test(x.f) && /^\d{2}:\d{2}$/.test(x.t) && x.w);
   const wk = conv(j.lucru), we = conv(j.weekend);
@@ -2702,7 +2731,7 @@ async function genEvents(c){
 ${rut ? 'Programul obișnuit: ' + rut + '\n' : ''}Azi e ${today}. Zilele următoare: ${zile.join(', ')}.
 ${fut ? 'Are deja în plan (nu repeta):\n' + fut + '\n' : ''}${past ? 'A avut recent (poți continua firesc, cu urmări):\n' + past + '\n' : ''}
 Scrie 3-5 lucruri care i se vor întâmpla în următoarele 14 zile, în română, cum ar avea un om real: mai ales lucruri mărunte (o cină cu o prietenă numită, dentistul, un concert, o ședință importantă, cumpărături pentru ceva anume, vizita părinților), cel mult unul mai mare (o excursie de weekend, un interviu, o petrecere). Potrivite cu cine e, cu jobul și orașul lui. Fiecare: ziua (AAAA-LL-ZZ, din lista de mai sus), ora (HH:MM sau gol), ce (5-14 cuvinte, concret, cu nume de oameni și locuri inventate, fără numele personajului).
-${c.bday ? '' : 'Alege și ziua lui de naștere (LL-ZZ), potrivită cu descrierea dacă o pomenește, altfel una plauzibilă.\n'}JSON: {${c.bday ? '' : '"zi_nastere":"LL-ZZ",'}"evenimente":[{"zi":"AAAA-LL-ZZ","ora":"19:30","ce":"…","mare":false}]}`}], {max:900, cid:c.id, aux:true});
+${c.bday ? '' : 'Alege și ziua lui de naștere (LL-ZZ), potrivită cu descrierea dacă o pomenește, altfel una plauzibilă.\n'}Fără ghilimele în texte. JSON: {${c.bday ? '' : '"zi_nastere":"LL-ZZ",'}"evenimente":[{"zi":"AAAA-LL-ZZ","ora":"19:30","ce":"…","mare":false}]}`}], {max:900, cid:c.id, aux:true});
   const j = parseJSON(out);
   if(!c.bday && /^\d{2}-\d{2}$/.test(String(j.zi_nastere || ''))) c.bday = j.zi_nastere;
   const ok = new Set(zile.map(z => z.slice(0, 10)));
