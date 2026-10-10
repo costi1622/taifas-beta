@@ -1088,8 +1088,9 @@ input:focus,textarea:focus,select:focus{border-color:color-mix(in srgb,var(--acc
       </div>
       <div id="stChatWrap">
         <label style="margin-top:14px">Fidelitatea feței în pozele din chat</label>
-        <div class="seg" id="stWkChat"><button data-v="">Eco · klein 4B</button><button data-v="ancorat">Fidel · klein 9B</button></div>
+        <div class="seg" id="stWkChat"><button data-v="">Eco · klein 4B</button><button data-v="ancorat">Fidel · klein 9B</button><button data-v="fal">Față identică · fal.ai</button></div>
         <p class="hint" id="stWkChatHint"></p>
+        <div id="stChatFal" hidden><label for="stChatFalKey">Cheie fal.ai (fal.ai → Dashboard → Keys)</label><input id="stChatFalKey" type="password" placeholder="xxxxxxxx-xxxx-…:…" autocomplete="off"></div>
         <div class="btns"><button type="button" class="btn sm" id="stRefTest">🔬 Compară pe personajul meu</button></div>
         <div id="stRefRes"></div>
       </div>
@@ -1194,11 +1195,10 @@ input:focus,textarea:focus,select:focus{border-color:color-mix(in srgb,var(--acc
 </section>
 
 <div id="toast"></div>
-<div id="splash"><img src="icon-192.png" alt=""><b>Taifas</b></div>
 
 <script>
 'use strict';
-const APP_VER = '8.2';
+const APP_VER = '8.3';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -1237,7 +1237,7 @@ const DEF = {
   imgProv:'none', gemKey:'', gemModel:'gemini-2.5-flash-image',
   wkBase:'', wkTok:'', wkModel:'eco', wkSize:'768x1024',
   sugg:'off', pro:'on', feed:'text', fx:'on', regen3:'on', voice:'tap', tts:'tel', cfPlan:'free', cfCap:'free', elKey:'', elModel:'eleven_v3', theme:'dark', vmsg:'rar', jrn:'on', aux:'on', ctxN:'30',
-  imgCheck:'on', userPhoto:'', userPhys:'', wkChat:'', wkRef:'auto', falKey:'', falModel:'fal-ai/flux-pulid', falSize:'576x768', spont:'rar', imgAlt:'fal', sv:34, imgCost:'', pIn:'', pOut:''
+  imgCheck:'on', userPhoto:'', userPhys:'', userBox:null, wkChat:'', wkRef:'auto', falKey:'', falModel:'fal-ai/flux-pulid', falSize:'576x768', spont:'rar', imgAlt:'fal', sv:34, imgCost:'', pIn:'', pOut:''
 };
 let S = {...DEF};
 let chars = [];            // [{id,name,tag,photo,aspect,look,stil,persona,speech,greet,created,lastAt,last}]
@@ -1618,6 +1618,34 @@ async function faceRef(c, force){
   const id = await identityOf(c, force);
   return cropFace(full, id && !id.none ? id : null);
 }
+/* 8.3: Cloudflare (FLUX.2) primește reperele ca imagini de 512×512. Poza de profil întreagă micșorată la 512 lasă fața
+   de câțiva pixeli, deci identitatea se pierde. Acum: reperul 1 = fața decupată (512, cât mai mulți pixeli pe față),
+   reperul 2 = poza de profil decupată pătrat de la cap la talie (păr, ten, siluetă). Reper unic (Worker fără 2 repere): reperul 2. */
+async function bodySquare(blob, b){
+  const u = URL.createObjectURL(blob);
+  try{
+    const im = await loadImgEl(u), W = im.naturalWidth, H = im.naturalHeight;
+    const side = Math.min(W, H, b && !b.none ? Math.max(b.h * H * 5, b.w * W * 3.2) : Math.min(W, H));
+    const cx = b && !b.none ? (b.x + b.w / 2) * W : W / 2, top = b && !b.none ? b.y * H - b.h * H * .45 : 0;
+    const x = Math.min(Math.max(0, cx - side / 2), W - side), y = Math.min(Math.max(0, top), H - side);
+    const cv = document.createElement('canvas'); cv.width = cv.height = 512;
+    cv.getContext('2d').drawImage(im, x, y, side, side, 0, 0, 512, 512);
+    return await new Promise(r => cv.toBlob(r, 'image/jpeg', .92));
+  } finally { URL.revokeObjectURL(u); }
+}
+async function idRefs(c){
+  const full = c.photo ? await DB.get(c.photo) : null; if(!full) return null;
+  let id = null; if(aiReady()) try{ id = await identityOf(c); }catch(e){}
+  const bx = id && !id.none ? id : null;
+  return {full, id, face: await cropFace(full, bx), body: await bodySquare(full, bx)};
+}
+function idPrompt(c, shot, fr, R, fix, two){
+  const phys = R && R.id && R.id.phys ? ` Permanent physical traits (exactly as in the reference): ${R.id.phys}.` : '';
+  const refs = two
+    ? 'image 1 is a close-up of the face (the exact identity to keep: face shape, eyes, eyebrows, nose, lips, skin tone and skin texture), image 2 shows the same person\'s hair, skin tone and body type'
+    : 'the reference image shows the same person (face, hair, skin tone, body type)';
+  return `${fr.p}. ${shot}.${fix ? ` Important corrections from the previous attempt: ${fix}.` : ''} The person in this photo is exactly the same real person as in the reference images: ${refs}. Keep the identity identical: the same face and facial features, the same skin tone, the same hair color, texture and hairstyle, the same body type and proportions.${phys} Do NOT copy the background, the outfit, the pose or the framing of the references: location, background, body position, clothing, camera angle and lighting come only from the scene description above. ${STIL_TAG[c.stil || 'photo']}`;
+}
 // încadrarea scrisă explicit la început (altfel modelul copiază încadrarea referinței)
 function framingOf(shot){
   const t = String(shot || '').toLowerCase();
@@ -1695,16 +1723,28 @@ async function scenePhoto(c, shot, signal, fix, opt = {}){
   const me = opt.together && S.userPhoto ? await DB.get(S.userPhoto) : null;
   if(full && me){
     const u = S.userName.trim() || 'the user';
-    const ref = await pairRef(full, me);
-    const prompt = `${togetherFraming(shot)}. ${shot}.${fix ? ` Important corrections from the previous attempt: ${fix}.` : ''} Exactly two people in this photo, ${c.name} and ${u}, together in the scene described above. The reference image shows the two of them side by side: on the LEFT is ${c.name}${id && id.phys ? ' (' + id.phys + ')' : ''}; on the RIGHT is ${u}${S.userPhys ? ' (' + S.userPhys + ')' : ''}. Keep both identities exactly as in the reference: the same faces, facial features, skin tones, hair and body types. This is ONE single natural photo of the two of them together: not a collage, not a split screen, no border, no gray background; the location, clothing, poses and light come only from the scene description. ${stil}`;
-    return {prompt, blob: await genImage(prompt, ref, signal, null, {model: S.imgProv === 'worker' ? (S.wkChat || S.wkModel) : undefined})};
+    const cb = id && !id.none ? id : null, ub = S.userBox || null;
+    const ref = await pairRef(full, me, cb, ub);
+    const head = `${togetherFraming(shot)}. ${shot}.${fix ? ` Important corrections from the previous attempt: ${fix}.` : ''} Exactly two people in this photo, ${c.name} and ${u}, together in the scene described above.`;
+    const tail = `Keep both identities exactly as in the references: the same faces, facial features, skin tones, hair and body types. This is ONE single natural photo of the two of them together: not a collage, not a split screen, no border, no gray background; the location, clothing, poses and light come only from the scene description. ${stil}`;
+    const pPair = `${head} The reference image shows the two of them side by side: on the LEFT is ${c.name}${id && id.phys ? ' (' + id.phys + ')' : ''}; on the RIGHT is ${u}${S.userPhys ? ' (' + S.userPhys + ')' : ''}. ${tail}`;
+    const pTwo = `${head} Image 1 is a close-up of ${c.name}'s face${id && id.phys ? ' (' + id.phys + ')' : ''}; image 2 is a close-up of ${u}'s face${S.userPhys ? ' (' + S.userPhys + ')' : ''}. ${tail}`;
+    const model = S.imgProv === 'worker' ? (S.wkChat && S.wkChat !== 'fal' ? S.wkChat : S.wkModel) : undefined;
+    if(S.imgProv === 'worker') return {prompt:pTwo, blob: await genImage(pTwo, await cropFace(full, cb), signal, await cropFace(me, ub), {model, p1:pPair, one:ref})};
+    return {prompt:pPair, blob: await genImage(pPair, ref, signal, null, {model})};
   }
   const phys = id && id.phys ? ` Her/his permanent physical traits (exactly as in the reference): ${id.phys}.` : '';
   const fixLine = fix ? ` Important corrections from the previous attempt: ${fix}.` : '';
+  // 8.3: pozele din chat prin fal.ai PuLID (model făcut să păstreze fața), restul aplicației rămâne pe Worker
+  if(full && S.imgProv === 'worker' && S.wkChat === 'fal' && S.falKey){
+    const face = await cropFace(full, id && !id.none ? id : null);
+    const prompt = `${fr.p}. ${shot}.${fix ? ` Important corrections from the previous attempt: ${fix}.` : ''}${id && id.phys ? ' The person: ' + id.phys + '.' : ''} ${stil}`;
+    return {prompt, blob: await genImage(prompt, face, signal, null, {prov:'fal'})};
+  }
   if(full && S.imgProv === 'worker'){
-    let face = null; try{ face = await cropFace(full, id && !id.none ? id : null); }catch(e){}
-    const prompt = `${fr.p}. ${shot}.${fixLine} The person in this photo is exactly the same real person as in the reference images: image 1 is the profile photo (whole appearance), ${face ? 'image 2 is a close-up of the same face. ' : ''}Keep the identity identical to the reference: the same face and facial features, skin tone, eyes, eyebrows, nose, lips, hair color, hair texture and hairstyle, the same body type and proportions.${phys} Do NOT copy the background, the location, the outfit, the pose or the framing of image 1: this is a new photo, where the location, background, body position, clothing, camera angle and lighting come only from the scene description above. ${stil}`;
-    return {prompt, blob: await genImage(prompt, full, signal, face, {model: S.wkChat || S.wkModel})};
+    const R = await idRefs(c);
+    const prompt = idPrompt(c, shot, fr, R, fix, true);
+    return {prompt, blob: await genImage(prompt, R.face, signal, R.body, {model: S.wkChat && S.wkChat !== 'fal' ? S.wkChat : S.wkModel, p1: idPrompt(c, shot, fr, R, fix, false)})};
   }
   if(full && S.imgProv === 'fal'){
     const prompt = `${fr.p}. ${shot}.${fixLine} Same person as in the reference image (same face, skin tone, hair, body type).${phys} New location, outfit, pose and light exactly as described, not those of the reference. ${stil}`;
@@ -1737,7 +1777,7 @@ async function makeScenePhoto(c, shot, signal, opt = {}){
   if(S.imgCheck === 'off' || !aiReady()) return a;
   try{ a.check = await checkPhoto(c, a.blob, shot, signal, opt.together); }catch(e){ if(e.name === 'AbortError') throw e; return a; }
   const bad = x => x && (x.face < 7 || x.scene < 6 || x.framing < 5);
-  if(!bad(a.check) || capLeft() < (neurPerPhoto(S.wkChat || S.wkModel) || 5000)) return a;
+  if(!bad(a.check) || (S.wkChat !== 'fal' && capLeft() < (neurPerPhoto(S.wkChat || S.wkModel) || 5000))) return a;
   let b;
   try{ b = await scenePhoto(c, shot, signal, a.check.fix || 'follow the scene and keep the face of the reference', opt); addUsage(c.id, imgPrice(), 'img'); }
   catch(e){ if(e.name === 'AbortError') throw e; return a; }
@@ -1749,8 +1789,10 @@ async function makeScenePhoto(c, shot, signal, opt = {}){
 }
 let wkSimple = false;   // 7.2: Worker-ul a refuzat 2 repere în sesiunea asta
 let lastImgModel = '';  // 7.3: modelul folosit la ultima poză (pentru cost)
+let lastImgProv = '';   // 8.3: furnizorul folosit la ultima poză (fal pentru chat)
 async function genImage(prompt, ref, signal, ref2, opt = {}){
-  if(S.imgProv === 'gemini'){
+  const prov = opt.prov || S.imgProv; lastImgProv = prov;
+  if(prov === 'gemini'){
     if(!S.gemKey) throw new Error('Lipsește cheia Google în Setări → Poze.');
     const parts = [{text: ref ? 'Keep the exact same person from the reference image (same face, identity, hair). New photo: ' + prompt : prompt}];
     if(ref) parts.push({inline_data:{mime_type:ref.type || 'image/jpeg', data:await blobToB64(ref)}});
@@ -1765,7 +1807,7 @@ async function genImage(prompt, ref, signal, ref2, opt = {}){
     if(!im?.data) throw new Error('Gemini n-a dat imagine' + (cand.finishReason || d.promptFeedback?.blockReason ? ' (' + (cand.finishReason || d.promptFeedback.blockReason) + ')' : '') + '.');
     return b64ToBlob(im.data, im.mimeType || im.mime_type || 'image/png');
   }
-  if(S.imgProv === 'worker'){
+  if(prov === 'worker'){
     if(!S.wkBase) throw new Error('Lipsește adresa Worker-ului în Setări → Poze.');
     const model = opt.model || S.wkModel || 'eco';
     await checkCap(model);
@@ -1777,19 +1819,21 @@ async function genImage(prompt, ref, signal, ref2, opt = {}){
     if(opt.force) steps = [opt.force];
     else {
       if(ref && ref2 && !wkSimple && S.wkRef !== 'one') steps.push({two:true});
-      steps.push({two:false, px:1024}, {two:false, px:512, short:true});
+      steps.push({two:false, px:512}, {two:false, px:512, short:true});
     }
     let lastErr;
     for(let i = 0; i < steps.length; i++){
       const st = steps[i];
       let p = prompt;
-      if(!st.two) p = p.replace(/,? ?image 2 is a close-up of the same face\. ?/i, ' ').replace(/the reference images: image 1 is the profile photo \(whole appearance\),/i, 'the reference image (the profile photo).');
+      if(!st.two) p = opt.p1 || p.replace(/,? ?image 2 is a close-up of the same face\. ?/i, ' ').replace(/the reference images: image 1 is the profile photo \(whole appearance\),/i, 'the reference image (the profile photo).');
       if(st.short && p.length > 1100) p = p.slice(0, 1100).replace(/[^.]*$/, '');
       const fd = new FormData();
       fd.append('prompt', p); fd.append('model', model); fd.append('size', S.wkSize || '768x1024');
       fd.append('seed', String(Math.floor(Math.random() * 1e9)));
-      if(ref) fd.append('image', await toJpeg(ref, st.px || (st.two ? 768 : 1024), .9), 'ref.jpg');
-      if(ref && st.two && ref2) fd.append('image_1', ref2, 'face.jpg');
+      // 8.3: 2 repere = fața (image) + poza pătrată (image_1); reper unic = poza pătrată (ref2), sau ref dacă nu există
+      const one = opt.one || (!st.two && ref2 ? ref2 : ref);
+      if(st.two && ref){ fd.append('image', await toJpeg(ref, 512, .92), 'ref.jpg'); if(ref2) fd.append('image_1', await toJpeg(ref2, 512, .92), 'face.jpg'); }
+      else if(one) fd.append('image', await toJpeg(one, st.px || 512, .92), 'ref.jpg');
       const r = await fetch(wkUrl() + '/images/generations', {method:'POST', signal, body:fd,
         headers: S.wkTok ? {authorization:'Bearer ' + S.wkTok.trim()} : {}});
       if(r.ok){
@@ -1807,7 +1851,7 @@ async function genImage(prompt, ref, signal, ref2, opt = {}){
     if(/\b30(43|40)\b|internal server error|out of capacity/i.test(lastErr || '')) throw new Error('Cloudflare a avut o eroare internă (' + ((lastErr.match(/\b30\d\d\b/) || ['5xx'])[0]) + '), chiar după 3 încercări. De obicei trece în câteva minute; apasă Reîncearcă.');
     throw new Error(lastErr);
   }
-  if(S.imgProv === 'fal'){
+  if(prov === 'fal'){
     if(!S.falKey) throw new Error('Lipsește cheia fal.ai în Setări → Poze.');
     const model = (S.falModel || DEF.falModel).trim().replace(/^\/+|\/+$/g, '');
     const [w, h] = (S.falSize || '576x768').split('x').map(Number);
@@ -2295,21 +2339,28 @@ async function readPhys(blob){
   if(!aiReady()) return '';
   try{
     const out = await stream('You analyse reference photos for an image generator. Answer with JSON only.', [{role:'user', image:await blobToB64(await toJpeg(blob, 1024, .85)), text:
-      'Describe ONLY the permanent physical traits of the main person, in English, comma-separated, max 55 words: apparent age, skin tone, face shape, eye color, eyebrows, nose, lips, hair (exact color, length, texture, style), facial hair, glasses if worn, body build. NO clothing, NO background, NO pose, NO expression. JSON: {"physique":"..."}'}], {max:300, aux:true});
-    return String(parseJSON(out).physique || '').trim().slice(0, 500);
+      'Find the main person\'s face (forehead to chin, ear to ear) as fractions 0-1 of the image width/height, top-left origin, and describe ONLY the permanent physical traits of that person, in English, comma-separated, max 55 words: apparent age, skin tone, face shape, eye color, eyebrows, nose, lips, hair (exact color, length, texture, style), facial hair, glasses if worn, body build. NO clothing, NO background, NO pose, NO expression. JSON: {"x":0.0,"y":0.0,"w":0.0,"h":0.0,"physique":"..."}'}], {max:350, aux:true});
+    const j = parseJSON(out), n = k => Math.min(1, Math.max(0, +j[k] || 0));
+    S.userBox = n('w') > .02 && n('h') > .02 ? {x:n('x'), y:n('y'), w:n('w'), h:n('h')} : null;
+    return String(j.physique || '').trim().slice(0, 500);
   }catch(e){ return ''; }
 }
 // o singură imagine de referință cu amândoi: stânga personajul, dreapta tu (merge și pe Worker-ele care nu acceptă 2 repere)
-async function pairRef(a, b){
-  const W = 1024, H = 768, cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+async function pairRef(a, b, ba, bb){
+  // 8.3: 512×512 (cât primește Cloudflare); fiecare jumătate (256×512) e decupată în jurul feței: cap și umeri, mari
+  const W = 512, H = 512, cv = document.createElement('canvas'); cv.width = W; cv.height = H;
   const g = cv.getContext('2d'); g.fillStyle = '#808080'; g.fillRect(0, 0, W, H);
-  const draw = async (blob, x) => {
+  const draw = async (blob, x, bx) => {
     const u = URL.createObjectURL(blob);
-    try{ const im = await loadImgEl(u), pw = W / 2, k = Math.max(pw / im.naturalWidth, H / im.naturalHeight), w = im.naturalWidth * k, h = im.naturalHeight * k;
-      g.save(); g.beginPath(); g.rect(x, 0, pw, H); g.clip(); g.drawImage(im, x + (pw - w) / 2, Math.min(0, (H - h) * .2), w, h); g.restore(); }
+    try{ const im = await loadImgEl(u), IW = im.naturalWidth, IH = im.naturalHeight;
+      let sh = bx ? Math.min(IH, bx.h * IH * 3.2) : IH * .6, sw = sh / 2;
+      if(sw > IW){ sw = IW; sh = sw * 2; }
+      const cx = bx ? (bx.x + bx.w / 2) * IW : IW / 2, top = bx ? bx.y * IH - bx.h * IH * .5 : 0;
+      const sx = Math.min(Math.max(0, cx - sw / 2), IW - sw), sy = Math.min(Math.max(0, top), Math.max(0, IH - sh));
+      g.drawImage(im, sx, sy, sw, sh, x, 0, W / 2, H); }
     finally{ URL.revokeObjectURL(u); }
   };
-  await draw(a, 0); await draw(b, W / 2);
+  await draw(a, 0, ba); await draw(b, W / 2, bb);
   return await new Promise(r => cv.toBlob(r, 'image/jpeg', .9));
 }
 function togetherFraming(shot){
@@ -3633,6 +3684,7 @@ function priceFor(model){
 function imgPrice(){
   const v = parseFloat(String(S.imgCost).replace(',', '.'));
   if(!isNaN(v)) return v;
+  if(lastImgProv === 'fal') return .035;
   if(S.imgProv === 'worker' && S.cfPlan === 'paid'){ const n = neurPerPhoto(lastImgModel || S.wkModel) || 5000; return neurToday >= 10000 ? n * NEUR_USD : 0; }
   return {gemini:.04, fal:.035, worker:0}[S.imgProv] || 0;
 }
@@ -3917,7 +3969,7 @@ function profScroll(){
 // target = mesajul-poză de refăcut; mode: 'same' (aceeași scenă, altă variantă) sau 'new' (altă scenă)
 async function askPhoto(spont, target, mode, opt = {}){
   if(busy){ if(!spont) toast('Așteaptă să termine ' + (live ? live.c.name : '') + '.'); return; }
-  if(spont && capLeft() < (neurPerPhoto(S.imgProv === 'worker' ? (S.wkChat || S.wkModel) : undefined) || 5000)) return;   // limita zilnică atinsă: fără poze spontane
+  if(spont && S.wkChat !== 'fal' && capLeft() < (neurPerPhoto(S.imgProv === 'worker' ? (S.wkChat || S.wkModel) : undefined) || 5000)) return;   // limita zilnică atinsă: fără poze spontane
   if(S.imgProv === 'none'){ toast('Pornește pozele din Setări.'); return; }
   const c = cur, ch = chat;
   let m;
@@ -4505,7 +4557,7 @@ async function deleteChar(cc){
 const aiReady = () => S.prov === 'anthropic' ? !!S.key.trim() : !!(S.oaBase && S.oaModel);
 const FIELDS = {stKey:'key', stModel:'model', stOaBase:'oaBase', stOaKey:'oaKey', stOaModel:'oaModel', stUser:'userName', stAbout:'userAbout',
   stGemKey:'gemKey', stGemModel:'gemModel', stWkBase:'wkBase', stWkTok:'wkTok', stWkModel:'wkModel', stWkSize:'wkSize',
-  stFalKey:'falKey', stFalModel:'falModel', stFalSize:'falSize', stImgCost:'imgCost', stPin:'pIn', stPout:'pOut', stElKey:'elKey', stTtsFalKey:'falKey'};
+  stFalKey:'falKey', stFalModel:'falModel', stFalSize:'falSize', stImgCost:'imgCost', stPin:'pIn', stPout:'pOut', stElKey:'elKey', stTtsFalKey:'falKey', stChatFalKey:'falKey'};
 const SEGS = {stRegen:'regen3', stFx:'fx', stFeed:'feed', stCfCap:'cfCap', stCfPlan:'cfPlan', stTts:'tts', stElModel:'elModel', stAux:'aux', stCtx:'ctxN', stVmsg:'vmsg', stJrn:'jrn', stTheme:'theme', stProv:'prov', stLen:'len', stFont:'font', stImg:'imgProv', stImgAlt:'imgProv', stSugg:'sugg', stPro:'pro', stVoice:'voice', stSpont:'spont', stImgCheck:'imgCheck', stWkChat:'wkChat'};
 let setPanel = null, setPanelPushed = false;
 function openSettings(){
@@ -4563,7 +4615,7 @@ function syncSegs(){
   $$('#stImgAlt button').forEach(b => b.classList.toggle('on', b.dataset.v === S.imgProv));
   $('#stAltWrap').hidden = !alt;
   $('#stImgTestWrap').hidden = S.imgProv === 'none';
-  $('#stChatWrap').hidden = S.imgProv !== 'worker'; drawChatHint();
+  $('#stChatWrap').hidden = S.imgProv !== 'worker'; $('#stChatFal').hidden = S.wkChat !== 'fal'; drawChatHint();
   drawWkEst();
   $('#stCapWrap').hidden = S.cfPlan !== 'paid';
   $('#stCapHint').textContent = {free:'Factura rămâne $5/lună: când se termină neuronii gratuiți de azi, aplicația nu mai cere poze până la ' + resetAt() + '.',
@@ -4600,8 +4652,8 @@ function neurPerPhoto(model = S.wkModel, size = S.wkSize){
   // Worker-ul folosește automat klein 4B (eco) când primește poză de referință și modelul ales nu o acceptă
   if(!['eco', 'ancorat', 'ancorat+'].includes(model)) model = 'eco';
   // 6.8: referințe = poza de profil la 768 px (~4 bucăți) + fața 512 px (1 bucată)
-  const [w, h] = String(size || '768x1024').split('x').map(Number), mp = w * h / 1048576, refMp = (768 * 1024) / 1048576;
-  if(model === 'eco') return tiles(w, h) * 26.05 + 5 * 5.37;
+  const [w, h] = String(size || '768x1024').split('x').map(Number), mp = w * h / 1048576, refMp = 2 * 512 * 512 / 1048576;   // 8.3: 2 repere de 512×512
+  if(model === 'eco') return tiles(w, h) * 26.05 + 2 * 5.37;
   if(model === 'ancorat') return 1363.64 + Math.max(0, mp - 1) * 181.82 + refMp * 181.82;
   return null;                                  // FLUX.2 dev: depinde de pași, mult mai scump
 }
@@ -4668,6 +4720,7 @@ async function loadNeurons(after){
 function drawChatHint(){
   const el = $('#stWkChatHint'); if(!el) return;
   const e = neurPerPhoto('eco'), f = neurPerPhoto('ancorat');
+  if(S.wkChat === 'fal'){ el.innerHTML = 'Pozele din chat merg prin fal.ai PuLID, un model făcut special să păstreze aceeași față (din fața decupată din poza de profil). Plătit separat la fal.ai, câțiva cenți pe poză; nu consumă neuroni Cloudflare. Stickerele, avatarul, statusurile și pozele împreună rămân pe Worker.' + (S.falKey ? '' : ' <b>Pune cheia fal.ai mai jos.</b>'); return; }
   el.innerHTML = S.wkChat === 'ancorat'
     ? `9B ține fața mult mai bine. ~${Math.round(f).toLocaleString('ro-RO')} neuroni pe poză: cam ${Math.floor(10000 / f)} poze pe zi în cota gratuită, apoi ~${usd(f * NEUR_USD)} pe poză (limita zilnică din Setări rămâne în vigoare). Stickerele, avatarul și statusurile rămân pe modelul de mai jos.`
     : `Eco: ~${Math.round(e)} neuroni pe poză (cam ${Math.floor(10000 / e)} pe zi gratuit). Ține bine scena, mai slab fața. Fidel (9B): ~${Math.round(f).toLocaleString('ro-RO')} neuroni pe poză.`;
@@ -4678,12 +4731,12 @@ async function refTest(){
   if(!c){ box.innerHTML = '<p class="hint">Ai nevoie de un personaj cu poză de profil.</p>'; return; }
   if(S.imgProv !== 'worker' || !S.wkBase){ box.innerHTML = '<p class="hint">Pornește întâi Worker-ul.</p>'; return; }
   const cost = Math.round(neurPerPhoto('eco') * 2 + neurPerPhoto('ancorat'));
-  if(!confirm2(`Generez 3 poze cu ${c.name} (aceeași scenă), ca să compari fața: eco cu 2 repere, eco cu 1 reper și 9B. ~${cost.toLocaleString('ro-RO')} neuroni.`)) return;
-  const full = await DB.get(c.photo); let face = null, id = null;
-  try{ id = await identityOf(c); face = await cropFace(full, id && !id.none ? id : null); }catch(e){}
-  const shot = 'mirror selfie in a cozy bedroom, standing, holding the phone, casual t-shirt and jeans, warm lamp light, relaxed smile';
-  const prompt = `${framingOf(shot).p}. ${shot}. The person in this photo is exactly the same real person as in the reference images: image 1 is the profile photo (whole appearance), image 2 is a close-up of the same face. Keep the identity identical to the reference: the same face and facial features, skin tone, eyes, eyebrows, nose, lips, hair color, hair texture and hairstyle, the same body type and proportions.${id && id.phys ? ' Her/his permanent physical traits: ' + id.phys + '.' : ''} Do NOT copy the background, the outfit, the pose or the framing of image 1. ${STIL_TAG[c.stil || 'photo']}`;
-  const tests = [['Eco · 2 repere', {model:'eco', force:{two:true}}], ['Eco · 1 reper', {model:'eco', force:{two:false, px:1024}}], ['Fidel 9B', {model:'ancorat', force:{two:true}}]];
+  if(!confirm2(`Generez ${S.falKey ? 4 : 3} poze cu ${c.name} (aceeași scenă), ca să compari fața: eco cu 2 repere, eco cu 1 reper, 9B${S.falKey ? ' și fal.ai PuLID (câțiva cenți)' : ''}. ~${cost.toLocaleString('ro-RO')} neuroni.`)) return;
+  const R = await idRefs(c);
+  const shot = 'mirror selfie in a cozy bedroom, standing, holding the phone, casual t-shirt and jeans, warm lamp light, relaxed smile', fr = framingOf(shot);
+  const p2 = idPrompt(c, shot, fr, R, '', true), p1 = idPrompt(c, shot, fr, R, '', false);
+  const tests = [['Eco · 2 repere', {model:'eco', force:{two:true}, p1}], ['Eco · 1 reper', {model:'eco', force:{two:false, px:512}, p1}], ['Fidel 9B', {model:'ancorat', force:{two:true}, p1}]];
+  if(S.falKey) tests.push(['fal.ai PuLID', {prov:'fal'}]);
   const pfu = await imgUrl(c.photo);
   box.innerHTML = `<div class="rtgrid"><figure><img src="${pfu}" alt=""><figcaption>Poza de profil</figcaption></figure>${tests.map((t, i) => `<figure id="rt${i}"><div class="ph"><span class="spin"></span></div><figcaption>${t[0]}</figcaption></figure>`).join('')}</div><p class="hint" id="rtNote">Generez pe rând…</p>`;
   let twoOk = null;
@@ -4691,9 +4744,9 @@ async function refTest(){
     const [lbl, o] = tests[i], fig = $('#rt' + i);
     try{
       let b;
-      try{ b = await genImage(prompt, full, null, face, o); }
-      catch(e){ if(o.force.two){ if(o.model === 'eco') twoOk = false; b = await genImage(prompt, full, null, face, {model:o.model, force:{two:false, px:1024}}); fig.querySelector('figcaption').textContent = lbl.replace('2 repere', '1 reper') + ' (2 repere: eroare)'; } else throw e; }
-      if(o.model === 'eco' && o.force.two && twoOk === null) twoOk = true;
+      try{ b = o.prov === 'fal' ? await genImage(`${fr.p}. ${shot}.${R.id && R.id.phys ? ' The person: ' + R.id.phys + '.' : ''} ${STIL_TAG[c.stil || 'photo']}`, R.face, null, null, o) : await genImage(p2, R.face, null, R.body, o); }
+      catch(e){ if(o.force && o.force.two){ if(o.model === 'eco') twoOk = false; b = await genImage(p2, R.face, null, R.body, {model:o.model, force:{two:false, px:512}, p1}); fig.querySelector('figcaption').textContent = lbl.replace('2 repere', '1 reper') + ' (2 repere: eroare)'; } else throw e; }
+      if(o.model === 'eco' && o.force && o.force.two && twoOk === null) twoOk = true;
       fig.querySelector('.ph').outerHTML = `<img src="${URL.createObjectURL(b)}" data-big alt="">`;
     }catch(e){ fig.querySelector('.ph').innerHTML = '✗'; fig.querySelector('figcaption').textContent = lbl + ': ' + String(e.message).slice(0, 60); }
   }
@@ -4940,7 +4993,7 @@ function bind(){
   $('#btnBcast').onclick = () => bcastSheet();
   $('#stMePick').onclick = () => $('#fMe').click();
   $('#fMe').onchange = e => { setMePhoto(e.target.files[0]); e.target.value = ''; };
-  $('#stMeDel').onclick = async () => { if(S.userPhoto) await delImg(S.userPhoto).catch(() => {}); S.userPhoto = ''; S.userPhys = ''; saveSettings(); drawMe(); };
+  $('#stMeDel').onclick = async () => { if(S.userPhoto) await delImg(S.userPhoto).catch(() => {}); S.userPhoto = ''; S.userPhys = ''; S.userBox = null; saveSettings(); drawMe(); };
   $('#stCardImp').onclick = () => $('#stCardFile').click();
   $('#stCardFile').onchange = e => { if(e.target.files[0]) importCard(e.target.files[0]); e.target.value = ''; };
   $('#stImgTest').onclick = testImages;
@@ -4972,7 +5025,7 @@ async function init(){
   renderHome();
   if(!aiReady() && !chars.length) show('vWelcome', false);
   else if(!aiReady()) openSettings();
-  setTimeout(() => { const sp = $('#splash'); sp.classList.add('out'); setTimeout(() => sp.remove(), 450); }, 650);
+  // 8.3: fără ecran de pornire propriu (Android îl arată deja pe al lui, din manifest; două ecrane la rând)
   navigator.storage?.persist?.().catch(() => {});
   setTimeout(runDueSched, 1500);
   setInterval(runDueSched, 30e3);
