@@ -1579,7 +1579,7 @@ input:focus,textarea:focus,select:focus{border-color:color-mix(in srgb,var(--acc
 
 <script>
 'use strict';
-const APP_VER = '8.10';
+const APP_VER = '8.10.1';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -3187,7 +3187,9 @@ async function drawMe(){
   box.innerHTML = u ? `<img src="${u}" alt="">` : '🙂';
   $('#stMeDel').hidden = !S.userPhoto;
   $('#stMePick').textContent = S.userPhoto ? '📷 Schimbă poza' : '📷 Alege poza';
-  $('#stMeInfo').innerHTML = S.userPhoto ? (S.userPhys ? 'Trăsături citite: <i>' + esc(S.userPhys) + '</i>' : 'Se citesc trăsăturile…') + '<br>În chat: ＋ → „👫 Fă o poză împreună”, sau cere-o în conversație.' : 'O poză clară, cu fața ta, din față. Rămâne doar în telefon și intră în backup.';
+  $('#stMeInfo').innerHTML = S.userPhoto ? (S.userPhys ? 'Trăsături citite: <i>' + esc(S.userPhys) + '</i>' : meReading ? '<span class="spin"></span> Se citesc trăsăturile…' : `⚠️ N-am putut citi trăsăturile${meErr ? ' (' + esc(meErr) + ')' : ''}. <button class="btn sm" id="stMeRe" type="button">↻ Încearcă din nou</button>`) + '<br>În chat: ＋ → „👫 Fă o poză împreună”, sau cere-o în conversație.' : 'O poză clară, cu fața ta, din față. Rămâne doar în telefon și intră în backup.';
+  const re = $('#stMeRe'); if(re) re.onclick = () => rereadMe();
+  if(S.userPhoto && !S.userPhys && !meReading && !meErr && aiReady()) setTimeout(() => rereadMe(), 300);   // rămasă necitită de la o versiune veche: o citim acum
 }
 async function setMePhoto(file){
   if(!file) return;
@@ -3196,11 +3198,24 @@ async function setMePhoto(file){
     S.userPhoto = await saveImg(b); S.userPhys = ''; saveSettings();
     if(old) delImg(old).catch(() => {});
     drawMe();
-    S.userPhys = await readPhys(b); saveSettings(); drawMe();
+    await rereadMe(b);
   }catch(e){ toast('Nu pot citi poza: ' + e.message, 3500); }
 }
+// 8.10.1: citirea trăsăturilor nu mai rămâne agățată: arată eroarea și se poate relua
+let meReading = false;
+async function rereadMe(b){
+  if(meReading) return; meReading = true; meErr = ''; drawMe();
+  try{
+    b = b || await DB.get(S.userPhoto); if(!b) throw new Error('poza lipsește');
+    if(!aiReady()) throw new Error('pune întâi cheia AI în Setări');
+    S.userPhys = await readPhys(b, true); saveSettings();
+    if(!S.userPhys) throw new Error('AI-ul n-a descris poza');
+  }catch(e){ meErr = e.message || 'eroare'; }
+  meReading = false; drawMe();
+}
+let meErr = '';
 // trăsăturile permanente ale persoanei din poză (fără haine), pentru prompt; o singură dată per poză
-async function readPhys(blob){
+async function readPhys(blob, strict){
   if(!aiReady()) return '';
   try{
     const out = await stream('You analyse reference photos for an image generator. Answer with JSON only.', [{role:'user', image:await blobToB64(await toJpeg(blob, 1024, .85)), text:
@@ -3208,7 +3223,7 @@ async function readPhys(blob){
     const j = parseJSON(out), n = k => Math.min(1, Math.max(0, +j[k] || 0));
     S.userBox = n('w') > .02 && n('h') > .02 ? {x:n('x'), y:n('y'), w:n('w'), h:n('h')} : null;
     return String(j.physique || '').trim().slice(0, 500);
-  }catch(e){ return ''; }
+  }catch(e){ if(strict) throw e; return ''; }
 }
 // o singură imagine de referință cu amândoi: stânga personajul, dreapta tu (merge și pe Worker-ele care nu acceptă 2 repere)
 async function pairRef(a, b, ba, bb){
