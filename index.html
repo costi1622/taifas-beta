@@ -1579,7 +1579,7 @@ input:focus,textarea:focus,select:focus{border-color:color-mix(in srgb,var(--acc
 
 <script>
 'use strict';
-const APP_VER = '8.10.1';
+const APP_VER = '8.11';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -2040,17 +2040,7 @@ function physFull(c, id){
   return u ? (a ? a + '. ' : '') + 'Exact body and looks, this overrides anything else: ' + u : a;
 }
 async function bodySquare(blob, b){
-  // 8.9.2: dacă poza de profil e cu tot corpul (fața mică), reperul 2 e toată poza, încadrată, ca proporțiile corpului să ajungă la generator
-  if(b && !b.none && b.h < .2){
-    const u = URL.createObjectURL(blob);
-    try{
-      const im = await loadImgEl(u), W = im.naturalWidth, H = im.naturalHeight, k = 512 / Math.max(W, H);
-      const cv = document.createElement('canvas'); cv.width = cv.height = 512; const g = cv.getContext('2d');
-      g.filter = 'blur(24px) brightness(.8)'; g.drawImage(im, -40, -40, 592, 592); g.filter = 'none';
-      g.drawImage(im, (512 - W * k) / 2, (512 - H * k) / 2, W * k, H * k);
-      return await new Promise(r => cv.toBlob(r, 'image/jpeg', .92));
-    } finally { URL.revokeObjectURL(u); }
-  }
+  // 8.11: revenit la decupajul din jurul feței (încadrarea cu toată poza din 8.9.2 micșora fața în reper și strica asemănarea)
   const u = URL.createObjectURL(blob);
   try{
     const im = await loadImgEl(u), W = im.naturalWidth, H = im.naturalHeight;
