@@ -862,6 +862,94 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
 .bodyn small i{color:var(--tx3)}
 .bodyn textarea{margin-top:8px;width:100%}
 .bodyn .btns{margin-top:8px}
+/* 8.10: cer viu */
+#vChat .sky{position:absolute;inset:0;pointer-events:none;z-index:0;overflow:hidden;transition:background 1.2s}
+#vChat .sky i{position:absolute;display:block}
+#vChat .sky[data-ph=dawn]{background:linear-gradient(180deg,#2b2a5c 0%,#9b5a8c 38%,#f39a7a 62%,transparent 92%)}
+#vChat .sky[data-ph=day]{background:linear-gradient(180deg,#3d7fd6 0%,#7fb5ea 40%,#bcd9f2 62%,transparent 92%)}
+#vChat .sky[data-ph=golden]{background:linear-gradient(180deg,#5a6fb8 0%,#f0a35e 44%,#ffcf8a 62%,transparent 92%)}
+#vChat .sky[data-ph=dusk]{background:linear-gradient(180deg,#1d1b45 0%,#5b3a78 38%,#d0657a 62%,transparent 92%)}
+#vChat .sky[data-ph=night]{background:linear-gradient(180deg,#05071a 0%,#121842 40%,#1f1d3d 62%,transparent 92%)}
+#vChat .sky[data-cond=cloud],#vChat .sky[data-cond=rain],#vChat .sky[data-cond=fog]{filter:saturate(.35) brightness(.8)}
+#vChat .sky[data-cond=rain]{filter:saturate(.3) brightness(.62)}
+#vChat .sky .sun{right:14%;top:13%;width:62px;height:62px;border-radius:50%;background:radial-gradient(circle,#fff8d6 0%,#ffe08a 45%,#ffc85a00 72%);box-shadow:0 0 70px 30px #ffd97a55;opacity:0;transition:opacity 1s,top 1s}
+#vChat .sky[data-ph=day] .sun{opacity:.95}
+#vChat .sky[data-ph=golden] .sun{opacity:1;top:30%;background:radial-gradient(circle,#fff0c4 0%,#ffb35c 50%,#ff8a4000 72%)}
+#vChat .sky[data-ph=dawn] .sun{opacity:.85;top:34%;left:14%;right:auto}
+#vChat .sky[data-ph=night] .sun{opacity:.9;width:44px;height:44px;background:radial-gradient(circle at 38% 38%,#fffbe8 0%,#e9e4cf 55%,#e9e4cf00 72%);box-shadow:0 0 40px 10px #fffbe82a}
+#vChat .sky:is([data-cond=cloud],[data-cond=rain],[data-cond=fog],[data-cond=snow]) .sun{opacity:.15}
+#vChat .sky .stars{inset:0;opacity:0;transition:opacity 1s}
+#vChat .sky[data-ph=night]:is([data-cond=clear],[data-cond=part]) .stars{opacity:1}
+#vChat .sky[data-ph=dusk][data-cond=clear] .stars{opacity:.45}
+#vChat .sky .stars b{position:absolute;width:2px;height:2px;border-radius:50%;background:#fff;animation:twk 3.5s ease-in-out infinite}
+@keyframes twk{50%{opacity:.25}}
+#vChat .sky .clouds{inset:0 -50% 50% 0;opacity:0;background:radial-gradient(60px 26px at 20% 20%,#ffffff55,transparent),radial-gradient(90px 34px at 45% 12%,#ffffff44,transparent),radial-gradient(70px 28px at 70% 26%,#ffffff4d,transparent),radial-gradient(110px 40px at 95% 15%,#ffffff40,transparent);animation:clouds 60s linear infinite}
+#vChat .sky:is([data-cond=part],[data-cond=cloud]) .clouds{opacity:1}
+#vChat .sky[data-ph=night] .clouds{filter:brightness(.4)}
+@keyframes clouds{to{transform:translateX(-33%)}}
+/* pe fundal cu poză: cerul devine o lumină peste poză, nu o acoperă */
+#vChat:is(.bg-clar,.bg-grad) .sky{mix-blend-mode:soft-light;opacity:.9}
+#vChat.bg-clar .sky .stars,#vChat.bg-grad .sky .stars{mix-blend-mode:normal}
+#vChat:not(.bg-clar):not(.bg-grad) .sky{opacity:.9}
+[data-theme=light] #vChat:not(.bg-clar) .sky{opacity:.35}
+@media (prefers-reduced-motion:reduce){#vChat .sky .stars b,#vChat .sky .clouds{animation:none}}
+/* 8.10: album */
+.albumv{position:fixed;inset:0;z-index:55;display:flex;flex-direction:column;background:#f4ede1;color:#2b2420;animation:alin .32s cubic-bezier(.2,.8,.3,1)}
+.albumv.out{animation:alout .25s ease-in forwards}
+@keyframes alin{from{opacity:0;transform:translateY(30px)}}
+@keyframes alout{to{opacity:0;transform:translateY(30px)}}
+.albumv header{display:flex;align-items:center;gap:10px;padding:calc(10px + var(--safe-t,0px)) 12px 10px;background:#f4ede1ee;backdrop-filter:blur(10px);border-bottom:1px solid #00000012;z-index:2}
+.albumv header .ib{color:#2b2420;background:#0000000d}
+.albumv header b{display:block;font-size:1.05rem}.albumv header small{color:#7a6c60;font-size:.76rem}
+.alscroll{flex:1;overflow-y:auto;padding:0 14px calc(40px + var(--safe-b,0px));background-image:radial-gradient(#0000000d 1px,transparent 1px);background-size:14px 14px}
+.alcover{position:relative;margin:16px 6px 10px;height:220px;border-radius:6px;overflow:hidden;box-shadow:0 10px 30px #0003;transform:rotate(-1deg);background:#d9cbb8}
+.alcover img{width:100%;height:100%;object-fit:cover;object-position:center 25%}
+.alcover span{position:absolute;left:0;right:0;bottom:0;padding:30px 16px 14px;background:linear-gradient(transparent,#000a);color:#fff}
+.alcover b{display:block;font-family:Georgia,'Times New Roman',serif;font-style:italic;font-size:1.5rem}
+.alcover small{opacity:.85}
+.almon{margin:22px 4px 8px;font-family:Georgia,serif;font-style:italic;font-size:1.3rem;color:#8a5a44;text-transform:capitalize}
+.alday{display:flex;gap:12px;margin:10px 0 16px}
+.aldate{flex:none;width:44px;text-align:center;padding-top:4px}
+.aldate b{display:block;font-size:1.5rem;font-weight:800;line-height:1;color:#2b2420}
+.aldate small{font-size:.7rem;text-transform:uppercase;color:#9a8a7c;letter-spacing:.05em}
+.albody{flex:1;min-width:0;display:flex;flex-direction:column;gap:10px;border-left:2px dashed #c9b7a4;padding-left:12px}
+.alnote{background:#fffdf7;padding:10px 12px;border-radius:4px;box-shadow:0 3px 10px #00000014;font-size:.88rem;line-height:1.45;position:relative}
+.alnote::before{content:"";position:absolute;top:-7px;left:50%;width:56px;height:14px;margin-left:-28px;background:#f2c94c88;transform:rotate(-2deg)}
+.alnote.start{background:#fff3f6}.alnote.start q{display:block;margin-top:6px;font-family:Georgia,serif;font-style:italic;color:#6b5a50}
+.alnote.jrn{background:#fbf7e9;font-family:Georgia,serif}.alnote.jrn p{margin:6px 0 0;font-style:italic;color:#4a4038}
+.alnote.ann,.alnote.level{background:#fff0e0;font-weight:700}
+.alnote.gift{background:#f1f7ec}
+.alnote.ev{background:#eef3fb;font-size:.82rem}
+.alpics{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:4px 2px}
+.alpics.n1{grid-template-columns:1fr;max-width:78%}
+.alpics figure{margin:0;background:#fff;padding:6px 6px 22px;box-shadow:0 6px 16px #0000002b;transform:rotate(var(--r,0deg));cursor:zoom-in;position:relative}
+.alpics img{width:100%;aspect-ratio:4/5;object-fit:cover;display:block;background:#e8dfd2}
+.alpics figcaption{position:absolute;left:8px;right:8px;bottom:3px;font-family:Georgia,serif;font-style:italic;font-size:.72rem;color:#6b5a50;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.almore{align-self:center;font-weight:800;color:#8a5a44}
+.alend{text-align:center;font-family:Georgia,serif;font-style:italic;color:#9a8a7c;margin:26px 0}
+.albtn{width:100%;margin-bottom:12px}
+/* 8.10: apel video simulat */
+.callv .cvid{position:absolute;inset:0;z-index:0;opacity:0;transition:opacity .5s;overflow:hidden;pointer-events:none}
+.callv .cvid img{width:100%;height:100%;object-fit:cover;object-position:center 25%;animation:kb 30s ease-in-out infinite alternate;transition:transform .09s ease-out,filter .3s}
+.callv .cvid::after{content:"";position:absolute;inset:0;background:linear-gradient(#0009 0%,#0000 22%,#0000 60%,#000c 100%)}
+.callv.vid .cvid{opacity:1}
+.callv.vid .cbg{opacity:0}
+.callv.vid .cava{display:none}
+.callv.vid .cmain{margin-top:auto;margin-bottom:10px}
+.callv.vid .ccap{background:#0006;backdrop-filter:blur(10px);padding:8px 12px;border-radius:14px}
+.callv.vid[data-st=speak] .cvid img{filter:brightness(1.06) saturate(1.05)}
+.callv.vid[data-st=speak] .cvid{box-shadow:inset 0 0 0 3px color-mix(in srgb,var(--acc) 70%,transparent)}
+.callv .cvid.w img{transform:scale(1.018) translateY(-3px)}
+.callv .cself{position:absolute;top:calc(56px + var(--safe-t,0px));right:14px;width:96px;height:132px;object-fit:cover;border-radius:16px;z-index:3;box-shadow:0 8px 24px #0008;border:2px solid #ffffff55;transform:scaleX(-1);transition:width .25s,height .25s}
+.callv .cself.big{width:150px;height:206px}
+.callv > *:not(.cbg):not(.cvid):not(.cself){position:relative;z-index:2}
+/* 8.10: comentarii între personaje */
+.pcms{display:flex;flex-direction:column;gap:6px;margin:10px 0 2px;padding:8px 10px;border-radius:12px;background:color-mix(in srgb,var(--tx) 4%,transparent)}
+.pcm{display:flex;gap:8px;align-items:flex-start;font-size:.84rem;line-height:1.35}
+.pcm .av{width:22px;height:22px;flex:none;font-size:.6rem;border-radius:50%;object-fit:cover;display:grid;place-items:center}
+.pcm b{font-weight:700;margin-right:2px}
+#storyV .scms{position:absolute;left:14px;right:70px;bottom:calc(178px + var(--safe-b,0px));z-index:2;display:flex;flex-direction:column;gap:6px}
+#storyV .scms .pcm{color:#fff;text-shadow:0 1px 4px #000a;background:#0005;backdrop-filter:blur(8px);padding:6px 10px;border-radius:14px;align-self:flex-start}
 #toast{position:fixed;left:50%;bottom:calc(90px + var(--safe-b));transform:translateX(-50%);background:#2a2433;border:1px solid var(--line);padding:10px 16px;border-radius:12px;z-index:99;max-width:90vw;font-size:.9rem;box-shadow:0 6px 20px #0008;transition:opacity .2s;pointer-events:none}
 #toast:empty{opacity:0}
 
@@ -1177,6 +1265,7 @@ input:focus,textarea:focus,select:focus{border-color:color-mix(in srgb,var(--acc
 <!-- CONVERSAȚIE -->
 <section id="vChat" class="view" hidden>
   <div class="bg" id="chatBg"></div>
+  <div class="sky" id="chSky" hidden><i class="sun"></i><i class="stars"></i><i class="clouds"></i></div>
   <div id="chTop">
   <header class="top chathead">
     <button class="ib" data-back aria-label="Înapoi">‹</button>
@@ -1436,6 +1525,8 @@ input:focus,textarea:focus,select:focus{border-color:color-mix(in srgb,var(--acc
       <div class="btns"><button class="btn sm" id="stTtsTest">🔊 Ascultă un test</button></div>
       <label>📱 Statusuri în Noutăți (personajele postează ce fac)</label>
       <div class="seg" id="stFeed"><button data-v="off">Oprite</button><button data-v="text">Doar text</button><button data-v="poze">Cu poze</button></div>
+      <label>👯 Personajele se cunosc între ele (se pomenesc, își comentează postările)</label>
+      <div class="seg" id="stSocial"><button data-v="on">Da</button><button data-v="off">Nu</button></div>
       <label>📸 Stories (o poză pe zi de la personajele cu care vorbești, dispare după 24 de ore)</label>
       <div class="seg" id="stStory"><button data-v="off">Oprite</button><button data-v="on">Pornite</button></div>
       <p class="hint">Cel mult 3 pe zi, între 9 și 23, doar cu poze activate. Fiecare story e o poză generată (intră în neuroni).</p>
@@ -1450,6 +1541,8 @@ input:focus,textarea:focus,select:focus{border-color:color-mix(in srgb,var(--acc
       <div class="seg" id="stFont"><button data-v="15">Mic</button><button data-v="16">Normal</button><button data-v="18">Mare</button></div>
       <label>Efecte (inimioare, confetti, ploaie sau zăpadă după scenă)</label>
       <div class="seg" id="stFx"><button data-v="on">Pornite</button><button data-v="off">Oprite</button></div>
+      <label>🌅 Cer viu în conversație (ora și vremea reală din orașul personajului)</label>
+      <div class="seg" id="stSky"><button data-v="on">Pornit</button><button data-v="off">Oprit</button></div>
     </div>
 
     <div class="panel sec" data-panel="cost" data-title="Consum" hidden>
@@ -1486,7 +1579,7 @@ input:focus,textarea:focus,select:focus{border-color:color-mix(in srgb,var(--acc
 
 <script>
 'use strict';
-const APP_VER = '8.9.2';
+const APP_VER = '8.10';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -1525,7 +1618,7 @@ const DEF = {
   imgProv:'none', gemKey:'', gemModel:'gemini-2.5-flash-image',
   wkBase:'', wkTok:'', wkModel:'eco', wkSize:'768x1024',
   sugg:'off', pro:'on', feed:'text', fx:'on', regen3:'on', voice:'tap', tts:'tel', cfPlan:'free', cfCap:'free', elKey:'', elModel:'eleven_v3', theme:'dark', vmsg:'rar', jrn:'on', aux:'on', ctxN:'30',
-  imgCheck:'on', story:'on', userBday:'', lock:'off', pushOn:false, bkEvery:'week', bkLast:0, userPhoto:'', userPhys:'', userBox:null, wkChat:'', wkRef:'auto', falKey:'', falModel:'fal-ai/flux-pulid', falSize:'576x768', spont:'rar', imgAlt:'fal', sv:34, imgCost:'', pIn:'', pOut:''
+  imgCheck:'on', story:'on', sky:'on', social:'on', userBday:'', lock:'off', pushOn:false, bkEvery:'week', bkLast:0, userPhoto:'', userPhys:'', userBox:null, wkChat:'', wkRef:'auto', falKey:'', falModel:'fal-ai/flux-pulid', falSize:'576x768', spont:'rar', imgAlt:'fal', sv:34, imgCost:'', pIn:'', pOut:''
 };
 let S = {...DEF};
 let chars = [];            // [{id,name,tag,photo,aspect,look,stil,persona,speech,greet,created,lastAt,last}]
@@ -2279,6 +2372,7 @@ function back(){
 window.addEventListener('popstate', () => {
   if(call){ endCall(); return; }   // 8.5: Înapoi închide apelul
   if(stv){ closeStories(); history.pushState(history.state, ''); return; }   // 8.8: Înapoi închide story-ul
+  if(albumEl && !$('.viewer')){ closeAlbum(); history.pushState(history.state, ''); return; }
   // intrarea-gardă de la pornire: Înapoi închide ce e deschis; abia pe Acasă, fără nimic deschis, iese din aplicație
   if(history.state && history.state.root){
     if($('.scrim,.viewer,.wrapv,.rscrim') || setPanel || $('#vHome').hidden){ closeSheet(); closeReactPicker(); if(setPanel) closeSetPanel(true); if($('#vHome').hidden) goHome(); history.pushState(null, ''); }
@@ -2428,7 +2522,27 @@ function applyLook(c){
   v.classList.toggle('bg-clar', (c.bg || 'clar') === 'clar' && !!c.photo);
   v.classList.toggle('bg-none', c.bg === 'none');
 }
+// 8.10: cer viu: fundalul urmează ora și vremea reală din orașul personajului
+function skyPhase(c, w){
+  const d = charNow(c), m = d.getHours() * 60 + d.getMinutes(), sr = w && w.sr != null ? w.sr : 405, ss = w && w.ss != null ? w.ss : 1150;
+  if(m < sr - 50 || m > ss + 55) return 'night';
+  if(m < sr + 50) return 'dawn';
+  if(m > ss) return 'dusk';
+  if(m > ss - 75) return 'golden';
+  return 'day';
+}
+function paintSky(c, w){
+  const el = $('#chSky'); if(!el) return;
+  if(S.sky === 'off' || !c){ el.hidden = true; return; }
+  const code = w ? w.code : 1;
+  const cond = [45, 48].includes(code) ? 'fog' : [71, 73, 75, 77, 85, 86].includes(code) ? 'snow' : (code >= 51 && code <= 67) || (code >= 80 && code <= 82) || code >= 95 ? 'rain' : code === 3 ? 'cloud' : code === 2 ? 'part' : 'clear';
+  el.dataset.ph = skyPhase(c, w); el.dataset.cond = cond; el.hidden = false;
+  const st = el.querySelector('.stars');
+  if(!st.childElementCount) for(let i = 0; i < 40; i++){ const b = document.createElement('b'); b.style.left = Math.random() * 100 + '%'; b.style.top = Math.random() * 45 + '%'; b.style.animationDelay = (-Math.random() * 4) + 's'; b.style.transform = `scale(${.4 + Math.random() * .9})`; st.appendChild(b); }
+}
 function renderScene(){
+  paintSky(cur, wxMem[cur.id] && wxMem[cur.id].w);
+  weatherOf(cur).then(w => { if(cur && !$('#vChat').hidden){ paintSky(cur, w); if(!(busy && live && live.ch === chat)) $('#chTag').innerHTML = statusLine(); } }).catch(() => {});
   setWeather(chat && chat.scene);
   if(!(chat && chat.scene)) weatherOf(cur).then(w => { if(w && w.fx && cur && !$('#vChat').hidden) setWeather(w.fx === 'rain' ? 'ploaie' : 'ninge'); }).catch(() => {});
   const b = $('#sceneBar');
@@ -2517,9 +2631,17 @@ function schedSheet(){
 /* ───────── 🗓️ ziua personajului ───────── */
 const LIFE_E = {0:'☕', 1:'💼', 2:'😴'};
 const tmin = t => { const [h, m] = String(t).split(':').map(Number); return (h || 0) * 60 + (m || 0); };
+// 8.10: ora locală a personajului (din orașul lui), ca programul, cerul și notele să meargă după ea
+const charShift = c => c && c.geo && typeof c.geo.off === 'number' ? c.geo.off * 1000 + new Date().getTimezoneOffset() * 60000 : 0;
+const charNow = c => new Date(Date.now() + charShift(c));
+function charTimeNote(c){
+  if(Math.abs(charShift(c)) < 36e5) return '';
+  const d = charNow(c), h = d.getHours();
+  return ` (la tine${c.geo && c.geo.name ? ', în ' + c.geo.name : ''}, e acum ${d.toLocaleDateString('ro-RO', {weekday:'long'})}, ora ${String(h).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}, ${h < 5 ? 'noaptea târziu' : h < 11 ? 'dimineața' : h < 14 ? 'la prânz' : h < 18 ? 'după-amiaza' : h < 22 ? 'seara' : 'noaptea'}; trăiești după ora ta, nu după a lui)`;
+}
 function lifeNow(c, ts = Date.now()){
   if(!c || !c.life || c.lifeOff) return null;
-  const d = new Date(ts), list = [0, 6].includes(d.getDay()) ? (c.life.we || c.life.wk) : c.life.wk;
+  const d = new Date(ts + charShift(c)), list = [0, 6].includes(d.getDay()) ? (c.life.we || c.life.wk) : c.life.wk;
   const n = d.getHours() * 60 + d.getMinutes();
   return (list || []).find(x => { const a = tmin(x.f), b = tmin(x.t); return a <= b ? (n >= a && n < b) : (n >= a || n < b); }) || null;
 }
@@ -2622,6 +2744,8 @@ function turnExtras(c, ch, opts = {}){
   const lu = [...(chat && chat.msgs || [])].reverse().find(m => m.role === 'user' && m.text && !m.err);
   if(lu && freshTurn){ const qs = plain(lu.text).split(/(?<=[?])/).map(x => x.trim()).filter(x => x.endsWith('?') && x.length > 3).slice(-4);
     if(qs.length) x += ` (${S.userName.trim() || 'el'} te-a întrebat: ${qs.map(q => '„' + q.slice(-160) + '”').join(' ')}; răspunde-i concret la ${qs.length > 1 ? 'fiecare' : 'ea'}, în felul tău)`; }
+  x += charTimeNote(c);
+  x += socialExtras(c, opts);
   x += lifeExtras(c, opts);
   const lf = lifeNow(c);
   if(lf) x += ` (după programul tău, acum ești: ${lf.w}${lf.b === 1 ? '; ești ocupat(ă), deci răspunzi mai scurt, ca din pauză' : lf.b === 2 ? '; dormeai, te-a trezit mesajul' : ''})`;
@@ -2641,9 +2765,10 @@ async function drawMem(c){
   const nextDate = next ? new Date(new Date(dayKey(f) + 'T12:00').getTime() + next * 864e5).toLocaleDateString('ro-RO', {day:'numeric', month:'long'}) : '';
   const ms = c.moments || [], show = ms.slice(0, 8);
   const li = m => `<li>${esc(m.t)}<small>${new Date(m.day + 'T12:00').toLocaleDateString('ro-RO', {day:'numeric', month:'long', year:'numeric'})}</small></li>`;
-  box.innerHTML = `<p class="annline">💞 <b>${d}</b> ${d === 1 ? 'zi' : 'zile'} împreună${next ? ` · următoarea aniversare: <b>${next === 365 ? 'un an' : next === 730 ? 'doi ani' : next + (next >= 20 ? ' de zile' : ' zile')}</b>, pe ${nextDate}` : ''}</p>
+  box.innerHTML = `<button class="btn pri albtn" id="memAlbum">📖 Deschide albumul vostru</button><p class="annline">💞 <b>${d}</b> ${d === 1 ? 'zi' : 'zile'} împreună${next ? ` · următoarea aniversare: <b>${next === 365 ? 'un an' : next === 730 ? 'doi ani' : next + (next >= 20 ? ' de zile' : ' zile')}</b>, pe ${nextDate}` : ''}</p>
     ${show.length ? `<ul class="mems">${show.map(li).join('')}</ul>${ms.length > 8 ? '<div class="btns jbtn"><button class="btn sm" id="memAll">Vezi tot</button></div>' : ''}`
       : `<p style="color:var(--tx3);font-size:.88rem;margin:0">Albumul se umple singur: momentul fiecărei zile din jurnal, nivelurile relației, cadourile și aniversările.</p>`}`;
+  $('#memAlbum').onclick = () => openAlbum(c);
   const all = $('#memAll'); if(all) all.onclick = () => openSheet(`<h4>💝 Amintiri cu ${esc(c.name)}</h4><div class="pad"><ul class="mems">${ms.map(li).join('')}</ul></div>`);
 }
 
@@ -2686,6 +2811,7 @@ function renderFeed(){
     + (posts.length ? posts.map(p => { const c = charById(p.cid); return `<div class="post${p.seen ? '' : ' new'}" data-p="${p.id}">
       <div class="ph2">${avatarHTML(c)}<div><b>${esc(c.name)}</b><small>${p.story ? '📸 story · ' : ''}${when(p.ts)}${p.life ? ' · ' + esc(p.life) : ''}</small></div></div>
       <p>${esc(p.text)}</p>${p.img ? `<img class="pimg" data-k="${esc(p.img)}" data-view="${esc(p.img)}" alt="">` : ''}
+      ${cmHTML(p) ? `<div class="pcms">${cmHTML(p)}</div>` : ''}
       <div class="pact"><button class="${p.liked ? 'on' : ''}" data-like>${p.liked ? '❤️' : '🤍'} Îmi place</button><button data-rep>💬 Răspunde</button></div></div>`; }).join('')
       : `<div class="empty">${feedBusy ? 'Personajele scriu primele statusuri…' : 'Încă nimic. Apasă „Actualizează” ca personajele cu care ai vorbit să posteze ce fac.'}</div>`);
   hydrate(box); bindStoryRow(box);
@@ -2725,7 +2851,7 @@ async function makePost(c){
   const prev = feedCache.filter(p => p.cid === c.id).slice(-3).map(p => '- ' + p.text).join('\n');
   const wantPic = S.feed === 'poze' && canAutoPhoto(c);
   const out = await stream(`Ești ${c.name}. ${c.persona ? c.persona.slice(0, 900) : ''}`, [{role:'user', text:
-`${nowNote()} ${lf ? '(După programul tău, acum: ' + lf.w + '.)' : ''}${(() => { const ev = (c.evOff ? [] : (c.ev || [])).find(e => e.d === dayKey(Date.now())) || evPast(c).find(e => daysSince(new Date(e.d + 'T12:00').getTime()) === 1); return ev ? ` (${evDayLabel(ev.d)} ai: ${ev.t}${ev.h ? ', la ' + ev.h : ''}; poți posta despre asta, dacă se potrivește cu ora)` : ''; })()}${charBdayToday(c) ? ' (Azi e ziua ta de naștere.)' : ''}
+`${nowNote()}${charTimeNote(c)} ${lf ? '(După programul tău, acum: ' + lf.w + '.)' : ''}${(() => { const ev = (c.evOff ? [] : (c.ev || [])).find(e => e.d === dayKey(Date.now())) || evPast(c).find(e => daysSince(new Date(e.d + 'T12:00').getTime()) === 1); return ev ? ` (${evDayLabel(ev.d)} ai: ${ev.t}${ev.h ? ', la ' + ev.h : ''}; poți posta despre asta, dacă se potrivește cu ora)` : ''; })()}${charBdayToday(c) ? ' (Azi e ziua ta de naștere.)' : ''}
 Postezi un status scurt pe rețeaua ta, ca pe Instagram sau WhatsApp: ce faci acum, ce gândești sau ce ți s-a întâmplat azi. 1-3 propoziții, la persoana I, natural, în română, poate cu un emoji. Nu te adresa direct lui ${u} și nu pomeni conversațiile voastre explicit (poate doar o aluzie subtilă).${prev ? '\nStatusurile tale recente (nu te repeta):\n' + prev : ''}${recent ? '\nCa să știi ce mai e nou, ultimele mesaje cu ' + u + ':\n' + recent : ''}
 Răspunde STRICT cu JSON: {"text":"statusul"${wantPic ? ',"poza":"one English sentence: the photo attached to the status (framing, place, activity, outfit, light), no face description"' : ''}}`}], {max:350, cid:c.id, aux:true});
   const j = parseJSON(out);
@@ -2741,6 +2867,7 @@ Răspunde STRICT cu JSON: {"text":"statusul"${wantPic ? ',"poza":"one English se
     }catch(e){ /* statusul pleacă și fără poză */ }
   }
   feedCache.push(p); await saveFeed();
+  socialComments(p);
 }
 /* ───────── 🎂 8.8: viața personajelor (agenda, zile de naștere) ───────── */
 const LUNI = ['ianuarie', 'februarie', 'martie', 'aprilie', 'mai', 'iunie', 'iulie', 'august', 'septembrie', 'octombrie', 'noiembrie', 'decembrie'];
@@ -2788,6 +2915,7 @@ async function lifeSweep(){
     const due = chars.filter(c => !c.evOff && c.lastAt && Date.now() - c.lastAt < 14 * 864e5 && evFuture(c).filter(e => daysSince(new Date(e.d + 'T12:00').getTime()) < -1).length < 2 && Date.now() - (c.evTried || 0) > 20 * 36e5)
       .sort((a, b) => (b.lastAt || 0) - (a.lastAt || 0)).slice(0, 2);
     for(const c of due){ try{ await genEvents(c); }catch(e){} }
+    if(S.social !== 'off') for(const c of chars.filter(x => x.lastAt && Date.now() - x.lastAt < 14 * 864e5).slice(0, 3)){ try{ await ensureCircle(c); }catch(e){} }
   } finally { lifeSweepBusy = false; }
 }
 // notele din mesajul tău, o singură dată fiecare (vezi turnExtras)
@@ -2874,6 +3002,8 @@ function openStories(cid, custom){
     el.querySelector('.sbars').innerHTML = list.map((_, k) => `<i><b style="width:${k < stv.i ? 100 : 0}%"></b></i>`).join('');
     el.querySelector('.shead').innerHTML = `${avatarHTML(c)}<span><b>${esc(c.name)}</b><small>${when(p.ts)}${p.life ? ' · ' + esc(p.life) : ''}</small></span><button class="x" data-sx aria-label="Închide">✕</button>`;
     el.querySelector('.scap').textContent = p.text || ''; el.querySelector('.scap').hidden = !p.text;
+    let sc = el.querySelector('.scms'); if(!sc){ sc = document.createElement('div'); sc.className = 'scms'; el.appendChild(sc); }
+    sc.innerHTML = cmHTML(p); hydrate(sc);
     $('#stInp').placeholder = 'Răspunde la story…';
     hydrate(el); const img = el.querySelector('.simg'); img.removeAttribute('src'); img.src = await imgUrl(p.img);
     stv.el0 = 0; stv.t0 = performance.now(); tick();
@@ -2923,8 +3053,7 @@ async function storyReply(p, text){
 let storyBusy = false; const storyTried = {};
 async function storySweep(manual){
   if(storyBusy || S.story === 'off' || !aiReady() || S.imgProv === 'none') return;
-  const h = new Date().getHours(); if(!manual && (h < 9 || h >= 23)) return;
-  const due = chars.filter(c => canAutoPhoto(c) && c.lastAt && Date.now() - c.lastAt < 7 * 864e5 && Date.now() - (storyTried[c.id] || 0) > 3 * 36e5)
+  const due = chars.filter(c => { const h = charNow(c).getHours(); return manual || (h >= 9 && h < 23); }).filter(c => canAutoPhoto(c) && c.lastAt && Date.now() - c.lastAt < 7 * 864e5 && Date.now() - (storyTried[c.id] || 0) > 3 * 36e5)
     .filter(c => !feedCache.some(p => p.cid === c.id && p.story && Date.now() - p.ts < 20 * 36e5))
     .filter(c => { const lf = lifeNow(c); return !(lf && lf.b === 2); })
     .sort((a, b) => (b.lastAt || 0) - (a.lastAt || 0)).slice(0, 3);
@@ -2940,7 +3069,7 @@ async function makeStory(c){
   const ev = (c.ev || []).find(e => e.d === today) || evPast(c).find(e => daysSince(new Date(e.d + 'T12:00').getTime()) === 1);
   let wx = null; try{ wx = await weatherOf(c); }catch(e){}
   const out = await stream(`Ești ${c.name}. ${c.persona ? c.persona.slice(0, 900) : ''}`, [{role:'user', text:
-`${nowNote()} ${lf ? '(După programul tău, acum: ' + lf.w + '.)' : ''}${ev ? ` (${evDayLabel(ev.d)} ai: ${ev.t}${ev.h ? ', la ' + ev.h : ''}.)` : ''}${wx ? ' (Vremea la tine: ' + wxLine(wx) + '.)' : ''}${charBdayToday(c) ? ' (Azi e ziua ta de naștere.)' : ''}
+`${nowNote()}${charTimeNote(c)} ${lf ? '(După programul tău, acum: ' + lf.w + '.)' : ''}${ev ? ` (${evDayLabel(ev.d)} ai: ${ev.t}${ev.h ? ', la ' + ev.h : ''}.)` : ''}${wx ? ' (Vremea la tine: ' + wxLine(wx) + '.)' : ''}${charBdayToday(c) ? ' (Azi e ziua ta de naștere.)' : ''}
 Postezi un story: o poză făcută chiar acum, din ce faci sau unde ești, ca pe Instagram. Alege un moment fotogenic și firesc din ziua ta${ev ? ' (poate legat de ce ai azi, dacă se potrivește cu ora)' : ''}. Textul de pe story e foarte scurt: 0-8 cuvinte, poate un emoji, în română, la persoana I, nu te adresezi lui ${u}.
 Răspunde STRICT cu JSON: {"text":"textul de pe story (poate fi gol)","poza":"one English sentence: framing (selfie / mirror selfie / photo taken by a friend / scenery with you in it), exact place and what is around, your pose and what your hands do, outfit, light matching the time and weather; no face description"}`}], {max:300, cid:c.id, aux:true});
   const j = parseJSON(out), shot = String(j.poza || '').trim().replace(/[.\s]+$/, '');
@@ -2950,7 +3079,106 @@ Răspunde STRICT cu JSON: {"text":"textul de pe story (poate fi gol)","poza":"on
   const p = {id:uid(), cid:c.id, ts:Date.now(), text:faraLiniute(String(j.text || '').trim()).slice(0, 80), life:lf ? lf.w : '', img:await saveImg(b), scene:shot, story:1};
   addUsage(c.id, imgPrice(), 'img');
   feedCache.push(p); await saveFeed();
+  socialComments(p);
 }
+/* ───────── 📖 8.10: albumul vostru (cronologie ca un scrapbook) ───────── */
+let albumEl = null;
+async function openAlbum(c){
+  if(!c) return;
+  const chats = await allChats(c), days = {};
+  const add = (day, it) => { (days[day] = days[day] || []).push(it); };
+  const allM = chats.flatMap(ch => ch.msgs.filter(m => !m.err && !m.pending && m.ts));
+  const first = allM.length ? Math.min(...allM.map(m => m.ts)) : (c.created || Date.now());
+  const fm = allM.filter(m => m.text).sort((a, b) => a.ts - b.ts)[0];
+  add(dayKey(first), {k:'start', ts:first, t:'Prima voastră conversație', q:fm ? plain(stripMood(fm.text)).slice(0, 120) : ''});
+  for(const m of allM) if(m.img && m.role === 'ai') add(dayKey(m.ts), {k:'pic', ts:m.ts, img:m.img, loc:whereIn(m.where)});
+  for(const p of feedCache.filter(p => p.cid === c.id)) add(dayKey(p.ts), p.img ? {k:'pic', ts:p.ts, img:p.img, loc:p.story ? '📸 story' : '📱 status', cap:p.text} : {k:'post', ts:p.ts, t:p.text});
+  for(const mo of c.moments || []) add(mo.day, {k:mo.kind || 'moment', ts:new Date(mo.day + 'T12:00').getTime(), t:mo.t});
+  for(const j of c.journal || []) add(j.day, {k:'jrn', ts:new Date(j.day + 'T20:00').getTime(), t:j.text});
+  for(const g of c.gifts || []) if(!(c.moments || []).some(mo => mo.kind === 'gift' && mo.day === dayKey(g.ts))) add(dayKey(g.ts), {k:'gift', ts:g.ts, t:`${g.e} I-ai dăruit ${g.n}`});
+  for(const e of evPast(c)) add(e.d, {k:'ev', ts:new Date(e.d + 'T12:00').getTime(), t:`🗓️ ${c.name}: ${e.t}`});
+  const keys = Object.keys(days).sort((a, b) => a < b ? 1 : -1);
+  const picsN = keys.reduce((n, d) => n + days[d].filter(x => x.k === 'pic').length, 0), momN = (c.moments || []).length, dz = daysSince(first);
+  const rot = s => ((s.split('').reduce((a, ch) => a + ch.charCodeAt(0), 0) % 7) - 3) * .9;
+  let html = '', lastMonth = '';
+  for(const d of keys){
+    const mo = new Date(d + 'T12:00').toLocaleDateString('ro-RO', {month:'long', year:'numeric'});
+    if(mo !== lastMonth){ html += `<div class="almon">${esc(mo)}</div>`; lastMonth = mo; }
+    const it = days[d].sort((a, b) => a.ts - b.ts), pics = it.filter(x => x.k === 'pic'), rest = it.filter(x => x.k !== 'pic');
+    html += `<div class="alday"><div class="aldate"><b>${new Date(d + 'T12:00').getDate()}</b><small>${new Date(d + 'T12:00').toLocaleDateString('ro-RO', {weekday:'short'})}</small></div><div class="albody">`;
+    for(const x of rest){
+      if(x.k === 'start') html += `<div class="alnote start"><b>💫 ${esc(x.t)}</b>${x.q ? `<q>${esc(x.q)}</q>` : ''}</div>`;
+      else if(x.k === 'jrn') html += `<div class="alnote jrn"><b>📔 Din jurnalul lui ${esc(c.name)}</b><p>${esc(x.t.slice(0, 220))}${x.t.length > 220 ? '…' : ''}</p></div>`;
+      else if(x.k === 'post') html += `<div class="alnote post">📱 ${esc(x.t)}</div>`;
+      else html += `<div class="alnote ${esc(x.k)}">${esc(x.t)}</div>`;
+    }
+    if(pics.length) html += `<div class="alpics n${Math.min(pics.length, 4)}">${pics.slice(0, 6).map(x => `<figure style="--r:${rot(x.img)}deg" data-view="${esc(x.img)}"><img data-k="${esc(x.img)}" alt="" loading="lazy">${x.loc || x.cap ? `<figcaption>${esc(x.cap || x.loc)}</figcaption>` : ''}</figure>`).join('')}${pics.length > 6 ? `<span class="almore">+${pics.length - 6}</span>` : ''}</div>`;
+    html += `</div></div>`;
+  }
+  closeAlbum();
+  albumEl = document.createElement('div'); albumEl.className = 'albumv';
+  albumEl.innerHTML = `<header><button class="ib" data-alx aria-label="Închide">✕</button><div><b>📖 Albumul vostru</b><small>${esc(c.name)} · ${dz} ${dz === 1 ? 'zi' : 'zile'} împreună · ${picsN} ${picsN === 1 ? 'poză' : 'poze'} · ${momN} ${momN === 1 ? 'moment' : 'momente'}</small></div></header>
+    <div class="alscroll"><div class="alcover">${c.photo ? `<img data-k="${esc(c.photo)}" alt="">` : ''}<span><b>${esc(S.userName.trim() || 'Tu')} & ${esc(c.name)}</b><small>din ${new Date(first).toLocaleDateString('ro-RO', {day:'numeric', month:'long', year:'numeric'})}</small></span></div>${html}<div class="alend">— va urma —</div></div>`;
+  document.body.appendChild(albumEl); hydrate(albumEl);
+  const allPics = [...albumEl.querySelectorAll('[data-view]')].map(x => x.dataset.view);
+  albumEl.onclick = e => { if(e.target.closest('[data-alx]')){ closeAlbum(); return; } const v = e.target.closest('[data-view]'); if(v) viewImg(v.dataset.view, allPics); };
+}
+function closeAlbum(){ if(!albumEl) return; const a = albumEl; albumEl = null; a.classList.add('out'); setTimeout(() => a.remove(), 250); }
+/* ───────── 👯 8.10: personajele se cunosc între ele ───────── */
+const pairKey = (a, b) => [a, b].sort().join('|');
+const relBetween = (a, b) => (S.socRel || {})[pairKey(a.id, b.id)] || '';
+function circleOf(c){
+  if(S.social === 'off' || !c) return [];
+  return chars.filter(o => o.id !== c.id && relBetween(c, o)).sort((a, b) => (b.lastAt || 0) - (a.lastAt || 0)).slice(0, 6);
+}
+async function ensureCircle(c){
+  if(S.social === 'off' || !aiReady()) return;
+  const others = chars.filter(o => o.id !== c.id && o.lastAt && Date.now() - o.lastAt < 30 * 864e5).sort((a, b) => (b.lastAt || 0) - (a.lastAt || 0)).slice(0, 6);
+  const miss = others.filter(o => !relBetween(c, o)); if(!miss.length) return;
+  if(Date.now() - (c.socTried || 0) < 20 * 36e5) return;
+  c.socTried = Date.now();
+  const d = o => `${o.name}${o.tag ? ' (' + o.tag + ')' : ''}${o.city ? ', locuiește în ' + o.city : ''}`;
+  const out = await stream('Construiești legăturile dintre personajele unei povești, realist. Răspunzi DOAR cu JSON valid.', [{role:'user', text:
+`Personajul principal: ${d(c)}.${c.persona ? ' Pe scurt: ' + c.persona.slice(0, 400) : ''}
+Alte personaje: ${miss.map(d).join('; ')}.
+Pentru fiecare dintre ele, inventează cum se cunosc cu ${c.name}: 2-7 cuvinte, la plural, valabil în ambele sensuri (ex. „prietene din liceu”, „vecini de bloc”, „s-au cunoscut online, pe un grup de fotografie”, „foste colege de serviciu”). Plauzibil cu orașele lor (dacă sunt în țări diferite, s-au cunoscut online sau într-o călătorie). Fără relații romantice între ei. Fără ghilimele în texte.
+JSON: {${miss.map(o => '"' + o.name.replace(/"/g, '') + '":"…"').join(',')}}`}], {max:300, aux:true, cid:c.id});
+  const j = parseJSON(out); S.socRel = S.socRel || {};
+  for(const o of miss){ const t = faraLiniute(String(j[o.name] || '').trim()).slice(0, 80); if(t.length > 3) S.socRel[pairKey(c.id, o.id)] = t; }
+  saveSettings();
+}
+function circleFor(c){   // pentru promptul de sistem (se schimbă rar, deci nu strică cache-ul)
+  const list = circleOf(c); if(!list.length) return '';
+  const u = S.userName.trim() || 'el';
+  return `## Oameni pe care îi cunoști\n${list.map(o => `- ${o.name}${o.tag ? ' (' + o.tag + ')' : ''}: ${relBetween(c, o)}`).join('\n')}\n${u} îi cunoaște și el. Îi pomenești rar și firesc (o întâmplare cu ei, ceva ce au postat), nu în fiecare mesaj. Nu știi ce vorbește ${u} cu ei între patru ochi și nu inventa asta.`;
+}
+function socialExtras(c, opts){
+  if(S.social === 'off' || opts.cont || Math.random() > .5) return '';
+  const ids = new Set(circleOf(c).map(o => o.id)); if(!ids.size) return '';
+  c.socSeen = c.socSeen || {};
+  const p = feedCache.filter(x => ids.has(x.cid) && Date.now() - x.ts < 864e5 && !c.socSeen[x.id]).sort((a, b) => b.ts - a.ts)[0];
+  if(!p) return '';
+  c.socSeen[p.id] = 1; const ks = Object.keys(c.socSeen); if(ks.length > 60) delete c.socSeen[ks[0]]; saveChars();
+  const o = charById(p.cid);
+  return ` (${o.name}, cu care ești ${relBetween(c, o)}, a postat ${p.story ? 'un story' : 'un status'} ${when(p.ts)}: „${(p.text || (p.scene ? 'o poză' : '')).slice(0, 140)}”${p.scene ? ' (în poză: ' + p.scene.slice(0, 120) + ')' : ''}. Dacă se potrivește, îl poți pomeni scurt, în treacăt)`;
+}
+async function socialComments(p){
+  if(S.social === 'off' || !aiReady()) return;
+  const c = charById(p.cid); if(!c) return;
+  const cand = circleOf(c).filter(o => o.lastAt && Date.now() - o.lastAt < 14 * 864e5).sort(() => Math.random() - .5).slice(0, 2);
+  for(const [k, o] of cand.entries()){
+    if(Math.random() > (k ? .4 : .75)) continue;
+    try{
+      await sleep(1500 + Math.random() * 4000);
+      const t = faraLiniute(plain(await stream(`Ești ${o.name}. ${o.persona ? o.persona.slice(0, 600) : ''}`, [{role:'user', text:
+`${c.name} (${relBetween(c, o)}) a postat ${p.story ? 'un story' : 'un status'}: „${p.text || ''}”${p.scene ? ' (în poză: ' + p.scene.slice(0, 200) + ')' : ''}. Scrie un comentariu scurt sub postare, ca pe Instagram: 2-14 cuvinte, în română, în stilul tău, poate cu un emoji. Doar comentariul, fără ghilimele.`}], {max:80, aux:true, cid:o.id}))).replace(/^["„]|["”]$/g, '').trim().slice(0, 160);
+      if(t.length < 2) continue;
+      p.cm = (p.cm || []).concat({cid:o.id, t, ts:Date.now()}); await saveFeed();
+      if(homeTab === 'feed' && !$('#vHome').hidden) renderFeed();
+    }catch(e){}
+  }
+}
+const cmHTML = p => (p.cm || []).filter(x => charById(x.cid)).map(x => `<div class="pcm">${avatarHTML(charById(x.cid))}<span><b>${esc(charById(x.cid).name)}</b> ${esc(x.t)}</span></div>`).join('');
 /* ───────── 🖼️ avatar viu ───────── */
 /* 👫 8.1: poza ta + pozele împreună */
 async function drawMe(){
@@ -3612,7 +3840,8 @@ function statusLine(){
   const norm = x => String(x || '').toLowerCase().replace(/[^\p{L}\p{N} ]/gu, '').trim();
   if(pl && lf && lf.w && (norm(pl).includes(norm(lf.w)) || norm(lf.w).includes(norm(pl)))) pl = '';   // 8.9.2: fără dubluri (programul = scena)
   if(/^discuție liberă$/i.test(pl)) pl = '';
-  const l2 = [pl ? '🎬 ' + esc(pl) : '', mood ? esc(shortMood(mood)) : '', nx ? '⏰ ' + esc(whenText(nx.at)) : '', t ? '🧵 ' + esc(t.title) : ''].filter(Boolean).join(' · ');
+  const tz = Math.abs(charShift(cur)) >= 36e5 ? '🕘 ' + hhmm(charNow(cur).getTime()) + ' la ' + (genderOf(cur) === 'f' ? 'ea' : genderOf(cur) === 'm' ? 'el' : 'el/ea') : '';
+  const l2 = [tz, pl ? '🎬 ' + esc(pl) : '', mood ? esc(shortMood(mood)) : '', nx ? '⏰ ' + esc(whenText(nx.at)) : '', t ? '🧵 ' + esc(t.title) : ''].filter(Boolean).join(' · ');
   return `<span class="s1">${st}</span>${l2 ? `<span class="s2">${l2}</span>` : ''}`;
 }
 // buton „jos" + contor de mesaje noi
@@ -3753,6 +3982,7 @@ function speakPhone(c, text, onEnd){
   parts.forEach((p, k) => {
     const u = new SpeechSynthesisUtterance(p.trim()); u.lang = 'ro-RO'; if(v) u.voice = v;
     u.pitch = base * (1 + (k % 2 ? .02 : -.02)); u.rate = /\?\s*$/.test(p) ? 1.02 : .97;
+    u.onboundary = () => { if(window.__talk) window.__talk(); };
     if(k === parts.length - 1){ u.onend = u.onerror = () => onEnd && onEnd(); }
     speechSynthesis.speak(u);
   });
@@ -3959,6 +4189,7 @@ function systemFor(c, ch){
     c.speech && `## Cum vorbești\n${c.speech}`,
     (S.userAbout.trim() || S.userBday) && `## Despre ${u}\n${S.userAbout.trim()}${S.userBday ? (S.userAbout.trim() ? '\n' : '') + 'Ziua lui de naștere: ' + mdLabel(mdOf(S.userBday)) + '.' : ''}`,
     agendaFor(c),
+    circleFor(c),
     facts && `## Ce știi despre ${u} (din conversațiile voastre)\nFolosește natural când se potrivește, fără să le enumeri.\n${facts}`,
     ch && ch.scene && `## Scena acum\n${ch.scene}`,
     `## Relația voastră acum: ${relOf(c).name}\n${relOf(c).how}. Dacă descrierea ta stabilește deja relația cu ${u}, aceea are prioritate; nivelul arată doar cât de familiar și deschis vorbești acum.`,
@@ -4421,7 +4652,7 @@ function plusMenu(){
   const o = [];
   if(S.imgProv !== 'none') o.push(['📷', `Cere o poză de la ${cur.name}`, () => askPhoto()]);
   if(S.imgProv !== 'none' && cur.photo) o.push(['👫', S.userPhoto ? `Fă o poză împreună cu ${cur.name}` : 'Poză împreună (pune-ți întâi poza în Setări)', () => S.userPhoto ? askPhoto(false, null, null, {together:true}) : (openSettings(), openSetPanel('me'))]);
-  o.push(['😺', (cur.stickers || []).length ? 'Trimite un sticker' : 'Stickere cu ' + cur.name, stickerSheet]);
+  if((cur.stickers || []).length || (cur.aiPortrait && S.imgProv !== 'none' && cur.photo)) o.push(['😺', (cur.stickers || []).length ? 'Trimite un sticker' : 'Stickere cu ' + cur.name, stickerSheet]);   // 8.9.3: doar unde se pot face
   o.push(['🎁', `Trimite-i un cadou lui ${cur.name}`, giftSheet]);
   o.push(['🖼️', 'Trimite o poză din galerie', () => $('#fGal').click()]);
   o.push(['📸', 'Fă o poză cu camera', () => $('#fCam').click()]);
@@ -4830,6 +5061,7 @@ function chatMenu(){
     ['🎬', chat.scene ? 'Scena: ' + chat.scene.slice(0, 32) + (chat.scene.length > 32 ? '…' : '') : 'Setează scena', editScene],
     ['🧵', n > 1 ? `Conversații (${n})` : 'Conversații', threadsSheet],
     ['⏰', (() => { const k = (cur.sched || []).filter(x => x.tid === (chat.tid || 'main')).length; return k ? `Mesaje programate (${k})` : 'Mesaje programate'; })(), schedSheet],
+    ['📖', 'Albumul vostru', () => openAlbum(cur)],
     ['👤', 'Profil, memorie și editare', () => charProfile(cur.id)],
     ['⋯', 'Mai mult', moreMenu],
   ]);
@@ -5100,10 +5332,12 @@ async function weatherOf(c){
     const g = (await r.json()).results?.[0]; if(!g) return null;
     c.geo = {q:city, lat:g.latitude, lon:g.longitude, name:g.name}; saveChars();
   }
-  const r = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${c.geo.lat}&longitude=${c.geo.lon}&current=temperature_2m,weather_code,is_day,wind_speed_10m&timezone=auto`);
-  const cu = (await r.json()).current; if(!cu) return null;
+  const r = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${c.geo.lat}&longitude=${c.geo.lon}&current=temperature_2m,weather_code,is_day,wind_speed_10m&daily=sunrise,sunset&forecast_days=1&timezone=auto`);
+  const jj = await r.json(), cu = jj.current; if(!cu) return null;
+  if(typeof jj.utc_offset_seconds === 'number' && c.geo.off !== jj.utc_offset_seconds){ c.geo.off = jj.utc_offset_seconds; saveChars(); }   // 8.10: fusul orar al personajului
+  const hm = x => { const m = String(x || '').match(/T(\d{2}):(\d{2})/); return m ? +m[1] * 60 + +m[2] : null; };
   const d = WX[cu.weather_code] || ['vreme schimbătoare', 'changeable weather'], code = cu.weather_code;
-  const w = {t:Math.round(cu.temperature_2m), ro:d[0], en:d[1], day:!!cu.is_day, wind:Math.round(cu.wind_speed_10m || 0), city:c.geo.name,
+  const w = {t:Math.round(cu.temperature_2m), ro:d[0], en:d[1], day:!!cu.is_day, wind:Math.round(cu.wind_speed_10m || 0), city:c.geo.name, code, sr:hm(jj.daily?.sunrise?.[0]), ss:hm(jj.daily?.sunset?.[0]),
     fx:[61,63,65,66,67,80,81,82,95,96,99,51,53,55,56,57].includes(code) ? 'rain' : [71,73,75,77,85,86].includes(code) ? 'snow' : ''};
   wxMem[c.id] = {city, ts:Date.now(), w};
   return w;
@@ -5122,16 +5356,29 @@ function startCall(){
   if(busy){ toast('Așteaptă să termine răspunsul.'); return; }
   stopAllVoice();
   call = {c:cur, ch:chat, t0:Date.now(), muted:false, rec:null, alive:true, tick:null};
+  // 8.10: apel video simulat: poza ei cea mai recentă din chat (dacă e de azi) sau poza de profil, care „vorbește” cu vocea
+  const lastPic = [...chat.msgs].reverse().find(m => m.role === 'ai' && m.img && !m.err && Date.now() - (m.ts || 0) < 8 * 36e5);
+  const vidK = lastPic ? lastPic.img : (cur.photo ? photoNow(cur) : '');
   const v = document.createElement('div'); v.className = 'callv';
-  v.innerHTML = `<div class="cbg" ${cur.photo ? `data-bgk="${esc(photoNow(cur))}"` : ''}></div>
+  v.innerHTML = `<div class="cbg" ${cur.photo ? `data-bgk="${esc(photoNow(cur))}"` : ''}></div>${vidK ? `<div class="cvid"><img data-k="${esc(vidK)}" alt=""></div>` : ''}<video class="cself" playsinline muted autoplay hidden></video>
     <div class="ctopc"><small id="clTime">00:00</small></div>
     <div class="cmain"><div class="cava">${cur.photo ? `<img data-k="${esc(photoNow(cur))}" alt="">` : `<span style="background:${colorFor(cur)}">${esc(cur.name[0])}</span>`}<i class="ring"></i></div>
       <h2>${esc(cur.name)}</h2><p id="clState">te sună…</p><div class="ccap" id="clCap"></div></div>
     <div class="cbtns"><button id="clMute" aria-label="Microfon"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg><span>Microfon</span></button>
+      ${vidK ? `<button id="clVid" aria-label="Video"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="14" height="12" rx="2"/><path d="m16 10 6-3v10l-6-3z"/></svg><span>Video</span></button>` : ''}
       <button id="clEnd" class="end" aria-label="Închide"><svg viewBox="0 0 24 24" width="30" height="30" fill="currentColor"><path d="M12 9c-3.3 0-6.3 1-8.5 2.7-.6.5-.7 1.4-.2 2l1.5 1.8c.4.5 1.2.6 1.8.3l2-1.2c.4-.3.6-.7.6-1.2v-1.6c1.8-.5 3.8-.5 5.6 0v1.6c0 .5.2.9.6 1.2l2 1.2c.6.3 1.4.2 1.8-.3l1.5-1.8c.5-.6.4-1.5-.2-2C18.3 10 15.3 9 12 9z"/></svg><span>Închide</span></button></div>`;
   document.body.appendChild(v); hydrate(v);
   history.pushState({v:'vChat', call:1}, '');
   $('#clEnd').onclick = () => { endCall(); history.back(); };
+  const vb = $('#clVid'); if(vb) vb.onclick = async () => {
+    if(!call) return; const on = !v.classList.contains('vid'); v.classList.toggle('vid', on); vb.classList.toggle('off', on);
+    const sv = v.querySelector('.cself');
+    if(on && navigator.mediaDevices && navigator.mediaDevices.getUserMedia){
+      try{ call.cam = await navigator.mediaDevices.getUserMedia({video:{facingMode:'user', width:{ideal:480}}, audio:false}); if(!call){ call.cam?.getTracks().forEach(t => t.stop()); return; } sv.srcObject = call.cam; sv.hidden = false; }catch(e){ sv.hidden = true; }
+    } else { if(call.cam){ call.cam.getTracks().forEach(t => t.stop()); call.cam = null; } sv.hidden = true; }
+  };
+  v.querySelector('.cself').onclick = e => { e.currentTarget.classList.toggle('big'); };
+  window.__talk = () => { const cv = v.querySelector('.cvid'); if(!cv) return; cv.classList.add('w'); clearTimeout(window.__talkT); window.__talkT = setTimeout(() => cv.classList.remove('w'), 110); };
   $('#clMute').onclick = () => { if(!call) return; call.muted = !call.muted; $('#clMute').classList.toggle('off', call.muted); if(call.muted){ try{ call.rec && call.rec.abort(); }catch(e){} callState('microfon oprit'); } else if(call.state === 'idle') callListen(); };
   call.tick = setInterval(() => { if(!call) return; const s = Math.floor((Date.now() - call.t0) / 1000); $('#clTime').textContent = String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0'); }, 500);
   // personajul răspunde la telefon primul
@@ -5141,7 +5388,8 @@ function callState(t, cls){ const el = $('#clState'); if(el){ el.textContent = t
 function endCall(){
   if(!call) return;
   const c = call;
-  call = null; c.alive = false; clearInterval(c.tick);
+  call = null; c.alive = false; clearInterval(c.tick); window.__talk = null;
+  if(c.cam){ try{ c.cam.getTracks().forEach(t => t.stop()); }catch(e){} }
   try{ c.rec && c.rec.abort(); }catch(e){}
   try{ speechSynthesis.cancel(); }catch(e){}
   if(busy && live && live.ch === c.ch) busy.abort();
@@ -5551,7 +5799,7 @@ const aiReady = () => S.prov === 'anthropic' ? !!S.key.trim() : !!(S.oaBase && S
 const FIELDS = {stKey:'key', stModel:'model', stOaBase:'oaBase', stOaKey:'oaKey', stOaModel:'oaModel', stUser:'userName', stAbout:'userAbout', stBday:'userBday',
   stGemKey:'gemKey', stGemModel:'gemModel', stWkBase:'wkBase', stWkTok:'wkTok', stWkModel:'wkModel', stWkSize:'wkSize',
   stFalKey:'falKey', stFalModel:'falModel', stFalSize:'falSize', stImgCost:'imgCost', stPin:'pIn', stPout:'pOut', stElKey:'elKey', stTtsFalKey:'falKey', stChatFalKey:'falKey'};
-const SEGS = {stRegen:'regen3', stFx:'fx', stFeed:'feed', stStory:'story', stCfCap:'cfCap', stCfPlan:'cfPlan', stTts:'tts', stElModel:'elModel', stAux:'aux', stCtx:'ctxN', stVmsg:'vmsg', stJrn:'jrn', stTheme:'theme', stProv:'prov', stLen:'len', stFont:'font', stImg:'imgProv', stImgAlt:'imgProv', stSugg:'sugg', stPro:'pro', stVoice:'voice', stSpont:'spont', stImgCheck:'imgCheck', stWkChat:'wkChat', stBkEvery:'bkEvery'};
+const SEGS = {stRegen:'regen3', stFx:'fx', stFeed:'feed', stStory:'story', stSky:'sky', stSocial:'social', stCfCap:'cfCap', stCfPlan:'cfPlan', stTts:'tts', stElModel:'elModel', stAux:'aux', stCtx:'ctxN', stVmsg:'vmsg', stJrn:'jrn', stTheme:'theme', stProv:'prov', stLen:'len', stFont:'font', stImg:'imgProv', stImgAlt:'imgProv', stSugg:'sugg', stPro:'pro', stVoice:'voice', stSpont:'spont', stImgCheck:'imgCheck', stWkChat:'wkChat', stBkEvery:'bkEvery'};
 let setPanel = null, setPanelPushed = false;
 /* 8.7: actualizare din aplicație. Codul vine oricum din rețea la pornire;
    asta prinde versiunile apărute cât aplicația a stat deschisă și forțează reîncărcarea curată. */
