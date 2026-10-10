@@ -1,7 +1,7 @@
 {
   "name": "Taifas",
   "short_name": "Taifas",
-  "id": "./",
+  "id": "taifas-app",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

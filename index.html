@@ -688,6 +688,11 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
 [data-theme=light] #vChat.bg-clar .under button{background:#ffffffb3}
 [data-theme=light] .card{box-shadow:0 6px 18px #0002}
 [data-theme=light] .obArt span{box-shadow:0 10px 26px #0002}
+.updRow{display:flex;align-items:center;justify-content:center;gap:10px;margin-top:18px;flex-wrap:wrap}
+#updBar{position:fixed;left:50%;top:calc(10px + var(--safe-t,0px));transform:translate(-50%,-140%);z-index:150;display:flex;align-items:center;gap:10px;padding:8px 8px 8px 14px;border-radius:999px;background:color-mix(in srgb,var(--card) 92%,transparent);backdrop-filter:blur(16px);border:1px solid var(--hair,var(--line));box-shadow:0 8px 28px #0006;font-size:.88rem;transition:transform .35s cubic-bezier(.2,.8,.3,1);max-width:92vw}
+#updBar.on{transform:translate(-50%,0)}
+#updBar span{white-space:nowrap}
+#updBar button{border:0;border-radius:999px;padding:7px 14px;font:inherit;font-weight:700;color:#fff;background:var(--grad);cursor:pointer}
 #toast{position:fixed;left:50%;bottom:calc(90px + var(--safe-b));transform:translateX(-50%);background:#2a2433;border:1px solid var(--line);padding:10px 16px;border-radius:12px;z-index:99;max-width:90vw;font-size:.9rem;box-shadow:0 6px 20px #0008;transition:opacity .2s;pointer-events:none}
 #toast:empty{opacity:0}
 
@@ -1119,7 +1124,7 @@ input:focus,textarea:focus,select:focus{border-color:color-mix(in srgb,var(--acc
         <button class="srow" data-p="data"><i style="background:linear-gradient(135deg,#8a8f9c,#5e6370)">💾</i><span><b>Backup și restaurare</b><small id="sum_data">Personaje, conversații, poze</small></span><em>›</em></button>
         <button class="srow" id="stWrapped"><i style="background:linear-gradient(135deg,#ff4f9a,#9b5cff)">📊</i><span><b>Taifas Wrapped</b><small>Luna ta în cifre și momente</small></span><em>›</em></button>
       </div>
-      <div class="hint" style="text-align:center;margin-top:18px" id="stVer"></div>
+      <div class="updRow"><span class="hint" id="stVer"></span><button class="btn sm" id="stUpd">⟳ Caută actualizare</button></div>
     </div>
 
     <div class="panel sec" data-panel="ai" data-title="Inteligența" hidden>
@@ -1304,7 +1309,7 @@ input:focus,textarea:focus,select:focus{border-color:color-mix(in srgb,var(--acc
 
 <script>
 'use strict';
-const APP_VER = '8.6';
+const APP_VER = '8.7';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -4983,6 +4988,44 @@ const FIELDS = {stKey:'key', stModel:'model', stOaBase:'oaBase', stOaKey:'oaKey'
   stFalKey:'falKey', stFalModel:'falModel', stFalSize:'falSize', stImgCost:'imgCost', stPin:'pIn', stPout:'pOut', stElKey:'elKey', stTtsFalKey:'falKey', stChatFalKey:'falKey'};
 const SEGS = {stRegen:'regen3', stFx:'fx', stFeed:'feed', stCfCap:'cfCap', stCfPlan:'cfPlan', stTts:'tts', stElModel:'elModel', stAux:'aux', stCtx:'ctxN', stVmsg:'vmsg', stJrn:'jrn', stTheme:'theme', stProv:'prov', stLen:'len', stFont:'font', stImg:'imgProv', stImgAlt:'imgProv', stSugg:'sugg', stPro:'pro', stVoice:'voice', stSpont:'spont', stImgCheck:'imgCheck', stWkChat:'wkChat', stBkEvery:'bkEvery'};
 let setPanel = null, setPanelPushed = false;
+/* 8.7: actualizare din aplicație. Codul vine oricum din rețea la pornire;
+   asta prinde versiunile apărute cât aplicația a stat deschisă și forțează reîncărcarea curată. */
+let updLast = 0, updBusy = false;
+async function latestVer(){
+  const r = await fetch('index.html?u=' + Date.now(), {cache: 'no-store'});
+  if(!r.ok) throw new Error('HTTP ' + r.status);
+  const m = (await r.text()).match(/const APP_VER = '([^']+)'/);
+  return m ? m[1] : null;
+}
+async function applyUpdate(){
+  if(updBusy) return; updBusy = true;
+  toast('Se actualizează…', 4000);
+  try{
+    const reg = 'serviceWorker' in navigator && await navigator.serviceWorker.getRegistration();
+    if(reg) await reg.update().catch(() => {});
+    if(window.caches) for(const k of await caches.keys()) if(k !== 'taifas-cfg') await caches.delete(k);
+  }catch(e){}
+  location.replace(location.pathname + '?upd=' + Date.now());
+}
+async function checkUpdate(manual){
+  if(!manual && (Date.now() - updLast < 30 * 60e3 || !navigator.onLine)) return;
+  updLast = Date.now();
+  const b = manual && $('#stUpd');
+  if(b){ b.disabled = true; b.innerHTML = '<span class="spin"></span> Verific…'; }
+  try{
+    const v = await latestVer();
+    if(v && v !== APP_VER){
+      if(manual) return applyUpdate();
+      let bar = $('#updBar');
+      if(!bar){ bar = document.createElement('div'); bar.id = 'updBar'; document.body.appendChild(bar); }
+      bar.innerHTML = `<span>✨ Taifas ${esc(v)} e gata</span><button>Actualizează</button>`;
+      bar.querySelector('button').onclick = applyUpdate;
+      requestAnimationFrame(() => bar.classList.add('on'));
+    } else if(manual) toast('Ai ultima versiune (' + APP_VER + ') ✓');
+  }catch(e){ if(manual) toast('Nu pot verifica acum — ești online?'); }
+  finally{ if(b){ b.disabled = false; b.textContent = '⟳ Caută actualizare'; } }
+}
+
 function openSettings(){
   for(const [id, k] of Object.entries(FIELDS)) $('#' + id).value = S[k] ?? '';
   syncSegs();
@@ -5465,7 +5508,7 @@ async function init(){
   await loadFeed();
   syncSegs();
   bind();
-  const go = new URLSearchParams(location.search).get('go');   // 8.6: scurtăturile de pe iconiță
+  const go = new URLSearchParams(location.search).get('go'), justUpd = /[?&]upd=/.test(location.search);   // 8.6: scurtăturile de pe iconiță
   history.replaceState({root:1}, '', location.pathname); history.pushState(null, '');
   renderHome();
   if(S.lock && S.lock !== 'off') showLock();   // întâi blocarea: scurtătura se deschide abia după deblocare
@@ -5484,6 +5527,10 @@ async function init(){
     navigator.serviceWorker.addEventListener('message', e => { if(e.data && e.data.go) whenUnlocked(() => runShortcut(e.data.go)); });
     if(S.pushOn) pushCfgToSW().catch(() => {});
   }
+  $('#stUpd').onclick = () => checkUpdate(true);
+  setTimeout(() => checkUpdate(false), 8000);
+  document.addEventListener('visibilitychange', () => { if(!document.hidden) setTimeout(() => checkUpdate(false), 3000); });
+  if(justUpd) setTimeout(() => toast('Actualizat la ' + APP_VER + ' ✓'), 1500);
 }
 init();
 </script>
