@@ -843,6 +843,16 @@ input:focus,textarea:focus,select:focus{border-color:color-mix(in srgb,var(--acc
 .mpimg{width:76px;height:76px;border-radius:50%;overflow:hidden;flex:none;display:grid;place-items:center;font-size:2rem;background:var(--bg2);box-shadow:0 0 0 2px var(--bg),0 0 0 4px var(--acc)}
 .mpimg img{width:100%;height:100%;object-fit:cover}
 .mephoto small{display:block;color:var(--tx3);font-size:.8rem;margin-top:6px;line-height:1.4}
+
+/* 8.2: textul informativ nu se mai taie cu „…”; se rupe pe rânduri (rămân scurtate doar previzualizările din liste și numele) */
+.chathead small,.chathead small .s1,.chathead small .s2{white-space:normal;overflow:visible;text-overflow:clip;line-height:1.3}
+.chathead small .s2{margin-top:1px}
+.card .cst{white-space:normal;overflow:visible;line-height:1.3}
+.srow small{white-space:normal;overflow:visible;line-height:1.35}
+#sceneBar,#chTop #sceneBar{white-space:normal;overflow:visible;text-overflow:clip;line-height:1.35}
+.hchips span{white-space:normal;max-width:100%;overflow:visible;line-height:1.3}
+.picbox .ploc{white-space:normal;max-width:70%}
+.thr .opt small{white-space:normal;max-width:none}
 </style>
 </head>
 <body>
@@ -1188,7 +1198,7 @@ input:focus,textarea:focus,select:focus{border-color:color-mix(in srgb,var(--acc
 
 <script>
 'use strict';
-const APP_VER = '8.1';
+const APP_VER = '8.2';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -2863,7 +2873,7 @@ function statusLine(){
   const ts = threadsOf(cur), t = ts.length > 1 ? ts.find(x => x.id === (cur.thread || 'main')) : null;
   const nx = (cur.sched || []).find(x => x.tid === (chat.tid || 'main') && x.at > Date.now());
   const pl = chat.plot && Date.now() - (chat.plot.ts || 0) < 12 * 36e5 ? chat.plot.t.split('›')[0].trim() : '';
-  const l2 = [pl ? '🎬 ' + esc(pl.slice(0, 40)) : '', mood ? esc(shortMood(mood)) : '', nx ? '⏰ ' + esc(whenText(nx.at)) : '', t ? '🧵 ' + esc(t.title) : ''].filter(Boolean).join(' · ');
+  const l2 = [pl ? '🎬 ' + esc(pl) : '', mood ? esc(shortMood(mood)) : '', nx ? '⏰ ' + esc(whenText(nx.at)) : '', t ? '🧵 ' + esc(t.title) : ''].filter(Boolean).join(' · ');
   return `<span class="s1">${st}</span>${l2 ? `<span class="s2">${l2}</span>` : ''}`;
 }
 // buton „jos" + contor de mesaje noi
@@ -3890,7 +3900,7 @@ async function charProfile(id, push = true){
   };
   drawPrefs();
   drawLife(c); drawMem(c); drawPics(c); drawAv(c); drawStk(c);
-  $('#pfMoreTop').onclick = () => sheet([['📤', 'Exportă cardul personajului', () => exportCard(c)], ['🧬', 'Duplică personajul', () => duplicateChar(c)]]);
+  $('#pfMoreTop').onclick = () => sheet([['📤', 'Exportă cardul personajului', () => exportCard(c)], ['🧬', 'Duplică personajul', () => duplicateChar(c)], ['🗑️', 'Șterge personajul', () => deleteChar(c), 'dan']]);
   $('#pfVPlay').onclick = () => voiceSample(c, $('#pfVPlay'));
   $('#pfVPick').onclick = () => pickVoice(c, () => { $('#pfVName').textContent = voiceLabel(c); });
   $('#pfFav').onclick = async () => { c.fav = !c.fav; await saveChars(); $('#pfFav').textContent = c.fav ? '★' : '☆'; toast(c.fav ? '⭐ Adăugat la favorite' : 'Scos de la favorite'); };
@@ -4048,6 +4058,7 @@ function moreMenu(){
       chat = newChat(); chat.tid = tid; chat.scene = scene; if(cur.greet) chat.msgs.push(greetMsg(cur));
       await saveChat(); renderMsgs(true);
     }), 'dan'],
+    ['🗑️', 'Șterge personajul ' + cur.name, () => deleteChar(cur), 'dan'],
   ]);
 }
 function exportTxt(){
@@ -4471,8 +4482,8 @@ async function saveEditorNow(){
   history.replaceState({v:'vChat'}, '');
   openChat(c.id, false);
 }
-async function deleteChar(){
-  const c = charById(ed.id); if(!c) return;
+async function deleteChar(cc){
+  const c = cc || (ed && charById(ed.id)); if(!c) return;
   confirmSheet(`Ștergi ${c.name} și toată conversația?`, 'Șterge', async () => {
     if(busy && live && live.c === c){ live.ch.dead = true; busy.abort(); }
     for(const t of threadsOf(c)){
@@ -4486,7 +4497,7 @@ async function deleteChar(){
     for(const p of feedCache.filter(p => p.cid === c.id)) if(p.img) await delImg(p.img).catch(() => {});
     feedCache = feedCache.filter(p => p.cid !== c.id); await saveFeed();
     chars = chars.filter(x => x !== c); await saveChars();
-    ed = null; cur = null; history.back();
+    ed = null; profId = null; closeSheet(); goHome(); toast('🗑️ ' + c.name + ' a fost șters.');   // Înapoi ulterior nu mai poate redeschide un personaj șters (popstate verifică charById)
   });
 }
 
@@ -4907,7 +4918,7 @@ function bind(){
   $('#edSurprise').onclick = surpriseSheet;
   $('#edName').addEventListener('input', () => { $('#edTitle').textContent = $('#edName').value.trim() || 'Personaj nou'; $$('#edNames button').forEach(b => b.classList.toggle('on', b.textContent === $('#edName').value.trim())); });
   $('#edSave').onclick = saveEditor;
-  $('#edDel').onclick = deleteChar;
+  $('#edDel').onclick = () => deleteChar();
   $('#edAcc').addEventListener('click', e => { const b = e.target.closest('[data-a]'); if(!b) return; ed.accent = b.dataset.a; drawLook(); });
   $$('#edBg button').forEach(b => b.onclick = () => { ed.bg = b.dataset.v; drawLook(); });
   $('#sceneBar').onclick = editScene;
