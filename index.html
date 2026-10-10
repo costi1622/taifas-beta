@@ -924,6 +924,30 @@ input:focus,textarea:focus,select:focus{border-color:color-mix(in srgb,var(--acc
 .pftabs button.on{background:var(--grad);color:#fff;box-shadow:0 6px 16px color-mix(in srgb,var(--acc) 30%,transparent)}
 .pfSec{border-radius:20px;background:color-mix(in srgb,var(--bg2) 85%,transparent);padding:16px}
 .pfSec h3{font-weight:800}
+
+/* 8.6: ecranul de pornire cu cărțile */
+#splash .spArt{position:absolute;left:50%;top:calc(50% - min(11vw,60px) - 128px);transform:translateX(-50%);margin:0;animation:spart .7s .1s cubic-bezier(.2,.8,.3,1) both}
+@keyframes spart{from{opacity:0;transform:translate(-50%,16px) scale(.92)}}
+/* 8.6: blocare */
+#lockv{position:fixed;inset:0;z-index:190;background:radial-gradient(90% 50% at 50% 0%,color-mix(in srgb,var(--acc2) 18%,transparent),transparent 70%),var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:24px;transition:opacity .25s}
+#lockv.out{opacity:0}
+#lockv>img{width:76px;height:76px;border-radius:27%;box-shadow:0 12px 34px color-mix(in srgb,var(--acc) 40%,transparent)}
+#lockv h2{margin:6px 0 0;font-size:1.5rem;font-weight:800;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+#lockv p{margin:0;color:var(--tx2);font-size:.92rem;min-height:1.3em}
+.lkdots{display:flex;gap:16px;margin:18px 0 22px}
+.lkdots i{width:14px;height:14px;border-radius:50%;border:2px solid var(--tx3);transition:background .15s,border-color .15s}
+.lkdots i.on{background:var(--acc);border-color:var(--acc)}
+.lkdots.bad{animation:lkshake .4s}
+@keyframes lkshake{20%,60%{transform:translateX(-10px)}40%,80%{transform:translateX(10px)}}
+.lkpad{display:grid;grid-template-columns:repeat(3,76px);gap:16px 26px}
+.lkpad button{width:76px;height:76px;border-radius:50%;font-size:1.7rem;font-weight:600;background:color-mix(in srgb,var(--tx) 7%,transparent);color:var(--tx);display:grid;place-items:center}
+.lkpad button:active{background:color-mix(in srgb,var(--acc) 30%,transparent)}
+.lkpad.sm{grid-template-columns:repeat(3,64px);gap:12px 22px;justify-content:center}
+.lkpad.sm button{width:64px;height:64px;font-size:1.4rem}
+.lkpad .x{font-size:.8rem}
+.lkin{display:flex;flex-direction:column;align-items:center;padding-bottom:10px}
+/* 8.6: orașul */
+.cityrow{display:flex;gap:8px}.cityrow input{flex:1}
 </style>
 </head>
 <body>
@@ -1090,6 +1114,8 @@ input:focus,textarea:focus,select:focus{border-color:color-mix(in srgb,var(--acc
       </div>
       <div class="sgroup"><h4>Date</h4>
         <button class="srow" data-p="cost"><i style="background:linear-gradient(135deg,#5fd39a,#2fa86d)">💰</i><span><b>Consum</b><small id="sum_cost"><span id="stCostMini"></span></small></span><em>›</em></button>
+        <button class="srow" data-p="lock"><i style="background:linear-gradient(135deg,#3ac2a0,#1f8f78)">🔒</i><span><b>Blocare</b><small id="sum_lock"></small></span><em>›</em></button>
+        <button class="srow" data-p="push"><i style="background:linear-gradient(135deg,#ffb020,#ff6a3d)">🔔</i><span><b>Notificări</b><small id="sum_push"></small></span><em>›</em></button>
         <button class="srow" data-p="data"><i style="background:linear-gradient(135deg,#8a8f9c,#5e6370)">💾</i><span><b>Backup și restaurare</b><small id="sum_data">Personaje, conversații, poze</small></span><em>›</em></button>
         <button class="srow" id="stWrapped"><i style="background:linear-gradient(135deg,#ff4f9a,#9b5cff)">📊</i><span><b>Taifas Wrapped</b><small>Luna ta în cifre și momente</small></span><em>›</em></button>
       </div>
@@ -1252,6 +1278,8 @@ input:focus,textarea:focus,select:focus{border-color:color-mix(in srgb,var(--acc
       <div class="btns"><button type="button" class="btn sm" id="stCostReset">Resetează contorul</button></div>
     </div>
 
+    <div class="panel sec" data-panel="lock" data-title="Blocare" hidden><div id="stLockBox"></div></div>
+    <div class="panel sec" data-panel="push" data-title="Notificări" hidden><div id="stPushBox"></div></div>
     <div class="panel sec" data-panel="data" data-title="Backup și restaurare" hidden>
       <div class="btns" style="margin-top:0">
         <button type="button" class="btn" id="stExport">⬇ Backup</button>
@@ -1272,11 +1300,11 @@ input:focus,textarea:focus,select:focus{border-color:color-mix(in srgb,var(--acc
 </section>
 
 <div id="toast"></div>
-<div id="splash"><i class="glow"></i><img src="icon-512-maskable.png" alt=""><b>Taifas</b></div>
+<div id="splash"><i class="glow"></i><div class="obArt spArt"><span style="--r:-8deg;--c:#ff4f9a">💬</span><span style="--r:6deg;--c:#9b5cff">📸</span><span style="--r:-3deg;--c:#4f8cff">✨</span></div><img src="icon-512-maskable.png" alt=""><b>Taifas</b></div>
 
 <script>
 'use strict';
-const APP_VER = '8.5';
+const APP_VER = '8.6';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -1315,7 +1343,7 @@ const DEF = {
   imgProv:'none', gemKey:'', gemModel:'gemini-2.5-flash-image',
   wkBase:'', wkTok:'', wkModel:'eco', wkSize:'768x1024',
   sugg:'off', pro:'on', feed:'text', fx:'on', regen3:'on', voice:'tap', tts:'tel', cfPlan:'free', cfCap:'free', elKey:'', elModel:'eleven_v3', theme:'dark', vmsg:'rar', jrn:'on', aux:'on', ctxN:'30',
-  imgCheck:'on', bkEvery:'week', bkLast:0, userPhoto:'', userPhys:'', userBox:null, wkChat:'', wkRef:'auto', falKey:'', falModel:'fal-ai/flux-pulid', falSize:'576x768', spont:'rar', imgAlt:'fal', sv:34, imgCost:'', pIn:'', pOut:''
+  imgCheck:'on', lock:'off', pushOn:false, bkEvery:'week', bkLast:0, userPhoto:'', userPhys:'', userBox:null, wkChat:'', wkRef:'auto', falKey:'', falModel:'fal-ai/flux-pulid', falSize:'576x768', spont:'rar', imgAlt:'fal', sv:34, imgCost:'', pIn:'', pOut:''
 };
 let S = {...DEF};
 let chars = [];            // [{id,name,tag,photo,aspect,look,stil,persona,speech,greet,created,lastAt,last}]
@@ -1761,9 +1789,10 @@ async function planShot(c, ch, {promised = '', exclude = null, signal, together 
   const prevShots = ch.msgs.filter(x => x.img && x.scene && x !== exclude).slice(-3).map(x => '- ' + x.scene).join('\n');
   const home = c.home && Object.keys(c.home).length ? Object.entries(c.home).map(([k, v]) => `- ${k}: ${v}`).join('\n') : '';
   const lf = lifeNow(c), meta = {};
+  let wx = null; try{ wx = await weatherOf(c); }catch(e){}
   const out = await stream(`You are the photo planner of a chat app where ${c.name}, a real person, sends ${u} photos from her/his phone. You read the conversation and decide exactly where the character is and how, then describe the photo. The conversation is the only truth. Answer with JSON only.`, [{role:'user', text:
 `Character: ${c.name}.${c.persona ? ' About: ' + plain(c.persona).slice(0, 500) : ''}
-Now: ${todEn()}.${lf ? ' Daily routine says right now: ' + lf.w + ' (use only if the conversation says nothing else).' : ''}
+Now: ${todEn()}.${wx ? ` Real weather right now in ${wx.city}, where the character lives: ${wx.t}°C, ${wx.en}, ${wx.day ? 'daylight' : 'dark outside'} (use it for anything outdoors and for the light through windows).` : ''}${lf ? ' Daily routine says right now: ' + lf.w + ' (use only if the conversation says nothing else).' : ''}
 ${ch.scene ? 'Scene set by the user (has priority, translate to English): ' + ch.scene + '\n' : ''}${ch.where ? 'Last known state of the character (from earlier photos): ' + JSON.stringify(ch.where) + '\n' : ''}${ch.plot ? 'Ongoing activity noted by the character (Romanian, "activity › current step"): ' + ch.plot.t + '\n' : ''}${home ? `Rooms of ${c.name}'s home (reuse these details EXACTLY when the photo is in one of them, so the home always looks the same):\n${home}\n` : ''}
 Conversation, oldest first (the Romanian text is the source of truth):
 ${recent || '(just started)'}
@@ -2106,6 +2135,7 @@ function applyLook(c){
 }
 function renderScene(){
   setWeather(chat && chat.scene);
+  if(!(chat && chat.scene)) weatherOf(cur).then(w => { if(w && w.fx && cur && !$('#vChat').hidden) setWeather(w.fx === 'rain' ? 'ploaie' : 'ninge'); }).catch(() => {});
   const b = $('#sceneBar');
   b.hidden = !chat.scene;
   b.textContent = chat.scene ? '🎬 ' + chat.scene : '';
@@ -2138,8 +2168,10 @@ function parseSched(raw){
 }
 function addSched(c, ch, sc){
   c.sched = (c.sched || []).filter(x => Math.abs(x.at - sc.at) > 5 * 60e3 || x.tid !== (ch.tid || 'main'));
-  c.sched.push({id:uid(), tid:ch.tid || 'main', at:sc.at, note:sc.note, made:Date.now()});
+  const nid = uid();
+  c.sched.push({id:nid, tid:ch.tid || 'main', at:sc.at, note:sc.note, made:Date.now()});
   c.sched.sort((a, b) => a.at - b.at);
+  pushAt('s:' + nid, sc.at, c.name, '💬 Ți-a scris un mesaj', 'c:' + c.id);
   saveChars();
   toast(`⏰ ${c.name} îți scrie ${whenText(sc.at)}`, 3500);
 }
@@ -2180,7 +2212,7 @@ function schedSheet(){
     <input id="scAt" type="datetime-local" value="${def}">
     <input id="scNote" placeholder="Despre ce (opțional), ex: să-mi ureze bună dimineața" style="margin-top:8px">
     <div class="btns" style="margin-top:10px"><button class="btn pri" id="scAdd">Programează</button></div></div>`);
-  $$('.sheet [data-sx]').forEach(b => b.onclick = async () => { c.sched = (c.sched || []).filter(x => x.id !== b.dataset.sx); await saveChars(); closeSheet(); toast('Anulat.'); });
+  $$('.sheet [data-sx]').forEach(b => b.onclick = async () => { c.sched = (c.sched || []).filter(x => x.id !== b.dataset.sx); pushCancel('s:' + b.dataset.sx); await saveChars(); closeSheet(); toast('Anulat.'); });
   $('#scAdd').onclick = async () => {
     const at = new Date($('#scAt').value).getTime();
     if(!at || at < Date.now()){ toast('Alege o oră din viitor.'); return; }
@@ -2553,7 +2585,7 @@ async function genAvatars(c){
 }
 
 /* ───────── 🗂️ carduri de personaj ───────── */
-const CARD_FIELDS = ['name', 'tag', 'aspect', 'look', 'stil', 'persona', 'speech', 'greet', 'accent', 'bg', 'aiPortrait', 'voice', 'vPitch', 'life', 'lifeOff', 'avLive', 'sendPics', 'home'];
+const CARD_FIELDS = ['city', 'name', 'tag', 'aspect', 'look', 'stil', 'persona', 'speech', 'greet', 'accent', 'bg', 'aiPortrait', 'voice', 'vPitch', 'life', 'lifeOff', 'avLive', 'sendPics', 'home'];
 async function exportCard(c){
   toast('Pregătesc cardul…');
   const out = {app:'taifas-card', v:1, date:new Date().toISOString(), char:{}};
@@ -3588,6 +3620,7 @@ async function reply(target, opts = {}){
       const li = ctx.lastIndexOf(lastU);
       for(let k = li - 1; k >= 0; k--) if(ctx[k].role === 'assistant'){ ctx[k]._cache = true; break; }
       let extra = turnExtras(c, ch, opts);
+      if(!opts.cont){ const w = await weatherOf(c).catch(() => null); if(w) extra += ` (vremea reală la tine în ${w.city} acum: ${wxLine(w)}; ține cont de ea firesc, doar dacă se potrivește, fără să o tot pomenești)`; }
       const acts = (lastU.text.match(/\*[^*\n]{2,200}\*/g) || []).map(a => a.slice(1, -1).trim());
       if(acts.length) extra += ` (acțiunile mele de acum, care s-au întâmplat deja exact așa: ${acts.map(a => '„' + a + '”').join(', ')}; pornește de la starea de după ele, nu le contrazice și nu le rescrie, apoi reacționează în felul tău)`;
       const md = extra + (ch.mood && ch.mood.t ? ` (starea ta la ultimul mesaj: ${ch.mood.t}${Date.now() - ch.mood.ts > 3 * 36e5 ? ', acum ' + gapText(Date.now() - ch.mood.ts) : ''})` : '');
@@ -3682,6 +3715,7 @@ async function reply(target, opts = {}){
         setTimeout(() => { if(chat === ch && !busy) askPhoto(true); }, 1500);
       }
     }
+    pushPro(c);   // 8.6: notificarea „îți scrie primul” se mută la PRO_H ore după ultimul mesaj
     if(chat === ch && S.voice === 'auto' && !m.voice) say(m.text, m);
     if(chat === ch && S.sugg === 'auto') suggest();
   }
@@ -4030,6 +4064,7 @@ async function charProfile(id, push = true){
     ${c.aspect ? `<div class="pfSec"><h3>Cum arată</h3><p>${esc(c.aspect)}</p></div>` : ''}
     <div class="pfSec"><h3><span>💞 Relația voastră</span></h3><div class="relbox"><span class="lv" id="pfRelName"></span><small id="pfRelSub"></small><button class="btn sm" id="pfRelSet" style="margin-left:auto">Schimbă</button></div><div class="relbar"><i id="pfRelBar"></i></div></div>
     <div class="pfSec" id="pfPrefsSec"><h3>🎯 Ce a învățat din notele tale</h3><ul class="facts" id="pfPrefs"></ul></div>
+    <div class="pfSec"><h3><span>📍 Orașul ${esc(c.name)}</span></h3><div class="cityrow"><input id="pfCity" placeholder="ex. Brașov" value="${esc(c.city || '')}" autocomplete="off"><button class="btn sm" id="pfCitySave">Salvează</button></div><p class="hint" id="pfWx">Vremea reală de acolo intră în conversații și în poze (Open-Meteo, gratuit).</p></div>
     <div class="pfSec"><h3><span>🗓️ Ziua ${esc(c.name)}</span></h3><div id="pfLife"></div></div>
     <div class="pfSec"><h3><span>💝 Amintiri</span></h3><div id="pfMem"></div></div>
     <div class="pfSec"><h3><span>📷 Poze de la ${esc(c.name)}</span></h3><div id="pfPics"></div></div>
@@ -4086,6 +4121,9 @@ async function charProfile(id, push = true){
   drawPrefs();
   drawLife(c); drawMem(c); drawPics(c); drawAv(c); drawStk(c);
   pfTabsInit();
+  const showWx = () => weatherOf(c).then(w => { const el = $('#pfWx'); if(el) el.textContent = w ? `Acum în ${w.city}: ${wxLine(w)}. Intră în conversații și în poze.` : (c.city ? 'Nu găsesc orașul ăsta. Încearcă alt nume.' : 'Vremea reală de acolo intră în conversații și în poze (Open-Meteo, gratuit).'); }).catch(() => { const el = $('#pfWx'); if(el) el.textContent = 'Nu pot citi vremea acum (internet?).'; });
+  showWx();
+  $('#pfCitySave').onclick = async () => { c.city = $('#pfCity').value.trim(); delete c.geo; delete wxMem[c.id]; await saveChars(); showWx(); toast(c.city ? '📍 ' + c.city : 'Oraș șters'); };
   $('#pfMoreTop').onclick = () => sheet([['📤', 'Exportă cardul personajului', () => exportCard(c)], ['🧬', 'Duplică personajul', () => duplicateChar(c)], ['🗑️', 'Șterge personajul', () => deleteChar(c), 'dan']]);
   $('#pfVPlay').onclick = () => voiceSample(c, $('#pfVPlay'));
   $('#pfVPick').onclick = () => pickVoice(c, () => { $('#pfVName').textContent = voiceLabel(c); });
@@ -4323,6 +4361,184 @@ async function runBcast(text, ids){
   bcastRun = false; await DB.set('bcast', bcastLast); bcastResults();
   if(!$('#vHome').hidden) renderHome();
 }
+/* ───────── 🔒 8.6: blocare cu PIN sau amprentă ─────────
+   Ecran de blocare la pornire și după mai mult de 1 minut în fundal. PIN-ul se ține doar ca hash (SHA-256 cu sare);
+   amprenta = WebAuthn cu autentificatorul telefonului (verificare locală). Datele din telefon nu sunt criptate: e o blocare de ecran. */
+let locked = false, lockWaiters = [], hiddenAt = 0, pinTries = 0, pinWaitUntil = 0;
+const b64u = buf => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+const unb64u = s => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/') + '==='.slice((s.length + 3) % 4)), ch => ch.charCodeAt(0));
+async function pinHash(pin, salt){ return b64u(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(salt + ':' + pin))); }
+function whenUnlocked(fn){ if(locked) lockWaiters.push(fn); else fn(); }
+function runShortcut(go){
+  const byLast = [...chars].sort((a, b) => (b.lastAt || 0) - (a.lastAt || 0));
+  if(go === 'last' && byLast[0]) openChat(byLast[0].id);
+  else if(go === 'fav'){ const f = byLast.find(c => c.fav) || byLast[0]; if(f) openChat(f.id); }
+  else if(go === 'bcast') bcastSheet(true);
+  else if(go === 'new') openEditor(null);
+  else if(go === 'chats'){ homeTab = 'chats'; renderHome(); }
+  else if(go.startsWith('c:') && charById(go.slice(2))) openChat(go.slice(2));
+}
+function showLock(){
+  if(locked || !S.lock || S.lock === 'off' || !S.pinHash) return;
+  locked = true;
+  const v = document.createElement('div'); v.id = 'lockv';
+  v.innerHTML = `<img src="icon-512-maskable.png" alt=""><h2>Taifas</h2><p id="lkMsg">Introdu PIN-ul</p><div class="lkdots" id="lkDots">${'<i></i>'.repeat(S.pinLen || 4)}</div>
+    <div class="lkpad">${[1,2,3,4,5,6,7,8,9].map(n => `<button data-k="${n}">${n}</button>`).join('')}<button data-k="bio" ${S.lock === 'bio' && S.bioId ? '' : 'style="visibility:hidden"'} aria-label="Amprentă"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 11v3M8.5 7.5A5 5 0 0 1 17 11v1.5M7 11v1a8 8 0 0 0 1.5 5M17 15.5a8 8 0 0 1-1 2.5M12 4a8 8 0 0 0-7.6 5.5M19.6 9.5A8 8 0 0 0 16 5M10 11a2 2 0 0 1 4 0v2a10 10 0 0 1-1.4 5"/></svg></button><button data-k="0">0</button><button data-k="del" aria-label="Șterge">⌫</button></div>`;
+  document.body.appendChild(v);
+  let pin = '';
+  const dots = () => $$('#lkDots i').forEach((d, i) => d.classList.toggle('on', i < pin.length));
+  const tryPin = async () => {
+    if(Date.now() < pinWaitUntil){ $('#lkMsg').textContent = 'Prea multe încercări. Așteaptă ' + Math.ceil((pinWaitUntil - Date.now()) / 1000) + ' s.'; pin = ''; dots(); return; }
+    if(await pinHash(pin, S.pinSalt) === S.pinHash){ pinTries = 0; unlock(); return; }
+    pinTries++; if(pinTries >= 5){ pinWaitUntil = Date.now() + 30e3; pinTries = 0; }
+    $('#lkDots').classList.add('bad'); setTimeout(() => $('#lkDots') && $('#lkDots').classList.remove('bad'), 450);
+    $('#lkMsg').textContent = 'PIN greșit'; pin = ''; dots();
+  };
+  v.querySelectorAll('[data-k]').forEach(b => b.onclick = () => {
+    const k = b.dataset.k;
+    if(k === 'bio') return bioUnlock();
+    if(k === 'del'){ pin = pin.slice(0, -1); dots(); return; }
+    if(pin.length >= (S.pinLen || 4)) return;
+    pin += k; dots(); if(pin.length === (S.pinLen || 4)) setTimeout(tryPin, 120);
+  });
+  if(S.lock === 'bio' && S.bioId) setTimeout(bioUnlock, 450);
+}
+async function bioUnlock(){
+  try{
+    await navigator.credentials.get({publicKey:{challenge:crypto.getRandomValues(new Uint8Array(32)), allowCredentials:[{type:'public-key', id:unb64u(S.bioId)}], userVerification:'required', timeout:60000}});
+    unlock();
+  }catch(e){ const m = $('#lkMsg'); if(m) m.textContent = 'Amprenta n-a mers. Folosește PIN-ul.'; }
+}
+function unlock(){
+  locked = false;
+  const v = $('#lockv'); if(v){ v.classList.add('out'); setTimeout(() => v.remove(), 250); }
+  const w = lockWaiters; lockWaiters = []; w.forEach(f => { try{ f(); }catch(e){} });
+}
+document.addEventListener('visibilitychange', () => {
+  if(document.hidden) hiddenAt = Date.now();
+  else if(S.lock && S.lock !== 'off' && hiddenAt && Date.now() - hiddenAt > 60e3) showLock();
+});
+// Setări → Confidențialitate
+function drawLock(){
+  const box = $('#stLockBox'); if(!box) return;
+  const on = S.lock && S.lock !== 'off';
+  box.innerHTML = `<div class="seg" id="stLockSeg"><button data-v="off" class="${!on ? 'on' : ''}">Oprită</button><button data-v="pin" class="${S.lock === 'pin' ? 'on' : ''}">PIN</button><button data-v="bio" class="${S.lock === 'bio' ? 'on' : ''}">Amprentă + PIN</button></div>
+    <p class="hint">${on ? 'Taifas se blochează la pornire și când revii după mai mult de un minut. ' + (S.lock === 'bio' ? 'Deblochezi cu amprenta (sau fața) telefonului; PIN-ul rămâne ca rezervă.' : 'Deblochezi cu PIN-ul.') : 'Oprită: aplicația se deschide direct.'} Blocarea ascunde conversațiile de alții; datele din telefon nu sunt criptate. Dacă uiți PIN-ul, singura cale e ștergerea datelor aplicației, deci ține un backup.</p>
+    ${on ? '<div class="btns"><button class="btn sm" id="stPinChange">🔢 Schimbă PIN-ul</button></div>' : ''}`;
+  box.querySelectorAll('#stLockSeg [data-v]').forEach(b => b.onclick = async () => {
+    const v = b.dataset.v;
+    if(v === 'off'){ S.lock = 'off'; saveSettings(); drawLock(); return; }
+    if(!S.pinHash){ const ok = await setPinFlow(); if(!ok) return; }
+    if(v === 'bio'){ const ok = await bioRegister(); if(!ok) return; }
+    S.lock = v; saveSettings(); drawLock(); toast(v === 'bio' ? '🔒 Blocare cu amprentă pornită' : '🔒 Blocare cu PIN pornită');
+  });
+  const ch = $('#stPinChange'); if(ch) ch.onclick = () => setPinFlow();
+}
+function pinSheet(title){
+  return new Promise(res => {
+    let pin = '';
+    openSheet(`<h4>${esc(title)}</h4><div class="pad lkin"><div class="lkdots" id="psDots">${'<i></i>'.repeat(4)}</div>
+      <div class="lkpad sm">${[1,2,3,4,5,6,7,8,9].map(n => `<button data-p="${n}">${n}</button>`).join('')}<button data-p="x" class="x">Renunță</button><button data-p="0">0</button><button data-p="del">⌫</button></div></div>`);
+    const dots = () => $$('#psDots i').forEach((d, i) => d.classList.toggle('on', i < pin.length));
+    $$('.sheet [data-p]').forEach(b => b.onclick = () => {
+      const k = b.dataset.p;
+      if(k === 'x'){ closeSheet(); res(null); return; }
+      if(k === 'del'){ pin = pin.slice(0, -1); dots(); return; }
+      if(pin.length >= 4) return; pin += k; dots();
+      if(pin.length === 4) setTimeout(() => { closeSheet(); res(pin); }, 150);
+    });
+  });
+}
+async function setPinFlow(){
+  const a = await pinSheet('Alege un PIN de 4 cifre'); if(!a) return false;
+  const b = await pinSheet('Scrie PIN-ul încă o dată'); if(!b) return false;
+  if(a !== b){ toast('PIN-urile nu se potrivesc. Mai încearcă.'); return false; }
+  S.pinSalt = b64u(crypto.getRandomValues(new Uint8Array(12))); S.pinHash = await pinHash(a, S.pinSalt); S.pinLen = 4; saveSettings();
+  toast('🔢 PIN salvat'); return true;
+}
+async function bioRegister(){
+  if(!window.PublicKeyCredential){ toast('Telefonul nu oferă amprentă pentru aplicații web.'); return false; }
+  try{
+    const ok = await window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable(); if(!ok){ toast('Nu găsesc amprenta telefonului (setează-o în Android).', 3500); return false; }
+    const cred = await navigator.credentials.create({publicKey:{challenge:crypto.getRandomValues(new Uint8Array(32)), rp:{name:'Taifas', id:location.hostname},
+      user:{id:crypto.getRandomValues(new Uint8Array(16)), name:'taifas', displayName:'Taifas'}, pubKeyCredParams:[{type:'public-key', alg:-7}, {type:'public-key', alg:-257}],
+      authenticatorSelection:{authenticatorAttachment:'platform', userVerification:'required', residentKey:'discouraged'}, timeout:60000}});
+    S.bioId = b64u(cred.rawId); saveSettings(); return true;
+  }catch(e){ toast('Amprenta n-a fost înregistrată: ' + (e.message || e.name), 3500); return false; }
+}
+/* ───────── 🔔 8.6: notificări adevărate (Web Push prin Worker-ul tău v7) ─────────
+   Worker-ul ține doar ora + titlul notificării; la ora respectivă (Cron, la fiecare minut) trimite o notificare goală, iar
+   service worker-ul își ia titlul de la /v1/push/pending și o afișează. Atingi notificarea → se deschide conversația, iar
+   mesajul se scrie atunci (cu cheia ta), datat la ora promisă. Nu se afișează nimic dacă aplicația e deschisă pe ecran. */
+const pushOk = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+async function wkFetch(path, opt = {}){
+  const r = await fetch(wkUrl() + path, {...opt, headers:{...(opt.body ? {'content-type':'application/json'} : {}), ...(S.wkTok ? {authorization:'Bearer ' + S.wkTok.trim()} : {})}});
+  if(!r.ok) throw new Error(await errText(r));
+  return r.json();
+}
+async function pushCfgToSW(){
+  if(!('serviceWorker' in navigator)) return;
+  const reg = await navigator.serviceWorker.ready; const sw = reg.active || navigator.serviceWorker.controller;
+  if(sw) sw.postMessage({cfg:{wk:wkUrl(), tok:S.wkTok ? S.wkTok.trim() : ''}});
+}
+async function pushEnable(){
+  if(!pushOk()) throw new Error('Telefonul sau browserul nu permite notificări pentru aplicații web. Deschide Taifas ca aplicație instalată, din Chrome.');
+  if(!S.wkBase) throw new Error('Pune întâi adresa Worker-ului în Setări → Poze.');
+  const perm = await Notification.requestPermission(); if(perm !== 'granted') throw new Error('Notificările nu sunt permise. Permite-le din setările telefonului pentru Taifas.');
+  const {key} = await wkFetch('/push/key');
+  const reg = await navigator.serviceWorker.ready;
+  let sub = await reg.pushManager.getSubscription();
+  if(sub){ const k = sub.options && sub.options.applicationServerKey ? b64u(sub.options.applicationServerKey) : key; if(k !== key){ await sub.unsubscribe(); sub = null; } }
+  if(!sub) sub = await reg.pushManager.subscribe({userVisibleOnly:true, applicationServerKey:unb64u(key)});
+  await wkFetch('/push/sub', {method:'POST', body:JSON.stringify({sub:sub.toJSON()})});
+  await pushCfgToSW();
+  S.pushOn = true; saveSettings();
+  for(const c of chars) for(const x of c.sched || []) if(x.at > Date.now()) pushAt('s:' + x.id, x.at, c.name, '💬 Ți-a scris un mesaj', 'c:' + c.id);
+}
+function pushAt(id, at, title, body, go){
+  if(!S.pushOn || !S.wkBase) return;
+  wkFetch('/push/at', {method:'POST', body:JSON.stringify({id, at, title, body, url:'./?go=' + encodeURIComponent(go || 'last')})}).catch(e => console.warn('push', e.message));
+}
+function pushCancel(id){ if(S.pushOn && S.wkBase) wkFetch('/push/at?id=' + encodeURIComponent(id), {method:'DELETE'}).catch(() => {}); }
+// „îți scrie primul” după PRO_H ore de liniște: notificarea se reprogramează după fiecare mesaj din conversație
+function pushPro(c){ if(S.pro === 'on' && c) pushAt('p:' + c.id, Date.now() + PRO_H * 36e5 + 60e3, c.name, '💬 Ți-a scris', 'c:' + c.id); }
+function drawPush(){
+  const box = $('#stPushBox'); if(!box) return;
+  box.innerHTML = `<p class="hint" style="margin-top:0">Telefonul sună ca la WhatsApp când îți scrie un personaj: mesajele promise (⏰) și „îți scrie primul” după ${PRO_H} ore de liniște, chiar cu aplicația închisă. Merg prin Worker-ul tău Cloudflare (v7), fără cost în plus; el ține minte doar ora și numele personajului, iar textul se scrie când deschizi notificarea.</p>
+    <div class="btns">${S.pushOn ? '<button class="btn sm" id="stPushTest">🔔 Trimite o notificare de test</button><button class="btn sm dan" id="stPushOff">Oprește</button>' : '<button class="btn pri" id="stPushOn">🔔 Pornește notificările</button>'}</div>
+    <div class="status" id="stPushRes"></div>
+    <details style="margin-top:12px"><summary>Ce trebuie făcut o dată în Cloudflare</summary><ol class="hint" style="padding-left:18px;line-height:1.55">
+      <li>Urcă <b>cloudflare-worker-simplu.js</b> (v7) din arhivă.</li>
+      <li>Storage &amp; Databases → <b>KV</b> → Create, nume <b>taifas</b>.</li>
+      <li>Worker-ul tău → Settings → <b>Bindings</b> → Add → KV namespace: variabila <b>KV</b>, alegi <b>taifas</b>.</li>
+      <li>Worker-ul tău → Settings → <b>Triggers</b> → Cron Triggers → Add: <b>* * * * *</b> (la fiecare minut).</li>
+      <li>Aici: „Pornește notificările”, apoi „Trimite o notificare de test”.</li></ol></details>`;
+  const res = $('#stPushRes');
+  const on = $('#stPushOn'); if(on) on.onclick = async () => { res.className = 'status'; res.innerHTML = '<span class="spin"></span> Pornesc…'; try{ await pushEnable(); drawPush(); $('#stPushRes').className = 'status ok'; $('#stPushRes').textContent = '✓ Pornite. Trimite o notificare de test.'; }catch(e){ res.className = 'status err'; res.textContent = '✗ ' + e.message; } };
+  const te = $('#stPushTest'); if(te) te.onclick = async () => { res.className = 'status'; res.innerHTML = '<span class="spin"></span> Trimit…'; try{ await pushCfgToSW(); const r = await wkFetch('/push/test', {method:'POST', body:'{}'}); res.className = 'status ok'; res.textContent = '✓ Trimisă (' + r.push + '). Închide aplicația câteva secunde: notificarea apare doar când Taifas nu e pe ecran.'; }catch(e){ res.className = 'status err'; res.textContent = '✗ ' + e.message; } };
+  const off = $('#stPushOff'); if(off) off.onclick = async () => { try{ const reg = await navigator.serviceWorker.ready; const sub = await reg.pushManager.getSubscription(); if(sub) await sub.unsubscribe(); }catch(e){} S.pushOn = false; saveSettings(); drawPush(); };
+}
+/* ───────── 🌦️ 8.6: vremea reală din orașul personajului (Open-Meteo, gratuit, fără cheie) ───────── */
+const WX = {0:['senin','clear sky'],1:['mai mult senin','mostly clear'],2:['parțial înnorat','partly cloudy'],3:['înnorat','overcast'],45:['ceață','fog'],48:['ceață cu chiciură','freezing fog'],51:['burniță ușoară','light drizzle'],53:['burniță','drizzle'],55:['burniță deasă','heavy drizzle'],56:['burniță înghețată','freezing drizzle'],57:['burniță înghețată','freezing drizzle'],61:['ploaie ușoară','light rain'],63:['ploaie','rain'],65:['ploaie torențială','heavy rain'],66:['ploaie înghețată','freezing rain'],67:['ploaie înghețată','freezing rain'],71:['ninsoare ușoară','light snow'],73:['ninsoare','snow'],75:['ninsoare abundentă','heavy snow'],77:['fulgi mărunți','snow grains'],80:['averse ușoare','light showers'],81:['averse','showers'],82:['averse puternice','heavy showers'],85:['averse de zăpadă','snow showers'],86:['averse de zăpadă','heavy snow showers'],95:['furtună','thunderstorm'],96:['furtună cu grindină','thunderstorm with hail'],99:['furtună cu grindină','thunderstorm with hail']};
+const wxMem = {};
+async function weatherOf(c){
+  if(!c || !c.city || !c.city.trim()) return null;
+  const city = c.city.trim(), hit = wxMem[c.id];
+  if(hit && hit.city === city && Date.now() - hit.ts < 30 * 60e3) return hit.w;
+  if(!c.geo || c.geo.q !== city){
+    const r = await fetch('https://geocoding-api.open-meteo.com/v1/search?count=1&language=ro&name=' + encodeURIComponent(city));
+    const g = (await r.json()).results?.[0]; if(!g) return null;
+    c.geo = {q:city, lat:g.latitude, lon:g.longitude, name:g.name}; saveChars();
+  }
+  const r = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${c.geo.lat}&longitude=${c.geo.lon}&current=temperature_2m,weather_code,is_day,wind_speed_10m&timezone=auto`);
+  const cu = (await r.json()).current; if(!cu) return null;
+  const d = WX[cu.weather_code] || ['vreme schimbătoare', 'changeable weather'], code = cu.weather_code;
+  const w = {t:Math.round(cu.temperature_2m), ro:d[0], en:d[1], day:!!cu.is_day, wind:Math.round(cu.wind_speed_10m || 0), city:c.geo.name,
+    fx:[61,63,65,66,67,80,81,82,95,96,99,51,53,55,56,57].includes(code) ? 'rain' : [71,73,75,77,85,86].includes(code) ? 'snow' : ''};
+  wxMem[c.id] = {city, ts:Date.now(), w};
+  return w;
+}
+const wxLine = w => w ? `${w.t}°C, ${w.ro}${w.wind >= 30 ? ', vânt puternic' : ''}` : '';
 /* ───────── 📞 8.5: apel vocal (vocea telefonului + dictarea, fără costuri în plus în afară de text) ─────────
    Bucla: ascultă (SpeechRecognition ro-RO) → mesajul tău intră în conversație → personajul răspunde (reply, scurt, vorbit)
    → răspunsul e citit cu vocea telefonului → ascultă din nou. Nu ascultă cât vorbește telefonul (fără ecou). */
@@ -4789,6 +5005,8 @@ function openSetPanel(p, push = true){
   if(p === 'img'){ loadNeurons(); drawChatHint(); }
   if(p === 'me') drawMe();
   if(p === 'data') drawBk();
+  if(p === 'lock') drawLock();
+  if(p === 'push') drawPush();
   if(p === 'cost') renderCost();
   if(push) history.pushState({v:'vSet', p}, '');
 }
@@ -4812,6 +5030,8 @@ function renderSetSummary(){
   const ip = {none:'Oprite', worker:'Worker Cloudflare · ' + (S.wkModel || 'eco') + (S.cfPlan === 'paid' ? ' · Paid' : ''), fal:'fal.ai', gemini:'Gemini'}[S.imgProv] || '';
   $('#sum_img').textContent = ip;
   $('#sum_chat').textContent = {scurt:'Răspunsuri scurte', mediu:'Răspunsuri medii', lung:'Răspunsuri lungi'}[S.len] + ' · voce ' + {off:'oprită', tap:'la 🔊', auto:'automată'}[S.voice] + ' · ' + ({tel:'telefon', el:'ElevenLabs', fal:'fal.ai'}[S.tts] || 'telefon');
+  $('#sum_lock').textContent = S.lock === 'bio' ? 'Amprentă + PIN' : S.lock === 'pin' ? 'PIN' : 'Oprită';
+  $('#sum_push').textContent = S.pushOn ? 'Pornite' : 'Oprite';
   $('#sum_look').textContent = {auto:'Temă automată', dark:'Temă întunecată', light:'Temă luminoasă'}[S.theme] + ' · text ' + {15:'mic', 16:'normal', 18:'mare'}[S.font];
 }
 function syncSegs(){
@@ -5245,18 +5465,25 @@ async function init(){
   await loadFeed();
   syncSegs();
   bind();
-  history.replaceState({root:1}, ''); history.pushState(null, '');
+  const go = new URLSearchParams(location.search).get('go');   // 8.6: scurtăturile de pe iconiță
+  history.replaceState({root:1}, '', location.pathname); history.pushState(null, '');
   renderHome();
+  if(S.lock && S.lock !== 'off') showLock();   // întâi blocarea: scurtătura se deschide abia după deblocare
   if(!aiReady() && !chars.length) show('vWelcome', false);
   else if(!aiReady()) openSettings();
+  else if(go) whenUnlocked(() => runShortcut(go));
   // 8.4: ecranul modern revine; logo-ul stă exact unde îl lasă ecranul Android (centru, ~22% din lățime), deci trecerea nu se vede
-  setTimeout(() => { const sp = $('#splash'); if(!sp) return; sp.classList.add('out'); setTimeout(() => sp.remove(), 450); }, 900);
+  setTimeout(() => { const sp = $('#splash'); if(!sp) return; sp.classList.add('out'); setTimeout(() => sp.remove(), 450); }, 1300);
   navigator.storage?.persist?.().catch(() => {});
   setTimeout(runDueSched, 1500);
   setInterval(runDueSched, 30e3);
   setTimeout(jrnSweep, 6000); setInterval(jrnSweep, 30 * 60e3);
   document.addEventListener('visibilitychange', () => { if(!document.hidden){ setTimeout(runDueSched, 800); setTimeout(jrnSweep, 4000); } });
-  if('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
+  if('serviceWorker' in navigator && location.protocol === 'https:'){
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+    navigator.serviceWorker.addEventListener('message', e => { if(e.data && e.data.go) whenUnlocked(() => runShortcut(e.data.go)); });
+    if(S.pushOn) pushCfgToSW().catch(() => {});
+  }
 }
 init();
 </script>
