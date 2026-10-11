@@ -582,6 +582,11 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
 .cbot .thr{flex:none;font-size:.7rem;color:var(--tx3);background:var(--bg2);padding:2px 7px;border-radius:99px}
 .clabel{margin:12px 8px 6px;font-size:.74rem;text-transform:uppercase;letter-spacing:.08em;color:var(--tx3)}
 .card .fav,.card .when,.card .ubadge{z-index:2}
+.card .tl{position:absolute;top:8px;left:8px;z-index:2;display:flex;flex-direction:column;align-items:flex-start;gap:4px}
+.card .tl .when{position:static}
+.card .when.clk{font-variant-numeric:tabular-nums}
+.hhclk{margin-left:auto;padding-left:10px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.nclk{font-variant-numeric:tabular-nums}.nclk::after{content:" · "}.nclk.solo::after{content:none}
 .card .ubadge{position:absolute;top:8px;right:8px;min-width:22px;height:22px;padding:0 6px;border-radius:99px;background:var(--grad);color:#fff;font-size:.74rem;font-weight:800;display:grid;place-items:center;box-shadow:0 2px 8px #0006}
 .card.isfav .ubadge{right:30px}
 /* vizualizator */
@@ -1726,7 +1731,7 @@ input:focus,textarea:focus,select:focus{border-color:color-mix(in srgb,var(--acc
 
 <script>
 'use strict';
-const APP_VER = '8.17.1';
+const APP_VER = '8.18';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -2556,7 +2561,7 @@ function homeHeroHTML(recent){
   const last = String(c.last || '').replace(/^Tu: /, '');
   const mine = /^Tu: /.test(c.last || '');
   let h = `<button class="hhero${c.unread ? ' unr' : ''}" data-open="${c.id}">${c.photo ? `<img class="hhbg" data-k="${esc(photoNow(c))}" alt="">` : `<span class="hhbg ph" style="background:${colorFor(c)}"></span>`}
-    <span class="hhov"><span class="hhtop">${online ? '<i class="on"></i>online' : esc(when(c.lastAt))}${c.unread ? ` · <em>${c.unread === 1 ? 'un mesaj nou' : c.unread + ' mesaje noi'}</em>` : ''}</span>
+    <span class="hhov"><span class="hhtop">${online ? '<i class="on"></i>online' : esc(when(c.lastAt))}${c.unread ? ` · <em>${c.unread === 1 ? 'un mesaj nou' : c.unread + ' mesaje noi'}</em>` : ''}${clockHTML(c, 'hhclk', true)}</span>
     <b>${esc(c.name)}</b>${sub ? `<small>${esc(sub)}</small>` : ''}
     ${last ? `<span class="hhmsg${mine ? ' mine' : ''}">${mine ? 'Tu: ' : ''}${esc(last)}</span>` : ''}
     <span class="hhgo">Continuă <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="m9 6 6 6-6 6"/></svg></span></span></button>`;
@@ -2564,7 +2569,7 @@ function homeHeroHTML(recent){
   if(rest.length) h += `<div class="hsec">Ce fac acum</div><div class="hnowr">${rest.map(x => {
     const on = x.lastAt && Date.now() - x.lastAt < 10 * 60e3, l = lifeNow(x), md = x.moodNow && Date.now() - x.moodNow.ts < 12 * 36e5 ? shortMood(x.moodNow.t) : '';
     const what = charBdayToday(x) ? '🎂 își serbează ziua' : l && l.w ? LIFE_E[l.b] + ' ' + l.w : md || ('💬 ' + when(x.lastAt));
-    return `<button class="hnow${x.unread ? ' unr' : ''}" data-open="${x.id}"><span class="hnav">${avatarHTML(x)}${on ? '<i class="on"></i>' : ''}${x.unread ? `<em>${x.unread > 9 ? '9+' : x.unread}</em>` : ''}</span><span class="hnt"><b>${esc(x.name)}</b><small>${esc(what)}</small></span></button>`; }).join('')}</div>`;
+    return `<button class="hnow${x.unread ? ' unr' : ''}" data-open="${x.id}"><span class="hnav">${avatarHTML(x)}${on ? '<i class="on"></i>' : ''}${x.unread ? `<em>${x.unread > 9 ? '9+' : x.unread}</em>` : ''}</span><span class="hnt"><b>${esc(x.name)}</b><small>${clockHTML(x, 'nclk')}${esc(what)}</small></span></button>`; }).join('')}</div>`;
   return h;
 }
 let homeTab = 'chars';
@@ -2588,7 +2593,7 @@ function renderHome(){
     + `<div class="hsec">Personajele tale <span>${chars.length}</span></div>`;
   const bk = !q && bkDue() ? `<div class="bkslim"><span>💾</span><span class="bkt"><b>Backup: ${esc(bkAgo())}</b><small>Totul stă doar în telefonul ăsta</small></span><button class="btn sm pri" data-bk="share">📤 Drive</button><button class="btn sm" data-bk="dl" aria-label="Salvează">⬇</button><button class="bkx" data-bk="later" aria-label="Mai târziu">✕</button></div>` : '';
   $('#homeChars').innerHTML = bk + top + (!chars.length ? `<button class="card empty" data-new><b>Niciun personaj încă</b>Apasă ＋ jos ca să creezi primul personaj, din poză sau din imaginație.</button>` : '') +
-    shown.map(c => `<button class="card${c.fav ? ' isfav' : ''}" data-open="${c.id}">${c.fav ? '<span class="fav">⭐</span>' : ''}${c.unread ? `<span class="ubadge">${c.unread > 9 ? '9+' : c.unread}</span>` : ''}${c.lastAt && c.last ? `<span class="when">${when(c.lastAt)}</span>` : ''}
+    shown.map(c => `<button class="card${c.fav ? ' isfav' : ''}" data-open="${c.id}">${c.fav ? '<span class="fav">⭐</span>' : ''}${c.unread ? `<span class="ubadge">${c.unread > 9 ? '9+' : c.unread}</span>` : ''}${c.lastAt && c.last || clockHTML(c) ? `<span class="tl">${c.lastAt && c.last ? `<span class="when">${when(c.lastAt)}</span>` : ''}${clockHTML(c, 'when clk')}</span>` : ''}
       ${c.photo ? `<img data-k="${esc(photoNow(c))}" alt="">` : `<div class="ph" style="background:${colorFor(c)}">${esc(c.name[0] || '?')}</div>`}
       <div class="ov"><b>${esc(c.name)}</b>${c.tag ? `<small>${esc(c.tag)}</small>` : ''}${cardStatus(c)}${c.rel ? `<span class="crel">💞 ${esc(relOf(c).name)}</span>` : ''}${c.last ? `<em class="lm">${esc(c.last)}</em>` : ''}</div></button>`).join('') + (chars.length && !q ? `<button class="card new" data-new><span>＋</span><em>Personaj nou</em></button>` : '');
   const withChat = chars.filter(c => c.last).sort((a, b) => (b.lastAt || 0) - (a.lastAt || 0));
@@ -2601,7 +2606,7 @@ function renderHome(){
       <button class="cfront${c.unread ? ' unr' : ''}" data-open="${c.id}">
         <span class="cav">${avatarHTML(c)}${online ? '<i class="on"></i>' : ''}</span>
         <span class="cmid"><span class="ctop"><b>${c.pinned ? '📌 ' : ''}${esc(c.name)}</b><time class="${c.unread ? 'new' : ''}">${when(c.lastAt)}</time></span>
-        <span class="cbot"><small>${prev}</small>${n > 1 ? `<span class="thr">🧵 ${n}</span>` : ''}${c.unread ? `<span class="badge">${c.unread > 9 ? '9+' : c.unread}</span>` : ''}</span>${(() => { const lf = lifeNow(c); if(charBdayToday(c)) return `<span class="clife">🎂 Își serbează ziua azi</span>`; return lf && lf.w ? `<span class="clife">${LIFE_E[lf.b]} ${esc(lf.w)}</span>` : ''; })()}</span>
+        <span class="cbot"><small>${prev}</small>${n > 1 ? `<span class="thr">🧵 ${n}</span>` : ''}${c.unread ? `<span class="badge">${c.unread > 9 ? '9+' : c.unread}</span>` : ''}</span>${(() => { const lf = lifeNow(c), ck = clockHTML(c, 'nclk'); if(charBdayToday(c)) return `<span class="clife">${ck}🎂 Își serbează ziua azi</span>`; return lf && lf.w ? `<span class="clife">${ck}${LIFE_E[lf.b]} ${esc(lf.w)}</span>` : ck ? `<span class="clife">${clockHTML(c, 'nclk solo')}</span>` : ''; })()}</span>
       </button></div>`;
   };
   $('#homeChats').innerHTML = storyRowHTML() + (withChat.length
@@ -2779,6 +2784,19 @@ function charTimeNote(c){
   if(Math.abs(charShift(c)) < 36e5) return '';
   const d = charNow(c), h = d.getHours();
   return ` (la tine${c.geo && c.geo.name ? ', în ' + c.geo.name : ''}, e acum ${d.toLocaleDateString('ro-RO', {weekday:'long'})}, ora ${String(h).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}, ${h < 5 ? 'noaptea târziu' : h < 11 ? 'dimineața' : h < 14 ? 'la prânz' : h < 18 ? 'după-amiaza' : h < 22 ? 'seara' : 'noaptea'}; trăiești după ora ta, nu după a lui)`;
+}
+// 8.18: ceasul personajului pe Acasă, doar când fusul lui diferă de al tău
+function clockTxt(c){
+  const d = charNow(c), h = d.getHours();
+  return (h >= 22 || h < 6 ? '🌙 ' : '🕒 ') + String(h).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+}
+function clockHTML(c, cls = 'clk', city = false){
+  if(Math.abs(charShift(c)) < 30 * 60e3) return '';
+  return `<span class="${cls}" data-clk="${c.id}"${city ? ' data-city="1"' : ''}>${esc(clockTxt(c) + (city && c.geo && c.geo.name ? ' · ' + c.geo.name : ''))}</span>`;
+}
+function tickClocks(){
+  if(document.hidden || $('#vHome').hidden) return;
+  $$('#vHome [data-clk]').forEach(el => { const c = charById(el.dataset.clk); if(c) el.textContent = clockTxt(c) + (el.dataset.city && c.geo && c.geo.name ? ' · ' + c.geo.name : ''); });
 }
 function lifeNow(c, ts = Date.now()){
   if(!c || !c.life || c.lifeOff) return null;
@@ -7209,6 +7227,7 @@ async function init(){
     navigator.serviceWorker.addEventListener('message', e => { if(e.data && e.data.go) whenUnlocked(() => runShortcut(e.data.go)); });
     if(S.pushOn) pushCfgToSW().catch(() => {});
   }
+  setInterval(tickClocks, 30e3);
   setTimeout(proSweep, 10e3); setInterval(() => { if(!document.hidden) proSweep(); }, 20 * 60e3);
   document.addEventListener('visibilitychange', () => { if(!document.hidden) setTimeout(proSweep, 5e3); });
   setTimeout(lifeSweep, 15e3); setTimeout(() => storySweep(false), 30e3);
