@@ -1,5 +1,5 @@
 window.__taifas = true;   // 8.20.1: semn pentru index.html că app.js s-a încărcat
-const APP_VER = '8.24';
+const APP_VER = '8.25';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -39,7 +39,7 @@ const DEF = {
   imgProv:'none', gemKey:'', gemModel:'gemini-2.5-flash-image',
   wkBase:'', wkTok:'', wkModel:'eco', wkSize:'768x1024',
   sugg:'off', pro:'on', feed:'text', fx:'on', regen3:'on', voice:'tap', tts:'tel', cfPlan:'free', cfCap:'free', elKey:'', elModel:'eleven_v3', theme:'dark', vmsg:'rar', jrn:'on', aux:'on', ctxN:'30',
-  vault:'off', vaultHas:null, faceFix:'on', bodyFix:'on', imgCheck:'on', story:'on', sky:'on', social:'on', userBday:'', lock:'off', pushOn:false, bkEvery:'week', bkLast:0, userPhoto:'', userPhys:'', userBox:null, wkChat:'ancorat', wkRef:'auto', falKey:'', falModel:'fal-ai/flux-pulid', falSize:'576x768', spont:'rar', imgAlt:'fal', sv:34, imgCost:'', pIn:'', pOut:''
+  vault:'off', vaultHas:null, faceFix:'on', bodyFix:'off', bestOf:'3', imgCheck:'on', story:'on', sky:'on', social:'on', userBday:'', lock:'off', pushOn:false, bkEvery:'week', bkLast:0, userPhoto:'', userPhys:'', userBox:null, wkChat:'ancorat', wkRef:'auto', falKey:'', falModel:'fal-ai/flux-pulid', falSize:'576x768', spont:'rar', imgAlt:'fal', sv:34, imgCost:'', pIn:'', pOut:''
 };
 let S = {...DEF};
 let chars = [];            // [{id,name,tag,photo,aspect,look,stil,persona,speech,greet,created,lastAt,last}]
@@ -874,12 +874,36 @@ JSON: {"scene":0,"framing":0,"hair":0,"marks":0,"body":0,"expression":0,"fix":""
 }
 const checkBad = x => !!x && ((x.d != null && x.d > ID_MAX) || (x.scene != null && x.scene < 6) || (x.framing != null && x.framing < 5) || (x.hair != null && x.hair < 6) || (x.marks != null && x.marks < 6) || (x.body != null && x.body < 6));
 const checkScore = x => !x ? 0 : (x.d != null ? (1 - x.d) * 20 : (x.face != null ? x.face * 2 : 10)) + (x.scene ?? 5) + (x.framing ?? 5) * .5 + (x.hair ?? 5) * .7 + (x.marks ?? 5) * .5 + (x.body ?? 5) * .8;
+/* 8.25: cea mai bună din N. Asemănarea variază mult de la o generare la alta (74–87% pe același model), deci se fac
+   N variante în paralel (Worker), telefonul le măsoară gratuit fața și o păstrează pe cea mai apropiată de poza de profil.
+   Doar ea trece mai departe (retuș, verificare Haiku). N scade singur dacă limita zilnică de neuroni nu ajunge. */
+function bestN(c, opt = {}){
+  if(S.imgProv !== 'worker' || !c.photo || opt.together) return 1;
+  let n = Math.max(1, Math.min(3, +S.bestOf || 1));
+  const per = neurPerPhoto(S.wkChat && S.wkChat !== 'fal' ? S.wkChat : 'eco') || 5000;
+  while(n > 1 && capLeft() < per * n) n--;
+  return n;
+}
+async function bestScene(c, shot, signal, corr, opt = {}){
+  const n = S.wkChat === 'fal' ? 1 : bestN(c, opt);
+  if(n < 2) return await scenePhoto(c, shot, signal, corr, opt);
+  const rs = await Promise.allSettled(Array.from({length:n}, () => scenePhoto(c, shot, signal, corr, opt)));
+  const ab = rs.find(r => r.status === 'rejected' && r.reason && r.reason.name === 'AbortError'); if(ab) throw ab.reason;
+  const ok = rs.filter(r => r.status === 'fulfilled').map(r => r.value);
+  if(!ok.length) throw rs[0].reason;
+  pstage(signal, '🎯 Alege poza cea mai reușită', 93);
+  for(const x of ok) x.fd = (await localFace(x.blob, c)).d;
+  ok.sort((a, b) => (a.fd ?? 9) - (b.fd ?? 9));
+  if(ok.length > 1) addUsage(c.id, imgPrice() * (ok.length - 1), 'img', null, opt.tag || 'poze');   // prima e numărată de cine a cerut poza
+  const best = ok[0]; best.cands = ok.map(x => x.fd);
+  return best;
+}
 // generează, retușează fața, verifică; dacă e cazul, încă un retuș (9B) sau o refacere completă; păstrează varianta mai bună
 const otherBad = x => !!x && ((x.scene != null && x.scene < 6) || (x.framing != null && x.framing < 5) || (x.hair != null && x.hair < 6) || (x.marks != null && x.marks < 6) || (x.body != null && x.body < 6));
 async function makeScenePhoto(c, shot, signal, opt = {}){
   const fixOn = faceFixOn(c, opt);
   const one = async corr => {
-    const x = await scenePhoto(c, shot, signal, corr, opt);
+    const x = await bestScene(c, shot, signal, corr, opt);
     let idb = null; try{ idb = await identityOf(c); }catch(e){}
     if(bodyFixOn(c, shot, opt, idb)){
       pstage(signal, '🧍 Potrivește corpul după poza de profil', 94);
@@ -909,7 +933,7 @@ async function makeScenePhoto(c, shot, signal, opt = {}){
     }catch(e){ if(e.name === 'AbortError') throw e; }
     return a;
   }
-  if(S.imgProv === 'worker' && S.wkChat !== 'fal' && capLeft() < (neurPerPhoto(S.wkChat || 'eco') || 5000)) return a;
+  if(S.imgProv === 'worker' && S.wkChat !== 'fal' && capLeft() < (neurPerPhoto(S.wkChat || 'eco') || 5000)) return a;   // bestN scade singur la ce mai încape
   let b;
   try{ b = await one(a.check.fix || 'follow the scene and keep the exact look of the reference'); addUsage(c.id, imgPrice(), 'img', null, opt.tag || 'poze'); }
   catch(e){ if(e.name === 'AbortError') throw e; return a; }
@@ -4139,7 +4163,7 @@ async function askPhoto(spont, target, mode, opt = {}){
     let shot, where = null, together = !!(opt.together || (target && target.together)) && !!S.userPhoto;
     if(target && mode === 'same' && target.scene){ shot = target.scene; where = target.where || null; }
     else { const pl = await planShot(c, ch, {promised, exclude:m, signal:busy.signal, together}); shot = pl.shot; where = pl.where; together = pl.together; shot = giftDetail(c, shot, where); }
-    let {prompt, blob, check, retried} = await makeScenePhoto(c, shot, busy.signal, {together});
+    let {prompt, blob, check, retried, cands} = await makeScenePhoto(c, shot, busy.signal, {together});
     try{ if(blob.type === 'image/png') blob = await toJpeg(blob, 2048, .92); }catch(e){}   // PNG → JPEG: de ~5 ori mai puțin spațiu
     const k = await saveImg(blob);
     clearInterval(pT); if(live && live.stage){ live.stage.t = '✅ Gata'; live.stage.pv = 100; const st = $('#msgs .picload .plst'); if(st) st.textContent = '✅ Gata'; pDraw(100); await new Promise(r => setTimeout(r, 420)); }
@@ -4151,7 +4175,7 @@ async function askPhoto(spont, target, mode, opt = {}){
       while(m.imgAlts.length > 5){ const old = m.imgAlts.shift(); if(old !== c.photo) delImg(old).catch(() => {}); }
       m.ia = m.imgAlts.length - 1;
     }
-    m.img = k; m.prompt = prompt; m.scene = shot; if(where) m.where = where; if(together) m.together = true; else delete m.together; if(check) m.check = check; else delete m.check;
+    m.img = k; m.prompt = prompt; m.scene = shot; if(where) m.where = where; if(together) m.together = true; else delete m.together; if(check) m.check = check; else delete m.check; if(cands) m.cands = cands; else delete m.cands;
     addUsage(c.id, imgPrice(), 'img');
     if(S.imgProv === 'worker') setTimeout(() => loadNeurons(true), 1500);
   }catch(e){
@@ -4200,7 +4224,7 @@ function msgSheet(i){
   if(m.text && !me && learnOn(cur)) opts.push(['🔤', m.tr ? (m.trOn ? 'Ascunde traducerea' : 'Arată traducerea') : 'Tradu în română', () => translateMsg(m)]);
   if(m.text && !busy) opts.push(['✏️', me ? 'Editează și retrimite' : 'Editează', () => editMsg(i)]);
   if(m.img && !me && !busy && S.imgProv !== 'none'){ opts.push(['🎲', 'Altă variantă (aceeași scenă)', () => askPhoto(false, m, 'same')]); opts.push(['🔄', 'Altă poză (altă scenă)', () => askPhoto(false, m, 'new')]); }
-  if(m.img && m.scene && !me) opts.push(['📝', 'Ce scenă a ales', () => openSheet(`<h4>Scena pozei</h4><div class="pad">${m.where ? `<p class="wline">📍 ${esc([m.where.room && m.where.room !== 'other' ? (ROOM_RO[m.where.room] || m.where.room) : m.where.place, m.where.position].filter(Boolean).join(' · '))}${m.where.outfit ? '<br>👗 ' + esc(m.where.outfit) : ''}</p>` : ''}<p style="color:var(--tx2);line-height:1.5">${esc(m.scene)}</p>${m.check ? `<p class="hint">Verificare: ${m.check.d !== undefined ? '🧬 ' + (m.check.d != null ? idPct(m.check.d) + '% · ' + idLabel(m.check.d) : 'fața nu se vede') : 'seamănă ' + m.check.face + '/10'} · scena ${m.check.scene ?? '?'}/10 · încadrarea ${m.check.framing ?? '?'}/10${m.check.hair != null ? ' · părul ' + m.check.hair + '/10' : ''}${m.check.marks != null ? ' · semnele ' + m.check.marks + '/10' : ''}${m.check.body != null ? ' · corpul ' + m.check.body + '/10' : ''}${m.check.expr != null ? ' · expresia ' + m.check.expr + '/10' : ''}</p>` : ''}</div>`)]);
+  if(m.img && m.scene && !me) opts.push(['📝', 'Ce scenă a ales', () => openSheet(`<h4>Scena pozei</h4><div class="pad">${m.where ? `<p class="wline">📍 ${esc([m.where.room && m.where.room !== 'other' ? (ROOM_RO[m.where.room] || m.where.room) : m.where.place, m.where.position].filter(Boolean).join(' · '))}${m.where.outfit ? '<br>👗 ' + esc(m.where.outfit) : ''}</p>` : ''}<p style="color:var(--tx2);line-height:1.5">${esc(m.scene)}</p>${m.check ? `<p class="hint">Verificare: ${m.check.d !== undefined ? '🧬 ' + (m.check.d != null ? idPct(m.check.d) + '% · ' + idLabel(m.check.d) : 'fața nu se vede') : 'seamănă ' + m.check.face + '/10'} · scena ${m.check.scene ?? '?'}/10 · încadrarea ${m.check.framing ?? '?'}/10${m.check.hair != null ? ' · părul ' + m.check.hair + '/10' : ''}${m.check.marks != null ? ' · semnele ' + m.check.marks + '/10' : ''}${m.check.body != null ? ' · corpul ' + m.check.body + '/10' : ''}${m.check.expr != null ? ' · expresia ' + m.check.expr + '/10' : ''}${m.cands && m.cands.length > 1 ? '<br>🎯 aleasă din ' + m.cands.length + ': ' + m.cands.map(d => d == null ? '?' : idPct(d) + '%').join(' · ') : ''}</p>` : ''}</div>`)]);
   if(m.img) opts.push(['💾', 'Salvează poza în telefon', () => saveImage(m.img)]);
   if(m.img && canShareFiles()) opts.push(['↗️', 'Trimite poza în altă aplicație', () => shareImage(m.img)]);
   if(m.img && !me) opts.push(['🖼️', 'Fă-o poză de profil', async () => {
@@ -5359,7 +5383,7 @@ const aiReady = () => S.prov === 'anthropic' ? hasKey('anthropic') : !!(S.oaBase
 const FIELDS = {stKey:'key', stModel:'model', stOaBase:'oaBase', stOaKey:'oaKey', stOaModel:'oaModel', stUser:'userName', stAbout:'userAbout', stBday:'userBday',
   stGemKey:'gemKey', stGemModel:'gemModel', stWkBase:'wkBase', stWkTok:'wkTok', stWkModel:'wkModel', stWkSize:'wkSize',
   stFalKey:'falKey', stFalModel:'falModel', stFalSize:'falSize', stImgCost:'imgCost', stPin:'pIn', stPout:'pOut', stElKey:'elKey', stTtsFalKey:'falKey', stChatFalKey:'falKey', stVkBase:'wkBase', stVkTok:'wkTok'};
-const SEGS = {stRegen:'regen3', stFx:'fx', stFeed:'feed', stStory:'story', stSky:'sky', stSocial:'social', stCfCap:'cfCap', stCfPlan:'cfPlan', stTts:'tts', stElModel:'elModel', stAux:'aux', stCtx:'ctxN', stVmsg:'vmsg', stJrn:'jrn', stTheme:'theme', stProv:'prov', stLen:'len', stFont:'font', stImg:'imgProv', stImgAlt:'imgProv', stSugg:'sugg', stPro:'pro', stVoice:'voice', stSpont:'spont', stImgCheck:'imgCheck', stWkChat:'wkChat', stBkEvery:'bkEvery', stVault:'vault', stFaceFix:'faceFix', stBodyFix:'bodyFix'};
+const SEGS = {stRegen:'regen3', stFx:'fx', stFeed:'feed', stStory:'story', stSky:'sky', stSocial:'social', stCfCap:'cfCap', stCfPlan:'cfPlan', stTts:'tts', stElModel:'elModel', stAux:'aux', stCtx:'ctxN', stVmsg:'vmsg', stJrn:'jrn', stTheme:'theme', stProv:'prov', stLen:'len', stFont:'font', stImg:'imgProv', stImgAlt:'imgProv', stSugg:'sugg', stPro:'pro', stVoice:'voice', stSpont:'spont', stImgCheck:'imgCheck', stWkChat:'wkChat', stBkEvery:'bkEvery', stVault:'vault', stFaceFix:'faceFix', stBodyFix:'bodyFix', stBestOf:'bestOf'};
 let setPanel = null, setPanelPushed = false;
 /* 8.7: actualizare din aplicație. Codul vine oricum din rețea la pornire;
    asta prinde versiunile apărute cât aplicația a stat deschisă și forțează reîncărcarea curată. */
@@ -5461,7 +5485,7 @@ function syncSegs(){
   $$('#stImgAlt button').forEach(b => b.classList.toggle('on', b.dataset.v === S.imgProv));
   $('#stAltWrap').hidden = !alt;
   $('#stImgTestWrap').hidden = S.imgProv === 'none';
-  $('#stChatWrap').hidden = S.imgProv !== 'worker'; $('#stChatFal').hidden = S.wkChat !== 'fal'; drawChatHint(); drawFixHint(); drawBodyHint();
+  $('#stChatWrap').hidden = S.imgProv !== 'worker'; $('#stChatFal').hidden = S.wkChat !== 'fal'; drawChatHint(); drawFixHint(); drawBodyHint(); drawBestHint();
   drawWkEst();
   $('#stCapWrap').hidden = S.cfPlan !== 'paid';
   $('#stCapHint').textContent = {free:'Factura rămâne $5/lună: când se termină neuronii gratuiți de azi, aplicația nu mai cere poze până la ' + resetAt() + '.',
@@ -5563,11 +5587,17 @@ async function loadNeurons(after){
   }catch(e){ box.className = 'neur'; box.textContent = 'Consum neuroni: ' + e.message; }
 }
 /* 🔬 7.3: comparație reală pe Worker-ul tău, cu poza de profil a personajului: eco 2 repere, eco 1 reper, 9B */
+function drawBestHint(){
+  const el = $('#stBestHint'); if(!el) return;
+  const n = Math.max(1, Math.min(3, +S.bestOf || 1)), per = neurPerPhoto(S.wkChat && S.wkChat !== 'fal' ? S.wkChat : 'eco') || 0;
+  el.textContent = S.imgProv !== 'worker' ? 'Merge cu Worker-ul tău (Cloudflare).' : n < 2 ? 'O singură variantă pe poză.'
+    : `Se fac ${n} variante în paralel; telefonul le măsoară fața și o păstrează pe cea mai asemănătoare cu poza de profil. ~${Math.round(per * n).toLocaleString('ro-RO')} neuroni pe poză cu modelul ales la fidelitate${S.wkChat === 'ancorat' ? ' (9B e scump aici: alege „Eco”)' : ''}. Dacă limita zilnică nu ajunge, se fac mai puține.`;
+}
 function drawBodyHint(){
   const el = $('#stBodyHint'); if(!el) return;
   el.textContent = S.imgProv !== 'worker' ? 'Merge cu Worker-ul tău (Cloudflare).' : S.bodyFix !== 'off'
     ? `După scenă, forma corpului e potrivită după poza de profil (greutate, bust, umeri, talie, șolduri), cu aceleași haine, poziție și cameră. ~${Math.round(neurPerPhoto('eco'))} neuroni pe poză. Merge când în poza de profil se vede măcar o parte din corp și poza nu e un prim-plan.`
-    : 'Oprit: corpul vine doar din generator, după repere.';
+    : 'Oprită (recomandat): corpul vine din repere și din descrierea de la începutul promptului. Pornită, poate schimba hainele și strica fața.';
 }
 function drawFixHint(){
   const el = $('#stFixHint'); if(!el) return;
@@ -5592,12 +5622,12 @@ async function refTest(){
   if(!c){ box.innerHTML = '<p class="hint">Ai nevoie de un personaj cu poză de profil.</p>'; return; }
   if(S.imgProv !== 'worker' || !S.wkBase){ box.innerHTML = '<p class="hint">Pornește întâi Worker-ul.</p>'; return; }
   const cost = Math.round(neurPerPhoto('eco') * 2 + neurPerPhoto('ancorat'));
-  if(!confirm2(`Generez ${hasKey('fal') ? 6 : 5} poze cu ${c.name} (aceeași scenă), ca să compari fața: eco cu 2 repere, eco cu 1 reper, 9B, eco + retușul feței, eco + corp + față${hasKey('fal') ? ' și fal.ai PuLID' : ''}. ~${cost.toLocaleString('ro-RO')} neuroni.`)) return;
+  if(!confirm2(`Generez ${hasKey('fal') ? 8 : 7} poze cu ${c.name} (aceeași scenă), ca să compari fața: eco cu 2 repere, eco cu 1 reper, 9B, eco + retușul feței, 3 eco din care rămâne cea mai bună${hasKey('fal') ? ' și fal.ai PuLID' : ''}. ~${cost.toLocaleString('ro-RO')} neuroni.`)) return;
   const R = await idRefs(c);
   const shot = 'mirror selfie in a cozy bedroom, standing, holding the phone, casual t-shirt and jeans, warm lamp light', fr = framingOf(shot);
   const p2 = idPrompt(c, shot, fr, R, '', true), p1 = idPrompt(c, shot, fr, R, '', false);
   const tests = [['Eco · ' + (2 + R.extraAll.length) + ' repere', {model:'eco', force:{two:true}, p1, extra:R.extraAll}], ['Eco · 1 reper', {model:'eco', force:{two:false, px:512}, p1}], ['Fidel 9B', {model:'ancorat', force:{two:true}, p1, extra:R.extraAll}]];
-  tests.push(['Eco + retușul feței', {model:'eco', force:{two:true}, p1, extra:R.extraAll, fix:true}], ['Eco + corp + față', {model:'eco', force:{two:true}, p1, extra:R.extraAll, fix:true, body:true}]);
+  tests.push(['Eco + retușul feței', {model:'eco', force:{two:true}, p1, extra:R.extraAll, fix:true}], ['Eco · cea mai bună din 3 + retuș', {model:'eco', force:{two:true}, p1, extra:R.extraAll, fix:true, best:3}]);
   if(hasKey('fal')) tests.push(['fal.ai PuLID', {prov:'fal'}]);
   const pfu = await imgUrl(c.photo);
   box.innerHTML = `<div class="rtgrid"><figure><img src="${pfu}" alt=""><figcaption>Poza de profil</figcaption></figure>${tests.map((t, i) => `<figure id="rt${i}"><div class="ph"><span class="spin"></span></div><figcaption>${t[0]}</figcaption></figure>`).join('')}</div><p class="hint" id="rtNote">Generez pe rând…</p>`;
@@ -5606,10 +5636,16 @@ async function refTest(){
     const [lbl, o] = tests[i], fig = $('#rt' + i);
     try{
       let b;
+      if(o.best){
+        const rs = await Promise.allSettled(Array.from({length:o.best}, () => genImage(p2, R.face, null, R.body, {model:o.model, force:o.force, p1, extra:o.extra})));
+        const got = rs.filter(r => r.status === 'fulfilled').map(r => r.value); if(!got.length) throw rs[0].reason;
+        const ds = []; for(const g of got) ds.push({g, d:(await localFace(g, c)).d}); ds.sort((x, y) => (x.d ?? 9) - (y.d ?? 9));
+        o.note = ' (din ' + ds.map(x => x.d == null ? '?' : idPct(x.d) + '%').join(', ') + ')'; b = ds[0].g;
+      } else
       try{ b = o.prov === 'fal' ? await genImage(`${fr.p}. ${shot}.${physFull(c, R.id) ? ' The person: ' + physFull(c, R.id) + '.' : ''} ${STIL_TAG[c.stil || 'photo']}`, R.face, null, null, o) : await genImage(p2, R.face, null, R.body, o); }
       catch(e){ if(o.force && o.force.two){ if(o.model === 'eco') twoOk = false; b = await genImage(p2, R.face, null, R.body, {model:o.model, force:{two:false, px:512}, p1}); fig.querySelector('figcaption').textContent = lbl.replace('2 repere', '1 reper') + ' (2 repere: eroare)'; } else throw e; }
       if(o.model === 'eco' && o.force && o.force.two && twoOk === null && !o.fix) twoOk = true;
-      let note = '';
+      let note = o.note || '';
       if(o.body){ try{ const y = await bodyPass(c, b, null, shot); if(y) b = y; }catch(e){ note = ' (corpul: ' + String(e.message).slice(0, 40) + ')'; } }
       if(o.fix){ const y = await retouchBest(c, b, null, 'eco', shot); if(y){ b = y.blob; note = y.used ? ' (retuș păstrat)' : ' (retușul n-a ajutat, poza fără retuș)'; } }
       fig.querySelector('.ph').outerHTML = `<img src="${URL.createObjectURL(b)}" data-big alt="">`;
@@ -5953,6 +5989,8 @@ async function init(){
   // 8.21: fața din poza de profil, pornită implicit acolo unde există cheia fal.ai
   // 8.22: retușul feței pe Cloudflare înlocuiește schimbul de față prin fal.ai din 8.21
   if((S.sv || 0) < 37){ S.faceFix = 'on'; delete S.swap; delete S.swapModel; delete S.swapCost; S.sv = 37; saveSettings(); }
+  // 8.25: potrivirea corpului oprită (strica hainele și fața); 3 variante pe poză
+  if((S.sv || 0) < 38){ S.bodyFix = 'off'; S.bestOf = '3'; S.sv = 38; saveSettings(); }
   if(cspSync(true)) return;   // 8.20: adresă nouă → repornim o dată, ca politica de securitate să o permită
   chars = (await DB.get('chars') || []).filter(c => c && c.id && c.name);
   if((S.sv || 0) < 34){

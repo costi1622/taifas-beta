@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ff5aa0"/><stop offset=".55" stop-color="#c04fe0"/><stop offset="1" stop-color="#7b5cff"/>
+    </linearGradient>
+    <linearGradient id="dot" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#ff4f9a"/><stop offset="1" stop-color="#8f5cff"/>
+    </linearGradient>
+    <radialGradient id="glow" cx=".3" cy=".2" r=".8"><stop offset="0" stop-color="#fff" stop-opacity=".35"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
+  </defs>
+  <rect width="512" height="512" fill="url(#bg)"/>
+  <rect width="512" height="512" fill="url(#glow)"/>
+  <!-- balonul din spate -->
+  <path d="M300 118h70c38 0 66 28 66 64v62c0 36-28 64-66 64h-8l6 46-52-46h-16z" fill="#fff" fill-opacity=".28"/>
+  <!-- balonul din față -->
+  <path d="M142 160h178c40 0 70 30 70 68v84c0 38-30 68-70 68H232l-74 58 10-58h-26c-40 0-70-30-70-68v-84c0-38 30-68 70-68z" fill="#fff"/>
+  <circle cx="186" cy="270" r="22" fill="url(#dot)"/><circle cx="246" cy="270" r="22" fill="url(#dot)"/><circle cx="306" cy="270" r="22" fill="url(#dot)"/>
+  <!-- scânteie -->
+  <path d="M398 96l9 25 25 9-25 9-9 25-9-25-25-9 25-9z" fill="#fff"/>
+</svg>
