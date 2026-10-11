@@ -8,7 +8,7 @@
 (function(){
   var x = []; try{ x = JSON.parse(localStorage.getItem('taifas-csp') || '[]'); }catch(e){}
   x = (Array.isArray(x) ? x : []).filter(function(o){ return /^https:\/\/[a-z0-9.-]+(:\d{1,5})?$/i.test(o); });
-  var c = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' data: blob: https://storage.googleapis.com; font-src 'self'; "
+  var c = "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' data: blob: https://storage.googleapis.com; font-src 'self'; "
     + "connect-src 'self' data: blob: https://api.anthropic.com https://generativelanguage.googleapis.com https://fal.run https://fal.media https://*.fal.media https://api.elevenlabs.io https://geocoding-api.open-meteo.com https://api.open-meteo.com " + x.join(' ') + "; "
     + "worker-src 'self'; manifest-src 'self'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'";
   document.write('<meta http-equiv="Content-Security-Policy" content="' + c + '">');
@@ -1656,6 +1656,9 @@ input:focus,textarea:focus,select:focus{border-color:color-mix(in srgb,var(--acc
         <div class="btns"><button type="button" class="btn sm" id="stRefTest">🔬 Compară pe personajul meu</button></div>
         <div id="stRefRes"></div>
       </div>
+      <label style="margin-top:14px">🧬 Retușul feței după poza de profil</label>
+      <div class="seg" id="stFaceFix"><button data-v="on">Pornit</button><button data-v="off">Oprit</button></div>
+      <p class="hint" id="stFixHint"></p>
       <label style="margin-top:14px">Verificare automată a pozelor din chat</label>
       <div class="seg" id="stImgCheck"><button data-v="on">Pornită</button><button data-v="off">Oprită</button></div>
       <p class="hint">Pornită: după fiecare poză, Claude Haiku compară identitatea cu poza de profil și verifică scena. Dacă fața diferă sau scena nu corespunde, o reface o dată și păstrează varianta mai bună. Identitatea și proporțiile corpului rămân fixe; locul, hainele, poziția și camera se adaptează conversației. Verificarea folosește modelul AI configurat.</p>
