@@ -1726,7 +1726,7 @@ input:focus,textarea:focus,select:focus{border-color:color-mix(in srgb,var(--acc
 
 <script>
 'use strict';
-const APP_VER = '8.17';
+const APP_VER = '8.17.1';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -3997,16 +3997,56 @@ function pickVariant(outs, signal){
     if(signal) signal.addEventListener('abort', () => { if(!done){ done = true; obs.disconnect(); closeSheet(); rej(new DOMException('Oprit', 'AbortError')); } });
   });
 }
+// 8.17.1: „îți scrie primul” în trepte: 8h → încă 24h → încă 72h fără răspuns de la tine, apoi tace până îi scrii
+const PRO_STEPS = [PRO_H, 24, 72];
+function proState(ch){
+  const ms = (ch && ch.msgs) || [];
+  if(!ms.some(m => m.role === 'user')) return null;               // n-ați vorbit niciodată: nu insistă
+  const last = ms[ms.length - 1];
+  if(!last || last.err || last.pending || last.role === 'user') return null;
+  let k = 0;
+  for(let i = ms.length - 1; i >= 0 && ms[i].role !== 'user'; i--) if(ms[i].pro && !ms[i].sched) k++;
+  if(k >= PRO_STEPS.length) return null;
+  return {k, last, due:(last.ts || Date.now()) + PRO_STEPS[k] * 36e5};
+}
+function proNote(c, st){
+  const u = S.userName.trim() || 'utilizatorul', h = (Date.now() - (st.last.ts || Date.now())) / 36e5;
+  const ore = h < 48 ? Math.round(h) + ' de ore' : Math.round(h / 24) + ' zile';
+  const how = st.k === 0 ? 'ca și cum reiei legătura după pauza asta'
+    : st.k === 1 ? `i-ai mai scris o dată și nu ți-a răspuns; scrie-i iar, scurt, în felul tău (poate îți lipsește, poate ești curioasă ce face), fără reproșuri apăsate`
+    : `de câteva ori nu ți-a răspuns; trimite-i un ultim mesaj scurt și cald, fără să insiști, lăsând ușa deschisă`;
+  return `(Notă de regie, nu o menționa ca atare: au trecut ${ore} de la ultimul mesaj din conversație. Acum e ${new Date().toLocaleTimeString('ro-RO', {hour:'2-digit', minute:'2-digit'})}. Scrie-i tu primul lui ${u}, natural, ${how}.)`;
+}
 function maybeProactive(){
   if(S.pro !== 'on' || busy || !aiReady() || !chat.msgs.length) return;
   if((cur.sched || []).some(x => x.at <= Date.now())) return;
-  const last = chat.msgs[chat.msgs.length - 1];
-  if(last.err || last.pro) return;
-  const h = (Date.now() - (last.ts || Date.now())) / 36e5;
-  if(h < PRO_H) return;
-  const u = S.userName.trim() || 'utilizatorul';
-  const ore = h < 48 ? Math.round(h) + ' de ore' : Math.round(h / 24) + ' zile';
-  reply(null, {pro:true, note:`(Notă de regie, nu o menționa ca atare: au trecut ${ore} de la ultimul mesaj. Acum e ${new Date().toLocaleTimeString('ro-RO', {hour:'2-digit', minute:'2-digit'})}. Scrie-i tu primul lui ${u}, natural, ca și cum reiei legătura după pauza asta.)`});
+  const st = proState(chat);
+  if(!st || Date.now() < st.due) return;
+  const lf = lifeNow(cur); if(lf && lf.b === 2) return;   // doarme
+  reply(null, {pro:true, note:proNote(cur, st)});
+}
+// 8.17.1: înainte îți scria doar când deschideai chiar conversația ei; acum verifică toate personajele, din fundal
+let proRun = false;
+async function proSweep(){
+  if(proRun || busy || S.pro !== 'on' || !aiReady() || locked) return;
+  proRun = true;
+  try{
+    const cand = chars.filter(c => c.lastAt && Date.now() - c.lastAt < 21 * 864e5).sort((a, b) => (b.lastAt || 0) - (a.lastAt || 0));
+    let done = 0;
+    for(const c of cand){
+      if(done >= 2 || busy || document.hidden) break;
+      if((c.sched || []).length && c.sched.some(x => x.at <= Date.now() + 30 * 60e3)) continue;   // are deja un mesaj promis
+      const lf = lifeNow(c); if(lf && lf.b === 2) continue;
+      const tid = c.thread || 'main';
+      const open = cur === c && chat && (chat.tid || 'main') === tid;
+      const ch = open ? chat : (live && live.c.id === c.id && (live.ch.tid || 'main') === tid) ? live.ch : await loadChat(c, tid);
+      const st = proState(ch);
+      if(!st || Date.now() < st.due) continue;
+      await reply(null, {c, ch, pro:true, note:proNote(c, st)});
+      done++;
+      if(!$('#vHome').hidden) renderHome();
+    }
+  }catch(e){} finally { proRun = false; }
 }
 function newChat(){ return {msgs:[], summary:'', sumUpTo:0}; }
 function greetMsg(c){ return {id:uid(), role:'ai', text:c.greet, alts:[c.greet], alt:0, ts:Date.now()}; }
@@ -4953,7 +4993,7 @@ async function reply(target, opts = {}){
         setTimeout(() => { if(chat === ch && !busy) askPhoto(true); }, 1500);
       }
     }
-    pushPro(c);   // 8.6: notificarea „îți scrie primul” se mută la PRO_H ore după ultimul mesaj
+    pushPro(c, ch);   // 8.6: notificarea „îți scrie primul” se mută la PRO_H ore după ultimul mesaj
     if(chat === ch && S.voice === 'auto' && !m.voice) say(m.text, m);
     if(chat === ch && S.sugg === 'auto') suggest();
   }
@@ -5772,7 +5812,11 @@ function pushAt(id, at, title, body, go){
 }
 function pushCancel(id){ if(S.pushOn && S.wkBase) wkFetch('/push/at?id=' + encodeURIComponent(id), {method:'DELETE'}).catch(() => {}); }
 // „îți scrie primul” după PRO_H ore de liniște: notificarea se reprogramează după fiecare mesaj din conversație
-function pushPro(c){ if(S.pro === 'on' && c) pushAt('p:' + c.id, Date.now() + PRO_H * 36e5 + 60e3, c.name, '💬 Ți-a scris', 'c:' + c.id); }
+function pushPro(c, ch){   // 8.17.1: urmează treptele (8h/24h/72h); după ultima treaptă nu mai sună degeaba
+  if(S.pro !== 'on' || !c) return;
+  const st = ch ? proState(ch) : {due:Date.now() + PRO_H * 36e5};
+  if(st) pushAt('p:' + c.id, Math.max(st.due, Date.now()) + 60e3, c.name, '💬 Ți-a scris', 'c:' + c.id); else pushCancel('p:' + c.id);
+}
 function drawPush(){
   const box = $('#stPushBox'); if(!box) return;
   box.innerHTML = `<p class="hint" style="margin-top:0">Telefonul sună ca la WhatsApp când îți scrie un personaj: mesajele promise (⏰) și „îți scrie primul” după ${PRO_H} ore de liniște, chiar cu aplicația închisă. Merg prin Worker-ul tău Cloudflare (v7), fără cost în plus; el ține minte doar ora și numele personajului, iar textul se scrie când deschizi notificarea.</p>
@@ -7165,6 +7209,8 @@ async function init(){
     navigator.serviceWorker.addEventListener('message', e => { if(e.data && e.data.go) whenUnlocked(() => runShortcut(e.data.go)); });
     if(S.pushOn) pushCfgToSW().catch(() => {});
   }
+  setTimeout(proSweep, 10e3); setInterval(() => { if(!document.hidden) proSweep(); }, 20 * 60e3);
+  document.addEventListener('visibilitychange', () => { if(!document.hidden) setTimeout(proSweep, 5e3); });
   setTimeout(lifeSweep, 15e3); setTimeout(() => storySweep(false), 30e3);
   setInterval(() => { if(!document.hidden){ lifeSweep(); storySweep(false); } }, 45 * 60e3);
   document.addEventListener('visibilitychange', () => { if(!document.hidden) setTimeout(() => storySweep(false), 20e3); });
