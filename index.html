@@ -950,6 +950,86 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
 .pcm b{font-weight:700;margin-right:2px}
 #storyV .scms{position:absolute;left:14px;right:70px;bottom:calc(178px + var(--safe-b,0px));z-index:2;display:flex;flex-direction:column;gap:6px}
 #storyV .scms .pcm{color:#fff;text-shadow:0 1px 4px #000a;background:#0005;backdrop-filter:blur(8px);padding:6px 10px;border-radius:14px;align-self:flex-start}
+/* 8.13: apel video cu impact */
+#fx{z-index:400!important}
+.callv .cvid img{position:absolute;inset:0;opacity:0;transition:opacity 1.4s,transform .09s ease-out,filter .3s;animation:handheld 11s ease-in-out infinite alternate}
+.callv .cvid img.on{opacity:1}
+@keyframes handheld{0%{transform:scale(1.06) translate(0,0) rotate(0)}25%{transform:scale(1.065) translate(-.6%,.4%) rotate(-.25deg)}50%{transform:scale(1.07) translate(.4%,-.3%) rotate(.2deg)}75%{transform:scale(1.062) translate(-.3%,-.5%) rotate(-.1deg)}100%{transform:scale(1.068) translate(.5%,.3%) rotate(.25deg)}}
+.callv .cvid.w img.on{transform:scale(1.085) translateY(-4px)}
+.callv .cgrain{position:absolute;inset:0;opacity:.09;mix-blend-mode:overlay;background-image:radial-gradient(#fff 1px,transparent 1px);background-size:3px 3px;animation:grain .45s steps(4) infinite;z-index:1}
+.callv .cvid::after{z-index:2;background:radial-gradient(120% 90% at 50% 40%,transparent 55%,#0008 100%),linear-gradient(#000a 0%,#0000 20%,#0000 58%,#000d 100%)}
+.callv.vid:not(.live) .cvid img{filter:blur(18px) brightness(.7)}
+.callv.vid.live .cvid img{animation:handheld 11s ease-in-out infinite alternate,focusin 1.2s ease-out}
+@keyframes focusin{0%{filter:blur(14px) brightness(.8)}60%{filter:blur(2px)}100%{filter:none}}
+.callv .vtop{display:none;position:absolute;top:calc(14px + var(--safe-t,0px));left:16px;right:16px;z-index:4;flex-direction:column;align-items:flex-start;gap:2px;text-shadow:0 1px 6px #000a;transition:opacity .35s}
+.callv.vid .vtop{display:flex}
+.callv.vid .ctopc{display:none}
+.vname{font-size:1.25rem;font-weight:800;letter-spacing:-.3px}
+.vmeta{font-size:.78rem;font-weight:600;opacity:.9;display:flex;align-items:center;gap:6px}
+.vlive{width:8px;height:8px;border-radius:50%;background:#ffb020}
+.callv.live .vlive{background:#3ddc84;box-shadow:0 0 0 3px #3ddc8444;animation:pulse 2s infinite}
+.callv.vid h2{display:none}
+.callv.vid .cmain{margin-top:auto;margin-bottom:12px;width:100%;transition:opacity .35s}
+.callv.vid #clState{font-size:.8rem;padding:4px 12px;border-radius:99px;background:#0006;backdrop-filter:blur(10px)}
+.callv.vid .ccap{background:#000000a6;backdrop-filter:blur(12px);padding:10px 14px;border-radius:16px;max-width:92%;min-height:0;font-size:1.02rem}
+.callv.vid .ccap:empty{display:none}
+.ccap .kw{opacity:.45;transition:opacity .15s,color .15s}
+.ccap .kw.lit{opacity:1}
+.callv:not(.vid) .ccap .kw{opacity:1}
+.ccap .cme{display:inline-block;color:#bff5d6;font-style:italic}
+.ccap .cme::before{content:'Tu: ';font-style:normal;opacity:.7}
+.cdots{display:inline-flex;gap:5px}.cdots i{width:7px;height:7px;border-radius:50%;background:#fff;animation:tdot 1.2s ease-in-out infinite}
+.cdots i:nth-child(2){animation-delay:.15s}.cdots i:nth-child(3){animation-delay:.3s}
+@keyframes tdot{0%,60%,100%{transform:translateY(0);opacity:.35}30%{transform:translateY(-5px);opacity:1}}
+.callv .cbtns{transition:opacity .35s,transform .35s}
+.callv.vid .cbtns{gap:14px;padding:10px 14px;border-radius:30px;background:#0000004d;backdrop-filter:blur(18px);border:1px solid #ffffff1f}
+.callv.vid .cbtns button svg{width:54px;height:54px;padding:15px}
+.callv.vid .cbtns button span{font-size:.66rem}
+.callv:not(.vid) .vonly{display:none}
+.callv .vreact{display:none;position:absolute;right:12px;top:42%;z-index:4;flex-direction:column;gap:10px;transition:opacity .35s}
+.callv.vid.live .vreact{display:flex}
+.vreact button{width:44px;height:44px;border-radius:50%;background:#0000004d;backdrop-filter:blur(10px);border:1px solid #ffffff26;font-size:1.3rem}
+.vreact button:active{transform:scale(.85)}
+.callv.calm .cbtns,.callv.calm .vreact{opacity:0;pointer-events:none;transform:translateY(16px)}
+.callv.calm .vtop{opacity:.75}
+.callv .cself{touch-action:none;cursor:grab;transition:width .25s,height .25s,left .25s,top .25s}
+.callv .cself.drag{transition:none;cursor:grabbing}
+.callv .cself.back{transform:none}
+.callv[data-st=ring] .cava img{animation:ringpulse 1.6s ease-in-out infinite}
+@keyframes ringpulse{50%{transform:scale(1.04);box-shadow:0 0 0 14px #ffffff12}}
+.callv[data-st=ring] .ring{animation:cring 1.6s ease-out infinite}
+.cend{position:absolute;inset:0;z-index:10;display:grid;place-items:center;background:#0b0910d9;backdrop-filter:blur(14px);animation:fi .3s}
+.cendin{display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center}
+.cendin .av{width:92px;height:92px;border-radius:50%;object-fit:cover;display:grid;place-items:center;font-size:2rem;font-weight:800;margin-bottom:6px;box-shadow:0 12px 40px #0009}
+.cendin b{font-size:1.15rem}.cendin small{opacity:.75}
+@media (prefers-reduced-motion:reduce){.callv .cvid img,.callv .cgrain,.cdots i{animation:none!important}}
+.callv .vtop,.callv .vreact,.callv .cself,.callv .cend,.callv .cvid{position:absolute!important}
+.callv .cself{top:calc(96px + var(--safe-t,0px))}
+.callv .vtop{right:126px!important}
+.callv .cend{inset:0}
+
+/* 8.14: apel primit */
+.incall{position:fixed;inset:0;z-index:160;color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:calc(60px + var(--safe-t,0px)) 24px calc(50px + var(--safe-b,0px));background:#0b0910;animation:callin .3s ease-out;overflow:hidden}
+.incall.out{opacity:0;transition:opacity .3s}
+.incall .cbg{position:absolute;inset:-10%;background-size:cover;background-position:center 25%;filter:blur(36px) brightness(.5) saturate(1.3);transform:scale(1.1)}
+.incall > :not(.cbg){position:relative;z-index:1}
+.inmain{display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center}
+.inmain small{font-size:.85rem;font-weight:700;letter-spacing:.06em;opacity:.8}
+.inava{position:relative;width:140px;height:140px;margin:24px 0 10px}
+.inava .av{width:140px;height:140px;border-radius:50%;object-fit:cover;display:grid;place-items:center;font-size:3rem;font-weight:800;box-shadow:0 18px 50px #0009;position:relative;z-index:1}
+.inava i{position:absolute;inset:0;border-radius:50%;border:2px solid #ffffff59;animation:inring 2s ease-out infinite}
+.inava i:nth-of-type(2){animation-delay:1s}
+@keyframes inring{0%{transform:scale(1);opacity:.9}100%{transform:scale(1.6);opacity:0}}
+.inmain h2{margin:0;font-size:2rem;font-weight:800;letter-spacing:-.5px}
+.inmain p{margin:0;opacity:.85;animation:blink 1.6s ease-in-out infinite}
+.inbtns{display:flex;gap:40px;align-items:flex-start}
+.inbtns button{display:flex;flex-direction:column;align-items:center;gap:8px;color:#fff;font-size:.8rem;font-weight:600;background:none;border:0}
+.inbtns svg{width:70px;height:70px;padding:20px;border-radius:50%}
+.indecl svg{background:#ff3b4e;box-shadow:0 10px 30px #ff3b4e66}
+.inok svg{background:#22c55e;box-shadow:0 10px 30px #22c55e66;animation:inshake 1.3s ease-in-out infinite}
+.invid svg{background:#ffffff2e;backdrop-filter:blur(10px)}
+@keyframes inshake{0%,60%,100%{transform:rotate(0)}70%{transform:rotate(-14deg)}80%{transform:rotate(12deg)}90%{transform:rotate(-8deg)}}
+@media (prefers-reduced-motion:reduce){.inava i,.inok svg,.inmain p{animation:none}}
 #toast{position:fixed;left:50%;bottom:calc(90px + var(--safe-b));transform:translateX(-50%);background:#2a2433;border:1px solid var(--line);padding:10px 16px;border-radius:12px;z-index:99;max-width:90vw;font-size:.9rem;box-shadow:0 6px 20px #0008;transition:opacity .2s;pointer-events:none}
 #toast:empty{opacity:0}
 
@@ -1579,7 +1659,7 @@ input:focus,textarea:focus,select:focus{border-color:color-mix(in srgb,var(--acc
 
 <script>
 'use strict';
-const APP_VER = '8.12';
+const APP_VER = '8.14';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -2591,6 +2671,7 @@ async function runDueSched(){
         c.sched = c.sched.filter(y => y !== x); await saveChars();
         if(Date.now() - x.at > 3 * 864e5) continue;                       // prea vechi: renunțăm
         if(!threadsOf(c).some(t => t.id === x.tid)) continue;
+        if(/\b(sun|apel|telefon|video)/i.test(x.note || '') && Date.now() - x.at < 10 * 60e3 && !document.hidden && !call && !inCallEl && c.callIn !== false){ showIncoming(c, {video:/video/i.test(x.note), reason:x.note}); return; }   // 8.14: a promis că te sună: te sună
         const open = cur === c && chat && (chat.tid || 'main') === x.tid;
         const ch = open ? chat : await loadChat(c, x.tid);
         const u = S.userName.trim() || 'utilizatorul';
@@ -3984,10 +4065,12 @@ function speakPhone(c, text, onEnd){
   // propoziție cu propoziție: pauzele dintre ele sună mai omenește decât un singur bloc
   const parts = ttsText(text, false).match(/[^.!?…]+[.!?…]*/g) || [];
   const g = c ? genderOf(c) : '', base = c && c.vPitch ? c.vPitch : (g === 'm' ? .9 : g === 'f' ? 1.06 : 1), v = phoneVoice();
+  let off = 0, full = ttsText(text, false);
   parts.forEach((p, k) => {
     const u = new SpeechSynthesisUtterance(p.trim()); u.lang = 'ro-RO'; if(v) u.voice = v;
+    const at = full.indexOf(p.trim(), off); const base0 = at >= 0 ? at : off; off = base0 + p.trim().length;
     u.pitch = base * (1 + (k % 2 ? .02 : -.02)); u.rate = /\?\s*$/.test(p) ? 1.02 : .97;
-    u.onboundary = () => { if(window.__talk) window.__talk(); };
+    u.onboundary = e => { if(window.__talk) window.__talk(e, base0); };
     if(k === parts.length - 1){ u.onend = u.onerror = () => onEnd && onEnd(); }
     speechSynthesis.speak(u);
   });
@@ -4404,6 +4487,7 @@ async function reply(target, opts = {}){
       const acts = (lastU.text.match(/\*[^*\n]{2,200}\*/g) || []).map(a => a.slice(1, -1).trim());
       if(acts.length) extra += ` (acțiunile mele de acum, care s-au întâmplat deja exact așa: ${acts.map(a => '„' + a + '”').join(', ')}; pornește de la starea de după ele, nu le contrazice și nu le rescrie, apoi reacționează în felul tău)`;
       const md = extra + (ch.mood && ch.mood.t ? ` (starea ta la ultimul mesaj: ${ch.mood.t}${Date.now() - ch.mood.ts > 3 * 36e5 ? ', acum ' + gapText(Date.now() - ch.mood.ts) : ''})` : '');
+      if(opts.liveImg && !lastU.image && !lastU.images) lastU.image = opts.liveImg;   // 8.13: apel video: ce vede acum prin camera ta
       lastU.text = nowNote() + md + ' ' + lastU.text + (ar ? '\n\n' + ar : '') + (opts.fix ? `\n\n(Notă pentru răspunsul ăsta, nu o menționa: ${opts.fix}.)` : '');
     }
     let meta = {}, full;
@@ -4921,7 +5005,7 @@ async function charProfile(id, push = true){
   $('#pfVPick').onclick = () => pickVoice(c, () => { $('#pfVName').textContent = voiceLabel(c); });
   $('#pfFav').onclick = async () => { c.fav = !c.fav; await saveChars(); $('#pfFav').textContent = c.fav ? '★' : '☆'; toast(c.fav ? '⭐ Adăugat la favorite' : 'Scos de la favorite'); };
   $('#pfEditTop').onclick = () => openEditor(id);
-  $('#pfCall').onclick = async () => { if(!fromChat) await openChat(id); else history.back(); setTimeout(startCall, 350); };
+  $('#pfCall').onclick = async () => { if(!fromChat) await openChat(id); else history.back(); setTimeout(callChoice, 350); };
   $('#pfGift').onclick = async () => { if(!fromChat) await openChat(id); else history.back(); setTimeout(giftSheet, 350); };
   $('#pfAvBtn').onclick = () => { if(storyLive().some(x => x.cid === id)) openStories(id); else if(c.photo) viewImg(c.photo, [c.photo]); };
   body.querySelectorAll('[data-hi]').forEach(b => b.onclick = e => { e.stopPropagation(); const h = hiDays[+b.dataset.hi]; openStories(id, h.items.slice().reverse().map(x => ({id:'h' + x.k, cid:id, ts:x.ts, text:'', img:x.k, scene:x.scene}))); });
@@ -5353,87 +5437,349 @@ const wxLine = w => w ? `${w.t}°C, ${w.ro}${w.wind >= 30 ? ', vânt puternic' :
    → răspunsul e citit cu vocea telefonului → ascultă din nou. Nu ascultă cât vorbește telefonul (fără ecou). */
 let call = null;
 const CALL_FIX = u => `ești într-un apel vocal la telefon cu ${u}: scrie doar ce spui cu voce tare, natural și scurt (1-3 propoziții), ca la telefon, fără *acțiuni*, fără emoji și fără [vocal]; poți folosi „hm”, „păi”, un râs scurt scris ca text`;
-function startCall(){
+// 8.13: apel video: vă vedeți. Dacă primește un cadru din camera lui, îl vede ca într-un apel adevărat
+const CALL_FIX_V = u => `ești într-un apel video cu ${u}, vă vedeți pe ecran: scrie doar ce spui cu voce tare, natural și scurt (1-3 propoziții), fără *acțiuni*, fără emoji și fără [vocal]. Dacă primești o imagine, e ce vezi chiar acum prin camera lui: poți reacționa firesc la ce vezi (unde e, lumina, ce face, expresia lui), în treacăt, fără s-o descrii ca pe o poză și fără comentarii despre corpul lui`;
+const callFix = c => (c && c.video ? CALL_FIX_V : CALL_FIX)(S.userName.trim() || 'el');
+const ICO = {
+  mic:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>',
+  cam:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="14" height="12" rx="2"/><path d="m16 10 6-3v10l-6-3z"/></svg>',
+  flip:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h11a4 4 0 0 1 4 4v1M20 17H9a4 4 0 0 1-4-4v-1"/><path d="m17 9 2 3 2-3M7 15l-2-3-2 3"/></svg>',
+  eye:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>',
+  end:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 9c-3.3 0-6.3 1-8.5 2.7-.6.5-.7 1.4-.2 2l1.5 1.8c.4.5 1.2.6 1.8.3l2-1.2c.4-.3.6-.7.6-1.2v-1.6c1.8-.5 3.8-.5 5.6 0v1.6c0 .5.2.9.6 1.2l2 1.2c.6.3 1.4.2 1.8-.3l1.5-1.8c.5-.6.4-1.5-.2-2C18.3 10 15.3 9 12 9z"/></svg>'
+};
+function callChoice(){
+  const c = cur, can = c.callIn !== false;
+  sheet([['📞', 'Apel vocal', () => startCall({video:false})], ['📹', 'Apel video', () => startCall({video:true})],
+    ['🔔', can ? `${c.name} te poate suna: Da (atinge ca să oprești)` : `${c.name} te poate suna: Nu (atinge ca să pornești)`, () => { c.callIn = !can; saveChars(); toast(c.callIn ? `🔔 ${c.name} te poate suna` : `🔕 ${c.name} nu te mai sună`); }]]);
+}
+// ton de apel (ca la operator: 425 Hz, 1 s da, 4 s nu), generat local
+function ringback(on){
+  try{
+    if(!on){ if(ringback.t){ clearInterval(ringback.t); ringback.t = 0; } if(ringback.ac){ ringback.ac.close(); ringback.ac = null; } return; }
+    const ac = ringback.ac = new (window.AudioContext || window.webkitAudioContext)();
+    const beep = () => { if(!ringback.ac) return; const o = ac.createOscillator(), g = ac.createGain(); o.frequency.value = 425; g.gain.value = 0; o.connect(g).connect(ac.destination); const t = ac.currentTime; g.gain.linearRampToValueAtTime(.08, t + .05); g.gain.setValueAtTime(.08, t + 1); g.gain.linearRampToValueAtTime(0, t + 1.05); o.start(t); o.stop(t + 1.1); };
+    beep(); ringback.t = setInterval(beep, 4000);
+  }catch(e){}
+}
+function callPics(c, ch){   // pozele ei recente din același loc: în video „mută camera” între ele
+  const recent = [...ch.msgs].reverse().filter(m => m.role === 'ai' && m.img && !m.err && Date.now() - (m.ts || 0) < 8 * 36e5);
+  if(!recent.length) return c.photo ? [photoNow(c)] : [];
+  const room = recent[0].where && recent[0].where.room;
+  return recent.filter((m, i) => i === 0 || (room && m.where && m.where.room === room && Date.now() - m.ts < 3 * 36e5)).slice(0, 4).map(m => m.img);
+}
+function startCall(opts = {}){
   if(call) return;
   if(!SpeechRec){ toast('Telefonul nu are recunoaștere vocală în browser.'); return; }
   if(!('speechSynthesis' in window)){ toast('Telefonul nu are voce pentru citire.'); return; }
   if(!aiReady()){ toast('Pune întâi cheia în Setări.'); return; }
   if(busy){ toast('Așteaptă să termine răspunsul.'); return; }
   stopAllVoice();
-  call = {c:cur, ch:chat, t0:Date.now(), muted:false, rec:null, alive:true, tick:null};
-  // 8.10: apel video simulat: poza ei cea mai recentă din chat (dacă e de azi) sau poza de profil, care „vorbește” cu vocea
-  const lastPic = [...chat.msgs].reverse().find(m => m.role === 'ai' && m.img && !m.err && Date.now() - (m.ts || 0) < 8 * 36e5);
-  const vidK = lastPic ? lastPic.img : (cur.photo ? photoNow(cur) : '');
-  const v = document.createElement('div'); v.className = 'callv';
-  v.innerHTML = `<div class="cbg" ${cur.photo ? `data-bgk="${esc(photoNow(cur))}"` : ''}></div>${vidK ? `<div class="cvid"><img data-k="${esc(vidK)}" alt=""></div>` : ''}<video class="cself" playsinline muted autoplay hidden></video>
+  const pics = callPics(cur, chat), video = !!opts.video && pics.length > 0;
+  call = {c:cur, ch:chat, t0:0, muted:false, rec:null, alive:true, tick:null, video, see:S.callSee !== 'off', facing:'user', reacts:[], pics, pi:0, barge:S.callBarge !== 'off', incoming:!!opts.incoming};
+  const lf = lifeNow(cur);
+  const v = document.createElement('div'); v.className = 'callv' + (video ? ' vid' : '');
+  v.innerHTML = `<div class="cbg" ${cur.photo ? `data-bgk="${esc(photoNow(cur))}"` : ''}></div>
+    ${pics.length ? `<div class="cvid">${pics.map((k, i) => `<img data-k="${esc(k)}" class="${i ? '' : 'on'}" alt="">`).join('')}<i class="cgrain"></i></div>` : ''}
+    <video class="cself" playsinline muted autoplay hidden></video>
+    <div class="vtop"><span class="vname">${esc(cur.name)}</span><span class="vmeta"><i class="vlive"></i><b id="clTimeV">conectare…</b>${lf && lf.w ? ' · ' + esc(lf.w) : ''}</span></div>
     <div class="ctopc"><small id="clTime">00:00</small></div>
     <div class="cmain"><div class="cava">${cur.photo ? `<img data-k="${esc(photoNow(cur))}" alt="">` : `<span style="background:${colorFor(cur)}">${esc(cur.name[0])}</span>`}<i class="ring"></i></div>
-      <h2>${esc(cur.name)}</h2><p id="clState">te sună…</p><div class="ccap" id="clCap"></div></div>
-    <div class="cbtns"><button id="clMute" aria-label="Microfon"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg><span>Microfon</span></button>
-      ${vidK ? `<button id="clVid" aria-label="Video"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="14" height="12" rx="2"/><path d="m16 10 6-3v10l-6-3z"/></svg><span>Video</span></button>` : ''}
-      <button id="clEnd" class="end" aria-label="Închide"><svg viewBox="0 0 24 24" width="30" height="30" fill="currentColor"><path d="M12 9c-3.3 0-6.3 1-8.5 2.7-.6.5-.7 1.4-.2 2l1.5 1.8c.4.5 1.2.6 1.8.3l2-1.2c.4-.3.6-.7.6-1.2v-1.6c1.8-.5 3.8-.5 5.6 0v1.6c0 .5.2.9.6 1.2l2 1.2c.6.3 1.4.2 1.8-.3l1.5-1.8c.5-.6.4-1.5-.2-2C18.3 10 15.3 9 12 9z"/></svg><span>Închide</span></button></div>`;
+      <h2>${esc(cur.name)}</h2><p id="clState">se apelează…</p><div class="ccap" id="clCap"></div></div>
+    <div class="vreact">${['❤️', '😂', '😮', '👍'].map(e => `<button data-cr="${e}">${e}</button>`).join('')}</div>
+    <div class="cbtns">
+      <button id="clMute" aria-label="Microfon">${ICO.mic}<span>Microfon</span></button>
+      ${pics.length ? `<button id="clVid" aria-label="Video" class="${video ? 'off' : ''}">${ICO.cam}<span>Video</span></button>` : ''}
+      <button id="clFlip" class="vonly" aria-label="Întoarce camera">${ICO.flip}<span>Întoarce</span></button>
+      <button id="clSee" class="vonly${call.see ? ' off' : ''}" aria-label="Te vede">${ICO.eye}<span>Te vede</span></button>
+      <button id="clBarge" class="${call.barge ? 'off' : ''}" aria-label="Întreruperi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 11V6a2 2 0 0 0-4 0v5M14 10V4a2 2 0 0 0-4 0v6M10 10.5V6a2 2 0 0 0-4 0v8a8 8 0 0 0 16 0v-3a2 2 0 0 0-4 0"/></svg><span>Întrerup</span></button>
+      <button id="clEnd" class="end" aria-label="Închide">${ICO.end}<span>Închide</span></button></div>`;
   document.body.appendChild(v); hydrate(v);
   history.pushState({v:'vChat', call:1}, '');
+  const c = call, sv = v.querySelector('.cself');
   $('#clEnd').onclick = () => { endCall(); history.back(); };
-  const vb = $('#clVid'); if(vb) vb.onclick = async () => {
-    if(!call) return; const on = !v.classList.contains('vid'); v.classList.toggle('vid', on); vb.classList.toggle('off', on);
-    const sv = v.querySelector('.cself');
-    if(on && navigator.mediaDevices && navigator.mediaDevices.getUserMedia){
-      try{ call.cam = await navigator.mediaDevices.getUserMedia({video:{facingMode:'user', width:{ideal:480}}, audio:false}); if(!call){ call.cam?.getTracks().forEach(t => t.stop()); return; } sv.srcObject = call.cam; sv.hidden = false; }catch(e){ sv.hidden = true; }
-    } else { if(call.cam){ call.cam.getTracks().forEach(t => t.stop()); call.cam = null; } sv.hidden = true; }
+  // camera ta: pornește odată cu video-ul; nimic nu se salvează
+  const camOn = async () => {
+    if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
+    try{
+      if(c.cam) c.cam.getTracks().forEach(t => t.stop());
+      c.cam = await navigator.mediaDevices.getUserMedia({video:{facingMode:c.facing, width:{ideal:640}}, audio:false});
+      if(call !== c){ c.cam.getTracks().forEach(t => t.stop()); return; }
+      sv.srcObject = c.cam; sv.hidden = false; sv.classList.toggle('back', c.facing !== 'user');
+      if(c.see && !S.callSeeInfo){ S.callSeeInfo = 1; saveSettings(); toast(`👁️ ${c.c.name} te vede: la fiecare replică primește un cadru din camera ta (nu se salvează). Oprești din „Te vede”.`, 5500); }
+    }catch(e){ sv.hidden = true; toast('Camera nu e disponibilă; apelul continuă fără ea.', 3000); }
   };
-  v.querySelector('.cself').onclick = e => { e.currentTarget.classList.toggle('big'); };
-  window.__talk = () => { const cv = v.querySelector('.cvid'); if(!cv) return; cv.classList.add('w'); clearTimeout(window.__talkT); window.__talkT = setTimeout(() => cv.classList.remove('w'), 110); };
-  $('#clMute').onclick = () => { if(!call) return; call.muted = !call.muted; $('#clMute').classList.toggle('off', call.muted); if(call.muted){ try{ call.rec && call.rec.abort(); }catch(e){} callState('microfon oprit'); } else if(call.state === 'idle') callListen(); };
-  call.tick = setInterval(() => { if(!call) return; const s = Math.floor((Date.now() - call.t0) / 1000); $('#clTime').textContent = String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0'); }, 500);
-  // personajul răspunde la telefon primul
-  callReply({pro:true, note:`(Notă de regie, nu o menționa ca atare: ${S.userName.trim() || 'el'} te sună acum pe telefon și tu răspunzi. Salută-l scurt, ca la telefon, în felul tău și după ce faci acum. ${CALL_FIX(S.userName.trim() || 'el')}.)`});
+  const camOff = () => { if(c.cam){ c.cam.getTracks().forEach(t => t.stop()); c.cam = null; } sv.hidden = true; };
+  const setVideo = on => { c.video = on; v.classList.toggle('vid', on); const b = $('#clVid'); if(b) b.classList.toggle('off', on); if(on) camOn(); else camOff(); poke(); };
+  const vb = $('#clVid'); if(vb) vb.onclick = () => { if(call === c) setVideo(!c.video); };
+  $('#clFlip').onclick = () => { c.facing = c.facing === 'user' ? 'environment' : 'user'; camOn(); };
+  $('#clSee').onclick = () => { c.see = !c.see; S.callSee = c.see ? 'on' : 'off'; saveSettings(); $('#clSee').classList.toggle('off', c.see); toast(c.see ? `👁️ ${c.c.name} te vede` : `🙈 ${c.c.name} nu te mai vede (doar te aude)`); };
+  $('#clBarge').onclick = () => { c.barge = !c.barge; S.callBarge = c.barge ? 'on' : 'off'; saveSettings(); $('#clBarge').classList.toggle('off', c.barge); toast(c.barge ? '✋ O poți întrerupe vorbind peste ea' : 'Întreruperile vocale sunt oprite (atingerea subtitrării încă merge)', 3000); if(!c.barge && c.bargeRec){ try{ c.bargeRec.abort(); }catch(e){} } };
+  // atingi subtitrarea (sau imaginea) cât vorbește: se oprește și te ascultă
+  v.addEventListener('click', e => { if(c.state === 'speak' && !e.target.closest('.cbtns,.vreact,.cself')) callInterrupt(c, ''); });
+  $('#clMute').onclick = () => { if(call !== c) return; c.muted = !c.muted; $('#clMute').classList.toggle('off', c.muted); if(c.muted){ try{ c.rec && c.rec.abort(); }catch(e){} callState('microfon oprit'); } else if(c.state === 'idle') callListen(); };
+  // fereastra ta se trage în orice colț
+  let drag = null;
+  sv.addEventListener('pointerdown', e => { drag = {x:e.clientX, y:e.clientY, l:sv.offsetLeft, t:sv.offsetTop, moved:false}; sv.setPointerCapture(e.pointerId); });
+  sv.addEventListener('pointermove', e => { if(!drag) return; const dx = e.clientX - drag.x, dy = e.clientY - drag.y; if(Math.abs(dx) + Math.abs(dy) > 6) drag.moved = true; sv.style.left = drag.l + dx + 'px'; sv.style.top = drag.t + dy + 'px'; sv.style.right = 'auto'; sv.classList.add('drag'); });
+  sv.addEventListener('pointerup', () => { if(!drag) return; const moved = drag.moved; drag = null; sv.classList.remove('drag');
+    if(!moved){ sv.classList.toggle('big'); return; }
+    const W = innerWidth, H = innerHeight, r = sv.getBoundingClientRect(), m = 14, left = r.left + r.width / 2 < W / 2;
+    const top = r.top + r.height / 2 < H / 2 ? 56 + (parseInt(getComputedStyle(document.documentElement).getPropertyValue('--safe-t')) || 0) : H - r.height - 170;
+    sv.style.left = (left ? m : W - r.width - m) + 'px'; sv.style.top = Math.max(40, top) + 'px'; });
+  // butoanele se ascund singure în video; o atingere le aduce înapoi
+  let hideT = 0;
+  const poke = () => { v.classList.remove('calm'); clearTimeout(hideT); if(c.video) hideT = setTimeout(() => { if(call === c && c.video) v.classList.add('calm'); }, 4500); };
+  v.addEventListener('pointerdown', e => { if(!e.target.closest('.cbtns,.vreact,.cself')) poke(); });
+  // reacții în timpul apelului: le vede și le ia în seamă la replica următoare
+  v.querySelectorAll('[data-cr]').forEach(b => b.onclick = () => { fxBurst(b.dataset.cr, 10); c.reacts.push(b.dataset.cr); poke(); });
+  // „vorbește”: imaginea tresare pe cuvinte, iar subtitrarea se aprinde cuvânt cu cuvânt
+  window.__talk = (e, off = 0) => {
+    const cv = v.querySelector('.cvid'); if(cv){ cv.classList.add('w'); clearTimeout(window.__talkT); window.__talkT = setTimeout(() => cv.classList.remove('w'), 110); }
+    if(e && typeof e.charIndex === 'number'){ const at = off + e.charIndex; v.querySelectorAll('#clCap .kw').forEach(w => w.classList.toggle('lit', +w.dataset.i <= at)); }
+  };
+  // „camera” ei trece încet între pozele din același loc
+  if(pics.length > 1) c.picT = setInterval(() => { if(call !== c || c.state === 'speak') return; const ims = v.querySelectorAll('.cvid img'); ims[c.pi].classList.remove('on'); c.pi = (c.pi + 1) % ims.length; ims[c.pi].classList.add('on'); }, 22000);
+  if(video) camOn();
+  // sună întâi, apoi răspunde (la un apel primit ești deja conectat)
+  c.state = 'ring'; callState(c.incoming ? 'conectare…' : 'se apelează…', 'ring'); if(!c.incoming) ringback(true);
+  setTimeout(() => {
+    ringback(false); if(call !== c) return;
+    callWake(c, true);
+    c.t0 = Date.now(); v.classList.add('live');
+    c.tick = setInterval(() => { if(call !== c) return; const s = Math.floor((Date.now() - c.t0) / 1000), t = String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0'); $('#clTime').textContent = t; $('#clTimeV').textContent = t; }, 500);
+    poke();
+    const u = S.userName.trim() || 'el';
+    callReply({pro:true, note: c.incoming
+      ? `(Notă de regie, nu o menționa ca atare: TU l-ai sunat pe ${u} ${c.video ? 'pe video' : 'pe telefon'} și el tocmai a răspuns. Începe tu: salută-l și spune firesc de ce suni${opts.reason ? ' („' + opts.reason + '”)' : ' (ți-era dor să-i auzi vocea, ai ceva să-i povestești sau ai o întrebare, după ce faci acum)'}. ${callFix(c)}.)`
+      : `(Notă de regie, nu o menționa ca atare: ${u} te sună acum ${c.video ? 'pe video' : 'pe telefon'} și tu răspunzi. Salută-l scurt, în felul tău și după ce faci acum. ${callFix(c)}.)`});
+  }, c.incoming ? 700 : 2600 + Math.random() * 2400);
 }
 function callState(t, cls){ const el = $('#clState'); if(el){ el.textContent = t; el.className = cls || ''; } const v = $('.callv'); if(v) v.dataset.st = cls || ''; }
 function endCall(){
   if(!call) return;
   const c = call;
-  call = null; c.alive = false; clearInterval(c.tick); window.__talk = null;
+  call = null; c.alive = false; clearInterval(c.tick); clearInterval(c.picT); window.__talk = null; ringback(false); callWake(c, false);
+  try{ c.bargeRec && c.bargeRec.abort(); }catch(e){} clearInterval(c.pollT);
   if(c.cam){ try{ c.cam.getTracks().forEach(t => t.stop()); }catch(e){} }
   try{ c.rec && c.rec.abort(); }catch(e){}
   try{ speechSynthesis.cancel(); }catch(e){}
   if(busy && live && live.ch === c.ch) busy.abort();
-  const v = $('.callv'); if(v){ v.classList.add('out'); setTimeout(() => v.remove(), 300); }
-  const sec = Math.floor((Date.now() - c.t0) / 1000);
-  if(sec > 3) toast(`📞 Apel cu ${c.c.name} · ${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`);
+  const sec = c.t0 ? Math.floor((Date.now() - c.t0) / 1000) : 0, dur = `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`;
+  const v = $('.callv');
+  if(v){
+    const sv = v.querySelector('.cself'); if(sv){ sv.hidden = true; sv.srcObject = null; }
+    // ecran de final: cine, cât, apoi se închide
+    v.insertAdjacentHTML('beforeend', `<div class="cend"><div class="cendin">${avatarHTML(c.c)}<b>${c.video ? '📹 Apel video' : '📞 Apel'} încheiat</b><small>${esc(c.c.name)}${sec ? ' · ' + dur : ' · neconectat'}</small></div></div>`); hydrate(v);
+    setTimeout(() => { v.classList.add('out'); setTimeout(() => v.remove(), 300); }, sec > 3 ? 1400 : 500);
+  }
+}
+// 8.14: textul de rostit, curățat la fel și pe bucăți (cât se scrie) și la final
+function callClean(t){
+  let x = String(t || '');
+  for(let k = 0; k < 4; k++) x = x.replace(/^\s*\[[^\]\n]*\]\s*/, '');                       // [❤️] [vocal] de la început
+  x = x.split(/\s*\[(?:stare|acum|poz|programez|răspuns|raspuns|sticker)/i)[0];             // etichetele de la final
+  x = x.replace(/\*[^*]*\*/g, ' ').replace(/\*[^*]*$/, ' ').replace(/\[[^\]]*\]/g, ' ');     // acțiuni (și una neterminată)
+  return ttsText(plain(faraLiniute(x)), false).replace(/\s{2,}/g, ' ').trimStart();
+}
+// o propoziție pusă la coadă în vocea telefonului; subtitrarea crește odată cu ea
+function callSay(c, text, capOff){
+  return new Promise(res => {
+    const u = new SpeechSynthesisUtterance(text); u.lang = 'ro-RO';
+    const v = phoneVoice(), g = genderOf(c.c); if(v) u.voice = v;
+    u.pitch = c.c.vPitch || (g === 'm' ? .9 : g === 'f' ? 1.06 : 1); u.rate = /\?\s*$/.test(text) ? 1.03 : .99;
+    u.onstart = () => { if(call === c){ c.state = 'speak'; callState('vorbește', 'speak'); callBarge(c); } };
+    u.onboundary = e => { if(window.__talk) window.__talk(e, capOff); };
+    u.onend = u.onerror = () => res();
+    speechSynthesis.speak(u);
+  });
+}
+function capAppend(c, text){
+  const cap = $('#clCap'); if(!cap) return 0;
+  if(!c.capOn){ cap.innerHTML = ''; c.capOn = true; c.capLen = 0; }
+  const off = c.capLen; let pos = off;
+  cap.insertAdjacentHTML('beforeend', (off ? ' ' : '') + text.split(/(\s+)/).map(w => { const i = pos; pos += w.length; return /\S/.test(w) ? `<span class="kw" data-i="${i}">${esc(w)}</span>` : w; }).join(''));
+  c.capLen = pos + 1;
+  return off;
 }
 async function callReply(opts){
   const c = call; if(!c) return;
-  c.state = 'think'; callState('se gândește…', 'think'); $('#clCap').textContent = '';
+  { const r0 = c.rec; c.rec = null; try{ r0 && r0.abort(); }catch(e){} }   // nicio ascultare veche nu mai rămâne pornită peste răspuns
+  c.state = 'think'; c.capOn = false; c.interrupted = false; callState('se gândește…', 'think'); $('#clCap').innerHTML = '<span class="cdots"><i></i><i></i><i></i></span>';
   while(busy && call === c) await sleep(300);
   if(call !== c) return;
-  await reply(null, {c:c.c, ch:c.ch, fix:opts.pro ? '' : CALL_FIX(S.userName.trim() || 'el'), ...opts});
+  const n0 = c.ch.msgs.length;
+  const run = reply(null, {c:c.c, ch:c.ch, fix:opts.pro ? '' : callFix(c), ...opts});
+  const m = c.ch.msgs[n0];
+  // vorbește de la prima propoziție gata, cât restul încă se scrie
+  let said = 0, done = false; const q = [];
+  const speakNew = final => {
+    if(!m || c.interrupted) return;
+    const t = callClean(m.text); let rest = t.slice(said);
+    if(!final){ const mm = rest.match(/^[\s\S]*?[.!?…]+["”»)]?(?=\s)/); if(!mm || mm[0].trim().length < 2) return; rest = mm[0]; }
+    said += rest.length; rest = rest.trim(); if(!rest) return;
+    const off = capAppend(c, rest);
+    q.push(callSay(c, rest, off));
+  };
+  c.pollT = setInterval(() => { if(call !== c) return clearInterval(c.pollT); if(m && m.text && !m.err) speakNew(false); }, 120);
+  try{ await run; } catch(e){}
+  clearInterval(c.pollT); done = true;
+  if(c.interrupted && m && !m.err){ m.text = (c.saidText || callClean(m.text).split(/\s+/).slice(0, 4).join(' ')).trim() + '…'; m.call = true; await saveChat(c.c, c.ch); return; }   // în istoric rămâne doar ce a apucat să spună
   if(call !== c) return;
-  const m = [...c.ch.msgs].reverse().find(x => x.role === 'ai' && !x.sticker && !x.img);
-  if(!m || m.err){ callState(m && m.err ? '⚠️ ' + m.err : 'n-a mers', 'err'); c.state = 'idle'; setTimeout(() => call === c && callListen(), 1500); return; }
-  m.call = true;
-  const t = plain(stripMood(m.text).replace(/\*[^*]*\*/g, ' ').replace(/\[[^\]]*\]/g, ' ')).replace(/\s{2,}/g, ' ').trim();
-  c.state = 'speak'; callState('vorbește', 'speak'); $('#clCap').textContent = t;
-  speakPhone(c.c, t, () => { if(call !== c) return; c.state = 'idle'; callListen(); });
+  if(!m || m.err){ if(c.interrupted) return; callState(m && m.err ? '⚠️ ' + m.err : 'n-a mers', 'err'); c.state = 'idle'; setTimeout(() => call === c && callListen(), 1500); return; }
+  m.call = true; if(c.video) m.video = true;
+  speakNew(true);
+  if(!q.length && !c.interrupted){ c.state = 'idle'; callListen(); return; }
+  await Promise.all(q);
+  if(call !== c || c.interrupted) return;
+  $('#clCap').querySelectorAll('.kw').forEach(w => w.classList.add('lit'));
+  try{ c.bargeRec && c.bargeRec.abort(); }catch(e){} c.bargeRec = null;
+  c.state = 'idle'; callListen();
 }
-function callListen(){
-  const c = call; if(!c || c.muted || c.state === 'think' || c.state === 'speak') return;
+// 8.14: o întrerupi vorbind peste ea (sau atingând subtitrarea): se oprește și te ascultă
+function callInterrupt(c, heard){
+  if(call !== c || c.state !== 'speak') return;
+  c.saidText = [...($('#clCap') ? $('#clCap').querySelectorAll('.kw.lit') : [])].map(w => w.textContent).join(' ');
+  c.interrupted = true; c.state = 'listen';
+  try{ speechSynthesis.cancel(); }catch(e){}
+  if(busy && live && live.ch === c.ch) busy.abort();
+  callState('te ascultă…', 'listen'); $('#clCap').innerHTML = heard ? `<span class="cme">${esc(heard)}</span>` : '';
+  if(!c.bargeRec) callListen(true);
+}
+function callBarge(c){
+  if(!c.barge || c.muted || c.bargeRec || call !== c) return;
+  let r; try{ r = new SpeechRec(); }catch(e){ return; }
+  r.lang = 'ro-RO'; r.interimResults = true; r.continuous = false; c.bargeRec = r;
+  const norm = x => String(x || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9 ]/g, ' ').split(/\s+/).filter(w => w.length > 2);
+  let final = '', heard = '';
+  r.onresult = e => {
+    let t = ''; for(let i = 0; i < e.results.length; i++){ t += e.results[i][0].transcript; if(e.results[i].isFinal) final = t; }
+    heard = t.trim();
+    if(c.state === 'speak'){
+      const ws = norm(heard); if(ws.length < 2) return;
+      const said = new Set(norm($('#clCap') ? $('#clCap').textContent : ''));
+      if(ws.filter(w => said.has(w)).length / ws.length > .5) return;     // e propria ei voce auzită în difuzor
+      callInterrupt(c, heard);
+    } else if(c.state === 'listen') $('#clCap').innerHTML = `<span class="cme">${esc(heard)}</span>`;
+  };
+  r.onerror = () => {};
+  r.onend = async () => {
+    if(c.bargeRec === r) c.bargeRec = null;
+    if(call !== c) return;
+    if(c.state === 'speak'){ setTimeout(() => callBarge(c), 250); return; }        // a tăcut fără să te audă: ascultăm mai departe
+    if(c.state === 'listen' && c.interrupted){
+      const t = (final || heard).trim();
+      if(!t){ c.state = 'idle'; callListen(); return; }
+      await callUserSaid(c, t);
+    }
+  };
+  try{ r.start(); }catch(e){ c.bargeRec = null; }
+}
+function callFrame(c){   // un cadru mic din camera ta, doar pentru replica asta (nu se salvează nicăieri)
+  try{
+    const sv = $('.callv .cself'); if(!c.video || !c.see || !c.cam || !sv || !sv.videoWidth) return null;
+    const k = 512 / Math.max(sv.videoWidth, sv.videoHeight), cv = document.createElement('canvas');
+    cv.width = Math.round(sv.videoWidth * k); cv.height = Math.round(sv.videoHeight * k);
+    const g = cv.getContext('2d'); if(c.facing === 'user'){ g.translate(cv.width, 0); g.scale(-1, 1); }
+    g.drawImage(sv, 0, 0, cv.width, cv.height);
+    return cv.toDataURL('image/jpeg', .7).split(',')[1];
+  }catch(e){ return null; }
+}
+async function callUserSaid(c, t){
+  const rx = c.reacts.splice(0).join('');
+  c.ch.msgs.push({id:uid(), role:'user', text:t[0].toUpperCase() + t.slice(1) + (rx ? ` (în timpul apelului ți-a trimis ${rx})` : ''), ts:Date.now(), call:true, video:c.video || undefined, seen:true});
+  await saveChat(c.c, c.ch);
+  callReply({liveImg:callFrame(c)});
+}
+function callTick(){   // un „tic” discret când e rândul tău (util cu căștile, fără să te uiți la ecran)
+  try{ const ac = callTick.ac || (callTick.ac = new (window.AudioContext || window.webkitAudioContext)()); const o = ac.createOscillator(), g = ac.createGain(), t = ac.currentTime;
+    o.frequency.value = 880; g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(.05, t + .01); g.gain.linearRampToValueAtTime(0, t + .09); o.connect(g).connect(ac.destination); o.start(t); o.stop(t + .1); }catch(e){}
+}
+function callListen(quiet){
+  const c = call; if(!c || c.muted || c.state === 'think' || (c.state === 'speak' && !c.interrupted) || c.state === 'ring') return;
+  try{ c.rec && c.rec.abort(); }catch(e){}
   const r = new SpeechRec(); r.lang = 'ro-RO'; r.interimResults = true; r.continuous = false;
-  let final = '';
-  c.rec = r; c.state = 'listen'; callState('te ascultă…', 'listen');
-  r.onresult = e => { let t = ''; for(let i = 0; i < e.results.length; i++){ t += e.results[i][0].transcript; if(e.results[i].isFinal) final = t; } $('#clCap').textContent = '„' + t.trim() + '”'; };
+  let final = '', interim = '', lastT = 0;
+  c.rec = r; c.state = 'listen'; c.interrupted = false; callState('te ascultă…', 'listen');
+  if(!quiet && S.callTick !== 'off') callTick();
+  r.onresult = e => { let t = ''; for(let i = 0; i < e.results.length; i++){ t += e.results[i][0].transcript; if(e.results[i].isFinal) final = t; } interim = t.trim(); lastT = Date.now(); $('#clCap').innerHTML = `<span class="cme">${esc(interim)}</span>`; };
+  // 8.14: nu mai așteptăm pauza lungă a telefonului: după ~0,85 s de liniște încheiem noi
+  const watch = setInterval(() => { if(c.rec !== r){ clearInterval(watch); return; } if(interim && lastT && Date.now() - lastT > 850){ clearInterval(watch); try{ r.stop(); }catch(e){} } }, 150);
   r.onerror = e => { if(e.error === 'not-allowed' || e.error === 'service-not-allowed'){ toast('Permite accesul la microfon pentru Taifas.', 3500); endCall(); history.back(); } };
   r.onend = async () => {
+    clearInterval(watch);
     if(call !== c || c.rec !== r) return;
     c.rec = null;
-    const t = final.trim();
-    if(!t){ c.state = 'idle'; if(!c.muted) setTimeout(() => call === c && callListen(), 250); return; }
-    c.ch.msgs.push({id:uid(), role:'user', text:t[0].toUpperCase() + t.slice(1), ts:Date.now(), call:true, seen:true});
-    await saveChat(c.c, c.ch);
-    callReply({});
+    const t = (final || interim).trim();
+    if(!t){ c.state = 'idle'; if(!c.muted) setTimeout(() => call === c && callListen(true), 250); return; }   // mod mâini libere: ascultă din nou, la nesfârșit
+    await callUserSaid(c, t);
   };
-  try{ r.start(); }catch(e){ c.state = 'idle'; setTimeout(() => call === c && callListen(), 600); }
+  try{ r.start(); }catch(e){ c.state = 'idle'; setTimeout(() => call === c && callListen(true), 600); }
 }
+// 8.14: mâini libere: ecranul rămâne aprins cât ține apelul (și revine după ce te întorci în aplicație)
+async function callWake(c, on){
+  try{
+    if(!on){ if(c.wake){ await c.wake.release(); c.wake = null; } return; }
+    if('wakeLock' in navigator){ c.wake = await navigator.wakeLock.request('screen'); }
+  }catch(e){}
+}
+document.addEventListener('visibilitychange', () => { if(!document.hidden && call && call.t0 && !call.wake) callWake(call, true); });
+
+/* ───────── 📲 8.14: ea te sună ───────── */
+let inCallEl = null;
+function ringtone(on){
+  try{
+    if(!on){ clearInterval(ringtone.t); ringtone.t = 0; if(ringtone.ac){ ringtone.ac.close(); ringtone.ac = null; } try{ navigator.vibrate && navigator.vibrate(0); }catch(e){} return; }
+    const ac = ringtone.ac = new (window.AudioContext || window.webkitAudioContext)();
+    const note = (f, t0, d) => { const o = ac.createOscillator(), g = ac.createGain(); o.type = 'sine'; o.frequency.value = f; g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime(.09, t0 + .02); g.gain.exponentialRampToValueAtTime(.001, t0 + d); o.connect(g).connect(ac.destination); o.start(t0); o.stop(t0 + d + .05); };
+    const play = () => { if(!ringtone.ac) return; const t = ac.currentTime; [659, 784, 988, 784, 659, 988].forEach((f, i) => note(f, t + i * .16, .3)); try{ navigator.vibrate && navigator.vibrate([400, 200, 400]); }catch(e){} };
+    play(); ringtone.t = setInterval(play, 2600);
+  }catch(e){}
+}
+async function callNote(c, kind){   // apel nepreluat / respins: rămâne în chat, iar ea îți scrie după
+  const ch = cur === c && chat ? chat : await loadChat(c, c.thread || 'main');
+  ch.msgs.push({id:uid(), role:'ai', text:kind === 'miss' ? '📞 Apel nepreluat' : '📞 Ai respins apelul', ts:Date.now(), seen:true});
+  if(!(chat === ch && !$('#vChat').hidden)) c.unread = (c.unread || 0) + 1;
+  await saveChat(c, ch); await saveChars();
+  if(!$('#vHome').hidden) renderHome(); else if(chat === ch) renderMsgs(true);
+  setTimeout(async () => {
+    if(busy || call) return;
+    const u = S.userName.trim() || 'el';
+    await reply(null, {c, ch, pro:true, note:`(Notă de regie, nu o menționa ca atare: tocmai l-ai sunat pe ${u} și ${kind === 'miss' ? 'n-a răspuns' : 'a respins apelul'}. Scrie-i acum un mesaj scurt și firesc, în felul tău${kind === 'miss' ? '' : ' (poate e ocupat)'}.)`});
+    if(!$('#vHome').hidden) renderHome();
+  }, 15000 + Math.random() * 25000);
+}
+function showIncoming(c, opts = {}){
+  if(inCallEl || call || !c) return;
+  c.inAt = Date.now(); saveChars();
+  const video = !!opts.video;
+  inCallEl = document.createElement('div'); inCallEl.className = 'incall';
+  inCallEl.innerHTML = `<div class="cbg" ${c.photo ? `data-bgk="${esc(photoNow(c))}"` : ''}></div>
+    <div class="inmain"><small>${video ? '📹 Apel video' : '📞 Apel'} Taifas</small><div class="inava">${avatarHTML(c)}<i></i><i></i></div><h2>${esc(c.name)}</h2><p>te sună…</p></div>
+    <div class="inbtns"><button class="indecl" aria-label="Respinge">${ICO.end}<span>Respinge</span></button>
+      <button class="inok" aria-label="Răspunde"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2z"/></svg><span>Răspunde</span></button>
+      ${callPics(c, {msgs:[]}).length ? `<button class="invid" aria-label="Răspunde video">${ICO.cam}<span>Video</span></button>` : ''}</div>`;
+  document.body.appendChild(inCallEl); hydrate(inCallEl);
+  ringtone(true);
+  const close = () => { ringtone(false); clearTimeout(t); const el = inCallEl; inCallEl = null; if(el){ el.classList.add('out'); setTimeout(() => el.remove(), 300); } };
+  const t = setTimeout(() => { close(); callNote(c, 'miss'); }, 30000);
+  inCallEl.querySelector('.indecl').onclick = () => { close(); callNote(c, 'decl'); };
+  const answer = async vid => { close(); if(!cur || cur.id !== c.id || $('#vChat').hidden) await openChat(c.id); startCall({video:vid, incoming:true, reason:opts.reason}); };
+  inCallEl.querySelector('.inok').onclick = () => answer(video);
+  const vb = inCallEl.querySelector('.invid'); if(vb) vb.onclick = () => answer(true);
+}
+// din când în când, cineva cu care vorbești te sună singur (cel mult de 2 ori pe zi, doar când e treaz și liber)
+function maybeIncoming(){
+  if(S.callIn === 'off' || document.hidden || call || inCallEl || busy || locked || !aiReady() || $('.scrim')) return;
+  const day = dayKey(Date.now()); if(S.inDay !== day){ S.inDay = day; S.inN = 0; }
+  if((S.inN || 0) >= 2 || Math.random() > .025) return;
+  const cand = chars.filter(c => c.callIn !== false && c.last && c.lastAt && Date.now() - c.lastAt < 7 * 864e5 && Date.now() - c.lastAt > 2 * 36e5 && Date.now() - (c.inAt || 0) > 20 * 36e5)
+    .filter(c => { const lf = lifeNow(c), h = charNow(c).getHours(); return !(lf && lf.b) && h >= 10 && h < 22; });
+  if(!cand.length) return;
+  const c = cand[Math.floor(Math.random() * Math.min(3, cand.length))];
+  S.inN = (S.inN || 0) + 1; saveSettings();
+  showIncoming(c, {video:Math.random() < .35});
+}
+setInterval(maybeIncoming, 90e3);
 function openSheet(html){
   closeSheet(true);
   const s = document.createElement('div'); s.className = 'scrim';
@@ -6295,7 +6641,7 @@ function bind(){
   $('#stWrapped').onclick = () => openWrapped();
   $('#btnWrapped').onclick = () => openWrapped();
   $('#btnBcast').onclick = () => bcastSheet();
-  $('#chCall').onclick = () => startCall();
+  $('#chCall').onclick = () => callChoice();
   $('#stMePick').onclick = () => $('#fMe').click();
   $('#fMe').onchange = e => { setMePhoto(e.target.files[0]); e.target.value = ''; };
   $('#stMeDel').onclick = async () => { if(S.userPhoto) await delImg(S.userPhoto).catch(() => {}); S.userPhoto = ''; S.userPhys = ''; S.userBox = null; saveSettings(); drawMe(); };
