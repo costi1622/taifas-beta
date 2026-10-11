@@ -1,5 +1,5 @@
 window.__taifas = true;   // 8.20.1: semn pentru index.html că app.js s-a încărcat
-const APP_VER = '8.25';
+const APP_VER = '9.0';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -255,19 +255,21 @@ async function stream(sys, msgs, opts = {}){
     throw e;
   }
 }
-async function streamOnce(sys, msgs, {max = 700, signal, onText, cid, aux, meta, tag, cold} = {}){
+async function streamOnce(sys, msgs, {max = 700, signal, onText, cid, aux, meta, tag, cold, conv} = {}){
   const A = S.prov === 'anthropic';
   const model = modelFor(aux);
   // 8.17: conversația rămâne în cache 1 oră (nu 5 minute): la pauze mai lungi istoricul se recitește la 5-10% din preț
   // 8.19: primul mesaj după o pauză (cache-ul a expirat oricum) scrie la 1,25× (5 min); de la al doilea trece pe 1 oră
-  const ttl = !aux && !cold && S.cacheTtl !== '5m' ? '1h' : '';
+  // 9.0: cache doar pentru conversații (conv); pașaportul, jurnalul, planificarea pozelor etc. se trimit o singură dată,
+  //      iar scrierea în cache (2× pe 1 h, 1,25× pe 5 min) ar fi fost plătită degeaba
+  const ttl = conv && !aux && !cold && S.cacheTtl !== '5m' ? '1h' : '';
   if(A && !hasKey('anthropic')) throw new Error(vaultOn() ? 'Seiful (Worker-ul) nu are cheia Anthropic.' : 'Lipsește cheia Anthropic. Deschide Setări.');
   if(!A && !(S.oaBase && S.oaModel)) throw new Error('Completează adresa și modelul în Setări.');
   const res = A
     ? await fetch(apiUrl('anthropic', '/v1/messages'), {method:'POST', signal, headers:apiHeaders('anthropic', {
         'content-type':'application/json', 'anthropic-version':'2023-06-01'}),
         body: JSON.stringify({model, max_tokens:max, stream:true,
-          system:[{type:'text', text:sys, cache_control:ttl ? {type:'ephemeral', ttl:'1h'} : {type:'ephemeral'}}], messages:provMsgs(msgs, ttl)})})
+          system:[{type:'text', text:sys, ...(conv ? {cache_control:ttl ? {type:'ephemeral', ttl:'1h'} : {type:'ephemeral'}} : {})}], messages:provMsgs(msgs, ttl)})})
     : await fetch(S.oaBase.replace(/\/+$/, '') + '/chat/completions', {method:'POST', signal, headers:{
         'content-type':'application/json', ...(S.oaKey ? {authorization:'Bearer ' + S.oaKey.trim()} : {})},
         body: JSON.stringify({model:S.oaModel, stream:true, max_tokens:max, ...(/openai|openrouter|groq|deepseek|together|mistral/i.test(S.oaBase) ? {stream_options:{include_usage:true}} : {}),
@@ -627,7 +629,7 @@ JSON, keys in exactly this order, nothing else:
  "shot":"ONE English description for the image generator, 50-80 words: camera and framing, the place with concrete details (reuse the room description), body position and hands, outfit, light (no face, no expression)",
  "expression":"",
  "where":{"place":"home / office / café / street …","room":"bedroom | living room | kitchen | bathroom | hallway | balcony | office | other","position":"exact body position and what it rests on","outfit":"what is worn now","activity":"what is being done","light":"light now"},
- "home":{"<room>":"English description, max 45 words; only rooms that are new or changed"}}`}], {max:1500, signal, cid:c.id, aux:true, meta});
+ "home":{"<room>":"English description, max 45 words; only rooms that are new or changed"}}`}], {max:1500, signal, cid:c.id, aux:true, meta, tag:'pozeai'});
   // 7.1: refuzul filtrului lui Claude se spune ca atare (nu se ocolește); un răspuns tăiat sau fără JSON nu mai oprește poza
   if(meta.stop === 'refusal' && !promised) throw new Error('Claude a refuzat să descrie poza asta (filtrul lui de siguranță). Încearcă altă scenă.');
   let j = {}; try{ j = parseJSON(out); }catch(e){}
@@ -864,7 +866,7 @@ Do NOT judge whether the face is the same person (that is checked separately). S
 - "body": ${prof ? 'compared with image 1, ignoring clothes, pose and camera angle: same weight, build, bust, shoulders, arms and proportions? A slimmer, smaller or more idealized body is a low score.' : 'do the visible body build, weight and proportions match the permanent looks?'} 10 if the body is not visible.
 - "expression": ${String(shot).includes(EXPR_ASK) ? 'does the facial expression match the one requested in the scene?' : prof ? 'is the facial expression the same as in image 1?' : 'is the expression natural?'}
 "fix": if scene < 6 or framing < 5 or hair < 6 or marks < 6 or body < 6, ONE short concrete English correction (body, hair and marks first, then scene); otherwise "".
-JSON: {"scene":0,"framing":0,"hair":0,"marks":0,"body":0,"expression":0,"fix":""}`}], {max:240, signal, cid:c.id, aux:true});
+JSON: {"scene":0,"framing":0,"hair":0,"marks":0,"body":0,"expression":0,"fix":""}`}], {max:240, signal, cid:c.id, aux:true, tag:'pozeai'});
     try{ j = parseJSON(out); }catch(e){ j = {}; }
   }
   const n = k => j[k] === undefined || j[k] === null ? null : Math.max(0, Math.min(10, Math.round(+j[k] || 0)));
@@ -3230,7 +3232,9 @@ const PHOTO_PROMISE = /\*[^*]*\b(trimit|trimite|atașez|atașează|face|fac|face
 // 8.17: prompt stabil: părțile care se schimbă des (fapte, relație, cadouri, agendă, telefon, cunoscuți) se „îngheață”
 // cât timp fereastra conversației rămâne aceeași și cache-ul e viu (sub 55 de minute); lucrurile noi sunt oricum în istoric.
 // Se reface imediat dacă se schimbă ceva important (descriere, scenă, setări, limba, nivelul relației).
-const sysMemo = new WeakMap();
+// 9.0: înainte era un WeakMap în memorie, legat de obiectul conversației: la fiecare deschidere a chatului sau repornire
+//      promptul se reconstruia (cu faptele/relația actualizate între timp), deci tot istoricul se rescria în cache la 2×
+const sysMemo = {get: ch => ch && ch._sys, set: (ch, v) => { if(ch) ch._sys = v; }};
 function sysFor(c, ch){
   const core = JSON.stringify([c.id, c.name, c.persona, c.speech, c.aspect, ch && ch.scene, S.userName, S.userAbout, S.userBday, S.vmsg, S.len, S.model, learnOn(c) ? c.learn.lang + c.learn.lvl : '', canAutoPhoto(c), (c.stickers || []).length, c.rel && c.rel.lock, relOf(c).lv]);
   const old = ch && sysMemo.get(ch);
@@ -3586,8 +3590,8 @@ async function reply(target, opts = {}){
       // prima variantă întâi (scrie cache-ul), apoi celelalte două în paralel; nu se afișează până nu alegi
       const sys = sysFor(c, ch), mk = () => ({}), metas = [mk(), mk(), mk()];
       const alt = (k) => { const cx = ctx.map(x => ({...x})); const l = [...cx].reverse().find(x => x.role === 'user'); if(l) l.text += k ? `\n\n(Pentru varianta asta alege o abordare diferită de prima idee care îți vine${k === 2 ? ', cu alt ton' : ''}.)` : ''; return cx; };
-      const first = keepIdx >= 0 ? m.alts[keepIdx] : await stream(sys, alt(0), {max:LEN[S.len].max, signal:busy.signal, cid:c.id, meta:metas[0], tag:opts.tag, cold});
-      const rest = await Promise.all([1, 2].map(k => stream(sys, alt(k), {max:LEN[S.len].max, signal:busy.signal, cid:c.id, meta:metas[k], tag:opts.tag}).catch(e => { if(e.name === 'AbortError') throw e; return ''; })));
+      const first = keepIdx >= 0 ? m.alts[keepIdx] : await stream(sys, alt(0), {max:LEN[S.len].max, signal:busy.signal, cid:c.id, meta:metas[0], tag:opts.tag, cold, conv:true});
+      const rest = await Promise.all([1, 2].map(k => stream(sys, alt(k), {max:LEN[S.len].max, signal:busy.signal, cid:c.id, meta:metas[k], tag:opts.tag, conv:true}).catch(e => { if(e.name === 'AbortError') throw e; return ''; })));
       const outs = [first, ...rest].map(x => String(x || '').trim()).filter(Boolean);
       const pick = outs.length > 1 ? await pickVariant(outs, busy.signal) : 0;
       if(keepIdx >= 0 && pick === 0){   // ai rămas la varianta de dinainte: o păstrăm neatinsă, cele 2 noi rămân ca alternative (‹ ›)
@@ -3602,7 +3606,7 @@ async function reply(target, opts = {}){
       full = outs[pick];
       meta = metas[[first, ...rest].map(x => String(x || '').trim()).indexOf(full)] || {};
       m._others = outs.filter((x, k) => k !== pick && !(keepIdx >= 0 && k === 0));
-    } else full = await stream(sysFor(c, ch), ctx, {max:LEN[S.len].max, signal:busy.signal, cid:c.id, meta, tag:opts.tag, cold,
+    } else full = await stream(sysFor(c, ch), ctx, {max:LEN[S.len].max, signal:busy.signal, cid:c.id, meta, tag:opts.tag, cold, conv:true,
       onText: t => { m.text = t;
         // mesaj vocal: textul nu apare pe ecran cât timp „înregistrează”
         if(!m.rec && S.vmsg !== 'off' && /^\s*(?:\[[^\]v][^\]]*\]\s*)?\[v/i.test(t)){ m.rec = m.hold = true; if(live){ live.rec = true; if(chat === ch) setBusyUI(true); } if(chat === ch) renderMsgs(); }
@@ -3820,7 +3824,8 @@ function addUsage(cid, usd, kind, tok, tag){
     const M = u.months[mo] = u.months[mo] || {txt:0, img:0, n:0};
     M.by = M.by || {}; M.by[tag] = (M.by[tag] || 0) + usd;   // 8.17: pe ce se duc banii
     if(kind === 'img'){ M.img += usd; M.n++; } else if(kind === 'voc'){ M.voc = (M.voc || 0) + usd; M.vn = (M.vn || 0) + 1; } else M.txt += usd;
-    if(tok){ for(const k of ['inp', 'cw', 'cr', 'out', 'saved']) M[k] = (M[k] || 0) + (tok[k] || 0); M.calls = (M.calls || 0) + 1; if(tok.main) M.mcalls = (M.mcalls || 0) + 1; }
+    if(tok){ for(const k of ['inp', 'cw', 'cr', 'out', 'saved']) M[k] = (M[k] || 0) + (tok[k] || 0); M.calls = (M.calls || 0) + 1; if(tok.main) M.mcalls = (M.mcalls || 0) + 1;
+      M.tk = M.tk || {}; const T = M.tk[tag] = M.tk[tag] || {inp:0, cw:0, cr:0, out:0, n:0}; for(const k of ['inp', 'cw', 'cr', 'out']) T[k] += tok[k] || 0; T.n++; }
     if(cid) u.chars[cid] = (u.chars[cid] || 0) + usd;
     await DB.set('usage', u);
   }).catch(() => {});
@@ -3849,8 +3854,9 @@ async function renderCost(){
   $('#stCost').innerHTML = `<b>${usd(tot(M))}</b>luna aceasta · text ${usd(M.txt)} · poze ${usd(M.img)} (${M.n})${M.voc ? ` · voce ${usd(M.voc)} (${M.vn})` : ''}
     ${totIn ? `<div class="row2"><span>Context citit din cache</span><span>${pc}%</span></div><div class="row2"><span>Economisit prin cache</span><span style="color:var(--ok)">${usd(M.saved || 0)}</span></div><div class="row2"><span>Cost mediu pe mesaj</span><span>${usd(M.txt / Math.max(1, M.mcalls || M.calls || 1))}</span></div>` : ''}
     ${(() => { const by = Object.entries(M.by || {}).filter(x => x[1] > 0).sort((a, b) => b[1] - a[1]); if(!by.length) return ''; const mx = by[0][1];
-      const L = {chat:['💬', 'Conversații'], apel:['📞', 'Apeluri'], poze:['📷', 'Poze în chat'], stories:['📸', 'Stories'], statusuri:['📱', 'Statusuri'], voce:['🎙️', 'Voce'], fundal:['⚙️', 'Fundal (memorie, relație, planuri)'], jurnal:['📔', 'Jurnal'], profil:['🖼️', 'Portrete, avatar, stickere']};
-      return `<div class="cbreak"><div class="cbh">Unde se duc banii luna asta</div>${by.map(([k, v]) => `<div class="cbr"><span>${(L[k] || ['•', k])[0]} ${esc((L[k] || ['', k])[1])}</span><div class="cbb"><i style="width:${Math.max(3, v / mx * 100)}%"></i></div><b>${usd(v)}</b></div>`).join('')}</div>`; })()}
+      const L = {chat:['💬', 'Conversații'], apel:['📞', 'Apeluri'], poze:['📷', 'Poze în chat'], stories:['📸', 'Stories'], statusuri:['📱', 'Statusuri'], voce:['🎙️', 'Voce'], fundal:['⚙️', 'Fundal (memorie, relație, planuri)'], jurnal:['📔', 'Jurnal'], profil:['🖼️', 'Portrete, avatar, stickere'], pozeai:['🧠', 'Poze: plan și verificare (AI)']};
+      const tk = M.tk || {}, cp = k => { const T = tk[k]; if(!T) return ''; const all = T.inp + T.cw + T.cr; return all ? ` <small style="color:var(--tx3)">${T.n} apeluri · cache ${Math.round(T.cr / all * 100)}%</small>` : ''; };
+      return `<div class="cbreak"><div class="cbh">Unde se duc banii luna asta</div>${by.map(([k, v]) => `<div class="cbr"><span>${(L[k] || ['•', k])[0]} ${esc((L[k] || ['', k])[1])}${cp(k)}</span><div class="cbb"><i style="width:${Math.max(3, v / mx * 100)}%"></i></div><b>${usd(v)}</b></div>`).join('')}</div>`; })()}
     ${P ? `<div class="row2"><span>Luna trecută</span><span>${usd(tot(P))}</span></div>` : ''}
     ${top.map(([c, v]) => `<div class="row2"><span>${esc(c.name)}</span><span>${usd(v)}</span></div>`).join('')}`;
 }
@@ -5612,9 +5618,9 @@ function drawChatHint(){
   const el = $('#stWkChatHint'); if(!el) return;
   const e = neurPerPhoto('eco'), f = neurPerPhoto('ancorat');
   if(S.wkChat === 'fal'){ el.innerHTML = 'Pozele din chat merg prin fal.ai PuLID, un model făcut special să păstreze aceeași față (din fața decupată din poza de profil). Plătit separat la fal.ai, câțiva cenți pe poză; nu consumă neuroni Cloudflare. Stickerele, avatarul, statusurile și pozele împreună rămân pe Worker.' + (hasKey('fal') ? '' : ' <b>Pune cheia fal.ai mai jos.</b>'); return; }
-  el.innerHTML = S.wkChat === 'ancorat' || !S.wkChat
+  el.innerHTML = S.wkChat === 'ancorat'
     ? `9B ține fața mult mai bine. ~${Math.round(f).toLocaleString('ro-RO')} neuroni pe poză: cam ${Math.floor(10000 / f)} poze pe zi în cota gratuită, apoi ~${usd(f * NEUR_USD)} pe poză (limita zilnică din Setări rămâne în vigoare). Stickerele, avatarul și statusurile rămân pe modelul de mai jos.`
-    : `Fidel (9B) este recomandat pentru chat: ~${Math.round(f).toLocaleString('ro-RO')} neuroni pe poză și folosește repere pentru față și aspectul corpului. Eco: ~${Math.round(e)} neuroni pe poză, mai ieftin dar cu risc mai mare de schimbare a identității.`;
+    : `Eco: ~${Math.round(e)} neuroni pe poză. Împreună cu variantele multiple și retușul feței, în testele pe personajul tău a ieșit mai asemănător decât 9B (~${Math.round(f).toLocaleString('ro-RO')} neuroni).`;
 }
 async function refTest(){
   const c = (cur && cur.photo) ? cur : chars.find(x => x.photo);
