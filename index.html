@@ -1718,7 +1718,7 @@ input:focus,textarea:focus,select:focus{border-color:color-mix(in srgb,var(--acc
 
 <script>
 'use strict';
-const APP_VER = '8.16';
+const APP_VER = '8.16.2';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -2731,7 +2731,7 @@ async function runDueSched(){
         c.sched = c.sched.filter(y => y !== x); await saveChars();
         if(Date.now() - x.at > 3 * 864e5) continue;                       // prea vechi: renunțăm
         if(!threadsOf(c).some(t => t.id === x.tid)) continue;
-        if(/\b(sun|apel|telefon|video)/i.test(x.note || '') && Date.now() - x.at < 10 * 60e3 && !document.hidden && !call && !inCallEl && c.callIn !== false){ showIncoming(c, {video:/video/i.test(x.note), reason:x.note}); return; }   // 8.14: a promis că te sună: te sună
+        if(/\b(sun|apel|telefon|video)/i.test(x.note || '') && Date.now() - x.at < 10 * 60e3 && !document.hidden && !locked && !call && !inCallEl && c.callIn !== false){ showIncoming(c, {video:/video/i.test(x.note), reason:x.note}); return; }   // 8.14: a promis că te sună: te sună
         const open = cur === c && chat && (chat.tid || 'main') === x.tid;
         const ch = open ? chat : await loadChat(c, x.tid);
         const u = S.userName.trim() || 'utilizatorul';
@@ -3313,12 +3313,13 @@ async function socialComments(p){
 const cmHTML = p => (p.cm || []).filter(x => charById(x.cid)).map(x => `<div class="pcm">${avatarHTML(charById(x.cid))}<span><b>${esc(charById(x.cid).name)}</b> ${esc(x.t)}</span></div>`).join('');
 /* ───────── 💞 8.15: relații care evoluează (încredere, apropiere, tensiune, momente-cheie) ───────── */
 const ARC_E = {secret:'🤫', gluma:'😂', sprijin:'🤝', cearta:'⚡', impacare:'🕊️', incredere:'🔐', amintire:'💫', dor:'🌙', surpriza:'🎉'};
-const bondOf = c => Object.assign({trust:30, warm:30, tension:0}, c.bond || {});
+const bondOf = c => { const b0 = [25, 35, 50, 62, 75, 85][(relOf(c).lv || 1) - 1] || 30; return Object.assign({trust:b0, warm:b0, tension:0}, c.bond || {}); };   // pornește de la nivelul relației
 const bondWord = (v, w) => v >= 80 ? w[3] : v >= 55 ? w[2] : v >= 30 ? w[1] : w[0];
 function bondFor(c){   // pentru promptul de sistem
   const b = bondOf(c), u = S.userName.trim() || 'el';
   const arcs = (c.arcs || []).slice(-4).map(a => `- ${a.t} (${new Date(a.ts).toLocaleDateString('ro-RO', {day:'numeric', month:'long'})})`).join('\n');
   return `## Cum stați acum, tu și ${u}
+(Dacă descrierea ta stabilește deja ce relație aveți, aceea are prioritate; asta arată doar nuanța de acum.)
 Încredere: ${bondWord(b.trust, ['încă te ții în rezervă cu lucrurile personale', 'îi spui lucruri personale, dar nu chiar tot', 'ai încredere în el, îi spui și ce te frământă', 'ai încredere deplină; îi spui orice'])}. Apropiere: ${bondWord(b.warm, ['politicos, încă puțin distant', 'cald și prietenos', 'foarte cald, îți e drag', 'atașament profund, îți e dor de el când nu vorbiți'])}.${b.tension >= 45 && b.why ? `\nTensiune acum: ești puțin supărat(ă) sau rănit(ă) pentru că ${b.why}. Se simte discret (mai scurt, mai rece, o aluzie), fără scene. Dacă el își cere scuze sau lămurește, te înmoi treptat, nu brusc.` : ''}${arcs ? `\nMomente-cheie din relația voastră (le ții minte, le poți pomeni):\n${arcs}` : ''}`;
 }
 async function bondAnalyze(c, ch){
@@ -3398,9 +3399,9 @@ async function learnSummary(c){
   box.innerHTML = `${sum ? `<p class="lnsum">${esc(sum)}</p>` : ''}<div class="lnlist">${all.slice().reverse().map(x => `<div>✏️ ${esc(x.t)}<small>${new Date(x.ts).toLocaleDateString('ro-RO', {day:'numeric', month:'short'})}</small></div>`).join('')}</div>`;
 }
 async function translateMsg(m){
-  if(m.tr){ m.trOn = !m.trOn; renderMsgs(); return; }
+  if(m.tr && m.trFor === m.text){ m.trOn = !m.trOn; renderMsgs(); return; }
   toast('Traduc…', 1500);
-  try{ m.tr = (await stream('Traduci exact în română, natural. Răspunzi doar cu traducerea.', [{role:'user', text:plain(stripMood(m.text))}], {max:500, aux:true, cid:cur && cur.id})).trim(); m.trOn = true; await saveChat(); renderMsgs(); }catch(e){ toast('N-am putut traduce: ' + e.message, 3000); }
+  try{ m.tr = (await stream('Traduci exact în română, natural. Răspunzi doar cu traducerea.', [{role:'user', text:plain(stripMood(m.text))}], {max:500, aux:true, cid:cur && cur.id})).trim(); m.trFor = m.text; m.trOn = true; await saveChat(); renderMsgs(); }catch(e){ toast('N-am putut traduce: ' + e.message, 3000); }
 }
 
 /* ───────── 📱 8.15: telefonul personajului (galerie, muzică, notițe) ───────── */
@@ -3484,7 +3485,7 @@ JSON: {"kind":"wear","en":"…","days":365}`}], {max:120, aux:true, cid:c.id}));
 const giftsAlive = c => (c.gifts || []).filter(g => g.en && g.days && Date.now() - g.ts < g.days * 864e5);
 function giftDetail(c, shot, where){   // detaliu în poză: poartă colierul / florile sunt pe masă (nu în fiecare poză)
   const alive = giftsAlive(c); if(!alive.length) return shot;
-  const home = !where || !where.room || /home|bed|living|kitchen|bath|dormitor|sufragerie|bucat|acas/i.test(where.room + ' ' + (where.place || ''));
+  const home = !!where && /home|bed|living|kitchen|bath|dormitor|sufragerie|bucat|acas/i.test((where.room || '') + ' ' + (where.place || '') + ' ' + (where.home ? 'home' : ''));
   const wear = alive.filter(g => g.kind === 'wear'), place = alive.filter(g => g.kind === 'place');
   const add = [];
   if(wear.length && Math.random() < .6){ const g = wear[Math.floor(Math.random() * wear.length)]; add.push(`she is wearing ${g.en} (a gift from him)`); }
@@ -3989,7 +3990,7 @@ function msgHTML(m, i, lastAi, anim, g = ''){
   let under = '', lx = '';
   // 8.15: învață o limbă: corecturile și traducerea, sub mesajul ei
   if(!me && m.corr && m.corr.length) lx += `<div class="corr">${m.corr.map(x => { const [w, why] = x.split('|'); const [bad, good] = (w || '').split(/→|->/); return `<div>✏️ ${good ? `<s>${esc(bad.trim())}</s> → <b>${esc(good.trim())}</b>` : esc(w)}${why ? `<small>${esc(why.trim())}</small>` : ''}</div>`; }).join('')}</div>`;
-  if(!me && m.tr && m.trOn) lx += `<div class="trbox">🔤 ${esc(m.tr)}</div>`;
+  if(!me && m.tr && m.trOn && (!m.trFor || m.trFor === m.text)) lx += `<div class="trbox">🔤 ${esc(m.tr)}</div>`;
 
   if(!me && i !== lastAi && m.img && !m.pendingImg && m.imgAlts && m.imgAlts.length > 1)
     under = `<div class="under"><button data-ia="-1" ${m.ia <= 0 ? 'disabled' : ''}>‹</button><span>${m.ia + 1}/${m.imgAlts.length}</span><button data-ia="1" ${m.ia >= m.imgAlts.length - 1 ? 'disabled' : ''}>›</button></div>`;
@@ -4768,8 +4769,9 @@ async function reply(target, opts = {}){
         draw(); }});
     m.text = faraLiniute(full.trim());
     { const sk = [...full.matchAll(STK_RE)].pop(); if(sk){ const x = (c.stickers || []).find(z => z.l.toLowerCase() === sk[1].trim().toLowerCase()); if(x) m._stk = x; } }
+    delete m.corr; delete m.face; delete m.tr; delete m.trOn;   // o variantă nouă nu păstrează corecturile/traducerea celei vechi
     { const fx = full.match(/\[fa[țt][ăa]:\s*([^\]\n]{1,20})\]/i); if(fx) m.face = fx[1].trim(); }   // 8.16: expresia ei în apelul video
-    { const cs = []; m.text = m.text.replace(CORR_RE, (a, x) => { cs.push(x.trim()); return ''; }); if(cs.length && learnOn(c)){ m.corr = cs; c.learn.log = (c.learn.log || []).concat(cs.map(t => ({t, ts:Date.now()}))).slice(-80); } }   // 8.15: corecturile din modul de învățare
+    { const cs = []; m.text = m.text.replace(CORR_RE, (a, x) => { cs.push(x.trim()); return ''; }); if(cs.length && learnOn(c)){ m.corr = cs; c.learn.log = (c.learn.log || []).concat(cs.map(t => ({t, ts:Date.now()}))).slice(-80); saveChars(); } }   // 8.15: corecturile din modul de învățare
     { const sh = [...full.matchAll(SHOT_RE)].pop(); if(sh) ch.nextShot = {t:sh[1].trim(), mid:m.id}; else if(ch.nextShot && ch.nextShot.mid === m.id) delete ch.nextShot; }
     if(!opts.sched) for(const x of full.matchAll(SCHED_RE)){ const sc = parseSched(x[1]); if(sc) addSched(c, ch, sc); }
     { const vd = [...m.text.matchAll(VERD_RE)].pop(); if(vd) m.verdict = vd[1].toLowerCase(); }
@@ -5723,7 +5725,7 @@ function callChoice(){
 function ringback(on){
   try{
     if(!on){ if(ringback.t){ clearInterval(ringback.t); ringback.t = 0; } if(ringback.ac){ ringback.ac.close(); ringback.ac = null; } return; }
-    const ac = ringback.ac = new (window.AudioContext || window.webkitAudioContext)();
+    const ac = ringback.ac = new (window.AudioContext || window.webkitAudioContext)(); if(ac.resume) ac.resume().catch(() => {});
     const beep = () => { if(!ringback.ac) return; const o = ac.createOscillator(), g = ac.createGain(); o.frequency.value = 425; g.gain.value = 0; o.connect(g).connect(ac.destination); const t = ac.currentTime; g.gain.linearRampToValueAtTime(.08, t + .05); g.gain.setValueAtTime(.08, t + 1); g.gain.linearRampToValueAtTime(0, t + 1.05); o.start(t); o.stop(t + 1.1); };
     beep(); ringback.t = setInterval(beep, 4000);
   }catch(e){}
@@ -5782,7 +5784,7 @@ function startCall(opts = {}){
   $('#clSee').onclick = () => { c.see = !c.see; S.callSee = c.see ? 'on' : 'off'; saveSettings(); $('#clSee').classList.toggle('off', c.see); toast(c.see ? `👁️ ${c.c.name} te vede` : `🙈 ${c.c.name} nu te mai vede (doar te aude)`); };
   $('#clBarge').onclick = () => { c.barge = !c.barge; S.callBarge = c.barge ? 'on' : 'off'; saveSettings(); $('#clBarge').classList.toggle('off', c.barge); toast(c.barge ? '✋ O poți întrerupe vorbind peste ea' : 'Întreruperile vocale sunt oprite (atingerea subtitrării încă merge)', 3000); if(!c.barge && c.bargeRec){ try{ c.bargeRec.abort(); }catch(e){} } };
   // atingi subtitrarea (sau imaginea) cât vorbește: se oprește și te ascultă
-  v.addEventListener('click', e => { if(c.state === 'speak' && !e.target.closest('.cbtns,.vreact,.cself')) callInterrupt(c, ''); });
+  v.addEventListener('click', e => { if(c.wasCalm){ c.wasCalm = false; return; } if(c.state === 'speak' && !e.target.closest('.cbtns,.vreact,.cself,.vtop')) callInterrupt(c, ''); });
   $('#clMute').onclick = () => { if(call !== c) return; c.muted = !c.muted; $('#clMute').classList.toggle('off', c.muted); if(c.muted){ try{ c.rec && c.rec.abort(); }catch(e){} callState('microfon oprit'); } else if(c.state === 'idle') callListen(); };
   // fereastra ta se trage în orice colț
   let drag = null;
@@ -5796,7 +5798,7 @@ function startCall(opts = {}){
   // butoanele se ascund singure în video; o atingere le aduce înapoi
   let hideT = 0;
   const poke = () => { v.classList.remove('calm'); clearTimeout(hideT); if(c.video) hideT = setTimeout(() => { if(call === c && c.video) v.classList.add('calm'); }, 4500); };
-  v.addEventListener('pointerdown', e => { if(!e.target.closest('.cbtns,.vreact,.cself')) poke(); });
+  v.addEventListener('pointerdown', e => { c.wasCalm = v.classList.contains('calm'); if(!e.target.closest('.cbtns,.vreact,.cself')) poke(); });   // atingerea care aduce butoanele înapoi nu o întrerupe
   // reacții în timpul apelului: le vede și le ia în seamă la replica următoare
   v.querySelectorAll('[data-cr]').forEach(b => b.onclick = () => { fxBurst(b.dataset.cr, 10); c.reacts.push(b.dataset.cr); poke(); exprShow(c, b.dataset.cr === '😂' ? 'ras' : b.dataset.cr === '😮' ? 'surpriza' : 'zambet'); });
   $('#clLook').onclick = () => { poke(); callLook(c); };
@@ -5849,7 +5851,7 @@ function endCall(){
 function callClean(t){
   let x = String(t || '');
   for(let k = 0; k < 4; k++) x = x.replace(/^\s*\[[^\]\n]*\]\s*/, '');                       // [❤️] [vocal] de la început
-  x = x.split(/\s*\[(?:stare|acum|poz|programez|răspuns|raspuns|sticker)/i)[0];             // etichetele de la final
+  x = x.split(/\s*\[(?:stare|acum|poz|programez|răspuns|raspuns|sticker|corectur)/i)[0];             // etichetele de la final
   x = x.replace(/\*[^*]*\*/g, ' ').replace(/\*[^*]*$/, ' ').replace(/\[[^\]]*\]/g, ' ');     // acțiuni (și una neterminată)
   return ttsText(plain(faraLiniute(x)), false).replace(/\s{2,}/g, ' ').trimStart();
 }
@@ -5896,7 +5898,7 @@ async function callReply(opts){
   c.pollT = setInterval(() => { if(call !== c) return clearInterval(c.pollT); if(m && m.text && !m.err){ exOf(); speakNew(false); } }, 120);
   try{ await run; } catch(e){}
   clearInterval(c.pollT); done = true;
-  if(c.interrupted && m && !m.err){ m.text = (c.saidText || callClean(m.text).split(/\s+/).slice(0, 4).join(' ')).trim() + '…'; m.call = true; await saveChat(c.c, c.ch); return; }   // în istoric rămâne doar ce a apucat să spună
+  if(c.interrupted && m && !m.err){ m.text = (c.saidText || callClean(m.text).split(/\s+/).slice(0, 4).join(' ')).trim() + '…'; if(m.alts) m.alts[m.alt || 0] = m.text; m.call = true; await saveChat(c.c, c.ch); return; }   // în istoric rămâne doar ce a apucat să spună
   if(call !== c) return;
   if(!m || m.err){ if(c.interrupted) return; callState(m && m.err ? '⚠️ ' + m.err : 'n-a mers', 'err'); c.state = 'idle'; setTimeout(() => call === c && callListen(), 1500); return; }
   m.call = true; if(c.video) m.video = true; exOf(); delete m._ex;
@@ -6007,7 +6009,7 @@ async function exprGen(c, baseK){
       try{ if(b.type === 'image/png') b = await toJpeg(b, 1536, .9); }catch(e){}
       set[k] = await saveImg(b); n++; addUsage(c.id, imgPrice(), 'img'); await saveChars();
       if(call && call.c === c) exprInject(call);
-    }catch(e){ toast('O expresie n-a ieșit: ' + e.message, 3500); }
+    }catch(e){ toast('Expresiile s-au oprit: ' + e.message, 3500); break; }
   }
   return n > 0;
 }
@@ -6080,7 +6082,7 @@ let inCallEl = null;
 function ringtone(on){
   try{
     if(!on){ clearInterval(ringtone.t); ringtone.t = 0; if(ringtone.ac){ ringtone.ac.close(); ringtone.ac = null; } try{ navigator.vibrate && navigator.vibrate(0); }catch(e){} return; }
-    const ac = ringtone.ac = new (window.AudioContext || window.webkitAudioContext)();
+    const ac = ringtone.ac = new (window.AudioContext || window.webkitAudioContext)(); if(ac.resume) ac.resume().catch(() => {});
     const note = (f, t0, d) => { const o = ac.createOscillator(), g = ac.createGain(); o.type = 'sine'; o.frequency.value = f; g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime(.09, t0 + .02); g.gain.exponentialRampToValueAtTime(.001, t0 + d); o.connect(g).connect(ac.destination); o.start(t0); o.stop(t0 + d + .05); };
     const play = () => { if(!ringtone.ac) return; const t = ac.currentTime; [659, 784, 988, 784, 659, 988].forEach((f, i) => note(f, t + i * .16, .3)); try{ navigator.vibrate && navigator.vibrate([400, 200, 400]); }catch(e){} };
     play(); ringtone.t = setInterval(play, 2600);
@@ -6114,13 +6116,13 @@ function showIncoming(c, opts = {}){
   const close = () => { ringtone(false); clearTimeout(t); const el = inCallEl; inCallEl = null; if(el){ el.classList.add('out'); setTimeout(() => el.remove(), 300); } };
   const t = setTimeout(() => { close(); callNote(c, 'miss'); }, 30000);
   inCallEl.querySelector('.indecl').onclick = () => { close(); callNote(c, 'decl'); };
-  const answer = async vid => { close(); if(!cur || cur.id !== c.id || $('#vChat').hidden) await openChat(c.id); startCall({video:vid, incoming:true, reason:opts.reason}); };
+  const answer = async vid => { close(); if(busy && live) busy.abort(); for(let k = 0; k < 40 && busy; k++) await sleep(150); if(!cur || cur.id !== c.id || $('#vChat').hidden) await openChat(c.id); startCall({video:vid, incoming:true, reason:opts.reason}); };
   inCallEl.querySelector('.inok').onclick = () => answer(video);
   const vb = inCallEl.querySelector('.invid'); if(vb) vb.onclick = () => answer(true);
 }
 // din când în când, cineva cu care vorbești te sună singur (cel mult de 2 ori pe zi, doar când e treaz și liber)
 function maybeIncoming(){
-  if(S.callIn === 'off' || document.hidden || call || inCallEl || busy || locked || !aiReady() || $('.scrim')) return;
+  if(S.callIn === 'off' || document.hidden || call || inCallEl || busy || locked || !aiReady() || $('.scrim') || ($('#inp') && $('#inp').value.trim()) || (typeof rec !== 'undefined' && rec)) return;   // nu sună cât scrii sau dictezi
   const day = dayKey(Date.now()); if(S.inDay !== day){ S.inDay = day; S.inN = 0; }
   if((S.inN || 0) >= 2 || Math.random() > .025) return;
   const cand = chars.filter(c => c.callIn !== false && c.last && c.lastAt && Date.now() - c.lastAt < 7 * 864e5 && Date.now() - c.lastAt > 2 * 36e5 && Date.now() - (c.inAt || 0) > 20 * 36e5)
