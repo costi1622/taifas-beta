@@ -12,6 +12,25 @@
     + "connect-src 'self' data: blob: https://api.anthropic.com https://generativelanguage.googleapis.com https://fal.run https://fal.media https://*.fal.media https://api.elevenlabs.io https://geocoding-api.open-meteo.com https://api.open-meteo.com " + x.join(' ') + "; "
     + "worker-src 'self'; manifest-src 'self'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'";
   document.write('<meta http-equiv="Content-Security-Policy" content="' + c + '">');
+  /* 8.20.1: dacă app.js lipsește sau pornirea dă eroare, spunem ce s-a întâmplat (în loc de ecranul de pornire blocat) */
+  var errs = [];
+  window.addEventListener('error', function(e){ errs.push((e.message || 'eroare') + (e.filename ? ' (' + String(e.filename).split('/').pop() + ':' + e.lineno + ')' : '')); });
+  window.addEventListener('unhandledrejection', function(e){ errs.push(String(e.reason && e.reason.message || e.reason || 'eroare')); });
+  window.addEventListener('load', function(){ setTimeout(function(){
+    var missing = !window.__taifas, stuck = !!document.getElementById('splash') && errs.length;
+    if(!missing && !stuck) return;
+    var d = document.createElement('div');
+    d.style.cssText = 'position:fixed;inset:0;z-index:99999;background:#0e0c12;color:#f1edf6;display:flex;flex-direction:column;justify-content:center;padding:28px;font:16px/1.5 system-ui,sans-serif';
+    var h = document.createElement('b'); h.textContent = 'Taifas nu a putut porni'; h.style.fontSize = '20px';
+    var t = document.createElement('p');
+    t.textContent = missing
+      ? 'Lipsește fișierul app.js de pe server. Urcă-l în același loc cu index.html (din versiunea 8.20 tot codul aplicației stă acolo). Dacă abia l-ai urcat, GitHub Pages poate întârzia 1-2 minute.'
+      : 'A apărut o eroare la pornire: ' + errs.slice(0, 3).join(' · ');
+    var btn = document.createElement('button'); btn.textContent = 'Reîncearcă';
+    btn.style.cssText = 'margin-top:14px;padding:12px 18px;border:0;border-radius:12px;background:#ff4f9a;color:#fff;font:inherit;align-self:flex-start';
+    btn.addEventListener('click', function(){ location.replace(location.pathname + '?r=' + Date.now()); });
+    d.appendChild(h); d.appendChild(t); d.appendChild(btn); document.body.appendChild(d);
+  }, 3500); });
 })();
 </script>
 <meta name="referrer" content="no-referrer">
