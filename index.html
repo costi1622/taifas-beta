@@ -1081,6 +1081,14 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
 .phempty{opacity:.7;text-align:center;margin-top:40px}
 .phx{position:fixed;top:calc(14px + var(--safe-t,0px));right:14px;width:42px;height:42px;border-radius:50%;background:#ffffff26;border:0;color:#fff;font-size:1.1rem;z-index:57}
 .phre{position:fixed;bottom:calc(14px + var(--safe-b,0px));left:50%;transform:translateX(-50%);background:#ffffff1f;border:1px solid #ffffff33;color:#fff;border-radius:99px;padding:8px 16px;font-size:.8rem;z-index:57}
+/* 8.16: uită-te + expresii */
+.callv.vid .cbtns{gap:4px;padding:8px 6px;max-width:calc(100vw - 16px)}
+.callv.vid .cbtns button{min-width:0;flex:1}
+.callv.vid .cbtns button svg{width:46px;height:46px;padding:13px}
+.callv.vid .cbtns button span{font-size:.6rem;white-space:nowrap}
+.vreact .vlook{width:auto;height:auto;border-radius:22px;padding:8px 10px;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:1.35rem;background:color-mix(in srgb,var(--acc) 45%,#0006)}
+.vreact .vlook small{font-size:.58rem;font-weight:700}
+.callv .cvid img.ex{transition:opacity .45s}
 #toast{position:fixed;left:50%;bottom:calc(90px + var(--safe-b));transform:translateX(-50%);background:#2a2433;border:1px solid var(--line);padding:10px 16px;border-radius:12px;z-index:99;max-width:90vw;font-size:.9rem;box-shadow:0 6px 20px #0008;transition:opacity .2s;pointer-events:none}
 #toast:empty{opacity:0}
 
@@ -1710,7 +1718,7 @@ input:focus,textarea:focus,select:focus{border-color:color-mix(in srgb,var(--acc
 
 <script>
 'use strict';
-const APP_VER = '8.15';
+const APP_VER = '8.16';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -4058,7 +4066,7 @@ const STK_RE = /\s*\[sticker:\s*([^\]\n]{2,40})\]/gi;
 const SHOT_RE = /\s*\[poz[ăa]:\s*([^\]]{8,2000})\]/gi;
 const SHOT_OPEN = /\s*\[poz[ăa]:[^\]]*$/i;   // etichetă începută, încă neînchisă (în timpul scrierii) sau tăiată
 const CORR_RE_S = /\s*\[corectur[ăa]:\s*[^\]\n]{3,300}\]/gi;
-const stripMood = t => String(t || '').replace(MOOD_RE, '').replace(PLOT_RE, '').replace(VERD_RE, '').replace(/\s*\[acum:[^\]]*$/i, '').replace(SCHED_RE, '').replace(SHOT_RE, '').replace(SHOT_OPEN, '').replace(STK_RE, '')
+const stripMood = t => String(t || '').replace(/\s*\[fa[țt][ăa]:\s*[^\]\n]{1,20}\]\s*/gi, ' ').replace(MOOD_RE, '').replace(PLOT_RE, '').replace(VERD_RE, '').replace(/\s*\[acum:[^\]]*$/i, '').replace(SCHED_RE, '').replace(SHOT_RE, '').replace(SHOT_OPEN, '').replace(STK_RE, '')
   .replace(CORR_RE_S, '').replace(/\s*\[c(o(r(e(c(t(u(r([aă](:[^\]\n]*)?)?)?)?)?)?)?)?)?$/i, '').replace(/\s*\[s(t(a(r(e(:[^\]\n]*)?)?)?)?)?$/i, '').replace(/\s*\[p(r(o(g(r(a(m(e(z(:[^\]\n]*)?)?)?)?)?)?)?)?)?$/i, '').replace(/\s*\[p(o(z([ăa](:[^\]\n]*)?)?)?)?$/i, '').replace(/\s*\[s(t(i(c(k(e(r(:[^\]\n]*)?)?)?)?)?)?)?$/i, '').trimEnd();
 // starea din antet: online / ultima dată + dispoziția (scrisă de personaj sau dedusă din ultimul răspuns)
 const MOODS = [
@@ -4760,6 +4768,7 @@ async function reply(target, opts = {}){
         draw(); }});
     m.text = faraLiniute(full.trim());
     { const sk = [...full.matchAll(STK_RE)].pop(); if(sk){ const x = (c.stickers || []).find(z => z.l.toLowerCase() === sk[1].trim().toLowerCase()); if(x) m._stk = x; } }
+    { const fx = full.match(/\[fa[țt][ăa]:\s*([^\]\n]{1,20})\]/i); if(fx) m.face = fx[1].trim(); }   // 8.16: expresia ei în apelul video
     { const cs = []; m.text = m.text.replace(CORR_RE, (a, x) => { cs.push(x.trim()); return ''; }); if(cs.length && learnOn(c)){ m.corr = cs; c.learn.log = (c.learn.log || []).concat(cs.map(t => ({t, ts:Date.now()}))).slice(-80); } }   // 8.15: corecturile din modul de învățare
     { const sh = [...full.matchAll(SHOT_RE)].pop(); if(sh) ch.nextShot = {t:sh[1].trim(), mid:m.id}; else if(ch.nextShot && ch.nextShot.mid === m.id) delete ch.nextShot; }
     if(!opts.sched) for(const x of full.matchAll(SCHED_RE)){ const sc = parseSched(x[1]); if(sc) addSched(c, ch, sc); }
@@ -5697,7 +5706,7 @@ let call = null;
 const CALL_FIX = u => `ești într-un apel vocal la telefon cu ${u}: scrie doar ce spui cu voce tare, natural și scurt (1-3 propoziții), ca la telefon, fără *acțiuni*, fără emoji și fără [vocal]; poți folosi „hm”, „păi”, un râs scurt scris ca text`;
 // 8.13: apel video: vă vedeți. Dacă primește un cadru din camera lui, îl vede ca într-un apel adevărat
 const CALL_FIX_V = u => `ești într-un apel video cu ${u}, vă vedeți pe ecran: scrie doar ce spui cu voce tare, natural și scurt (1-3 propoziții), fără *acțiuni*, fără emoji și fără [vocal]. Dacă primești o imagine, e ce vezi chiar acum prin camera lui: poți reacționa firesc la ce vezi (unde e, lumina, ce face, expresia lui), în treacăt, fără s-o descrii ca pe o poză și fără comentarii despre corpul lui`;
-const callFix = c => (c && c.video ? CALL_FIX_V : CALL_FIX)(S.userName.trim() || 'el');
+const callFix = c => (c && c.video ? CALL_FIX_V : CALL_FIX)(S.userName.trim() || 'el') + (c && c.video && c.exprReady ? '. Începe fiecare replică cu expresia feței tale de acum, exact așa: [față: zâmbet], [față: râs], [față: surpriză], [față: gânditoare], [față: tristă] sau [față: neutră]' : '');
 const ICO = {
   mic:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>',
   cam:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="14" height="12" rx="2"/><path d="m16 10 6-3v10l-6-3z"/></svg>',
@@ -5743,7 +5752,7 @@ function startCall(opts = {}){
     <div class="ctopc"><small id="clTime">00:00</small></div>
     <div class="cmain"><div class="cava">${cur.photo ? `<img data-k="${esc(photoNow(cur))}" alt="">` : `<span style="background:${colorFor(cur)}">${esc(cur.name[0])}</span>`}<i class="ring"></i></div>
       <h2>${esc(cur.name)}</h2><p id="clState">se apelează…</p><div class="ccap" id="clCap"></div></div>
-    <div class="vreact">${['❤️', '😂', '😮', '👍'].map(e => `<button data-cr="${e}">${e}</button>`).join('')}</div>
+    <div class="vreact"><button id="clLook" class="vlook" aria-label="Uită-te">👀<small>Uită-te</small></button>${['❤️', '😂', '😮', '👍'].map(e => `<button data-cr="${e}">${e}</button>`).join('')}${pics.length && S.imgProv !== 'none' && !exprSetOf(cur, pics[0]) ? '<button id="clExpr" aria-label="Expresii">🎭</button>' : ''}</div>
     <div class="cbtns">
       <button id="clMute" aria-label="Microfon">${ICO.mic}<span>Microfon</span></button>
       ${pics.length ? `<button id="clVid" aria-label="Video" class="${video ? 'off' : ''}">${ICO.cam}<span>Video</span></button>` : ''}
@@ -5789,14 +5798,19 @@ function startCall(opts = {}){
   const poke = () => { v.classList.remove('calm'); clearTimeout(hideT); if(c.video) hideT = setTimeout(() => { if(call === c && c.video) v.classList.add('calm'); }, 4500); };
   v.addEventListener('pointerdown', e => { if(!e.target.closest('.cbtns,.vreact,.cself')) poke(); });
   // reacții în timpul apelului: le vede și le ia în seamă la replica următoare
-  v.querySelectorAll('[data-cr]').forEach(b => b.onclick = () => { fxBurst(b.dataset.cr, 10); c.reacts.push(b.dataset.cr); poke(); });
+  v.querySelectorAll('[data-cr]').forEach(b => b.onclick = () => { fxBurst(b.dataset.cr, 10); c.reacts.push(b.dataset.cr); poke(); exprShow(c, b.dataset.cr === '😂' ? 'ras' : b.dataset.cr === '😮' ? 'surpriza' : 'zambet'); });
+  $('#clLook').onclick = () => { poke(); callLook(c); };
+  // 8.16: expresiile ei (generate o dată pentru imaginea de bază)
+  c.expr0 = pics[0]; if(exprSetOf(c.c, c.expr0)) exprInject(c);
+  const eb = $('#clExpr'); if(eb) eb.onclick = () => { if(eb.disabled) return; eb.disabled = true; eb.innerHTML = '<span class="spin"></span>'; toast(`🎭 Generez 5 expresii pentru ${c.c.name} (5 poze, o singură dată pentru imaginea asta). Apelul continuă.`, 4500); exprGen(c.c, c.expr0).then(ok => { if(ok){ toast('🎭 Expresiile sunt gata: fața ei reacționează acum'); if(call === c) exprInject(c); } else if(eb.isConnected){ eb.disabled = false; eb.textContent = '🎭'; } }); };
+  c.watchT = setInterval(() => callWatch(c), 2000);
   // „vorbește”: imaginea tresare pe cuvinte, iar subtitrarea se aprinde cuvânt cu cuvânt
   window.__talk = (e, off = 0) => {
     const cv = v.querySelector('.cvid'); if(cv){ cv.classList.add('w'); clearTimeout(window.__talkT); window.__talkT = setTimeout(() => cv.classList.remove('w'), 110); }
     if(e && typeof e.charIndex === 'number'){ const at = off + e.charIndex; v.querySelectorAll('#clCap .kw').forEach(w => w.classList.toggle('lit', +w.dataset.i <= at)); }
   };
   // „camera” ei trece încet între pozele din același loc
-  if(pics.length > 1) c.picT = setInterval(() => { if(call !== c || c.state === 'speak') return; const ims = v.querySelectorAll('.cvid img'); ims[c.pi].classList.remove('on'); c.pi = (c.pi + 1) % ims.length; ims[c.pi].classList.add('on'); }, 22000);
+  if(pics.length > 1) c.picT = setInterval(() => { if(call !== c || c.state === 'speak') return; if(c.exprReady) return; const ims = v.querySelectorAll('.cvid img:not(.ex)'); ims[c.pi].classList.remove('on'); c.pi = (c.pi + 1) % ims.length; ims[c.pi].classList.add('on'); }, 22000);
   if(video) camOn();
   // sună întâi, apoi răspunde (la un apel primit ești deja conectat)
   c.state = 'ring'; callState(c.incoming ? 'conectare…' : 'se apelează…', 'ring'); if(!c.incoming) ringback(true);
@@ -5817,7 +5831,7 @@ function endCall(){
   if(!call) return;
   const c = call;
   call = null; c.alive = false; clearInterval(c.tick); clearInterval(c.picT); window.__talk = null; ringback(false); callWake(c, false);
-  try{ c.bargeRec && c.bargeRec.abort(); }catch(e){} clearInterval(c.pollT);
+  try{ c.bargeRec && c.bargeRec.abort(); }catch(e){} clearInterval(c.pollT); clearInterval(c.watchT); clearTimeout(c.exT);
   if(c.cam){ try{ c.cam.getTracks().forEach(t => t.stop()); }catch(e){} }
   try{ c.rec && c.rec.abort(); }catch(e){}
   try{ speechSynthesis.cancel(); }catch(e){}
@@ -5878,19 +5892,21 @@ async function callReply(opts){
     const off = capAppend(c, rest);
     q.push(callSay(c, rest, off));
   };
-  c.pollT = setInterval(() => { if(call !== c) return clearInterval(c.pollT); if(m && m.text && !m.err) speakNew(false); }, 120);
+  const exOf = () => { const x = m && (m.face ? [0, m.face] : m.text && m.text.match(/\[fa[țt][ăa]:\s*([^\]\n]{1,20})\]/i)); if(x && !m._ex){ m._ex = 1; exprShow(c, x[1].trim()); } };
+  c.pollT = setInterval(() => { if(call !== c) return clearInterval(c.pollT); if(m && m.text && !m.err){ exOf(); speakNew(false); } }, 120);
   try{ await run; } catch(e){}
   clearInterval(c.pollT); done = true;
   if(c.interrupted && m && !m.err){ m.text = (c.saidText || callClean(m.text).split(/\s+/).slice(0, 4).join(' ')).trim() + '…'; m.call = true; await saveChat(c.c, c.ch); return; }   // în istoric rămâne doar ce a apucat să spună
   if(call !== c) return;
   if(!m || m.err){ if(c.interrupted) return; callState(m && m.err ? '⚠️ ' + m.err : 'n-a mers', 'err'); c.state = 'idle'; setTimeout(() => call === c && callListen(), 1500); return; }
-  m.call = true; if(c.video) m.video = true;
+  m.call = true; if(c.video) m.video = true; exOf(); delete m._ex;
   speakNew(true);
   if(!q.length && !c.interrupted){ c.state = 'idle'; callListen(); return; }
   await Promise.all(q);
   if(call !== c || c.interrupted) return;
   $('#clCap').querySelectorAll('.kw').forEach(w => w.classList.add('lit'));
   try{ c.bargeRec && c.bargeRec.abort(); }catch(e){} c.bargeRec = null;
+  c.lastSpeakEnd = Date.now(); c.ref = null;
   c.state = 'idle'; callListen();
 }
 // 8.14: o întrerupi vorbind peste ea (sau atingând subtitrarea): se oprește și te ascultă
@@ -5932,10 +5948,87 @@ function callBarge(c){
   };
   try{ r.start(); }catch(e){ c.bargeRec = null; }
 }
-function callFrame(c){   // un cadru mic din camera ta, doar pentru replica asta (nu se salvează nicăieri)
+/* ───────── 👀 8.16: ce vede ea pe camera ta + expresiile ei ───────── */
+const EXPR = {zambet:['😊', 'a big warm genuine smile, eyes smiling'], ras:['😂', 'laughing out loud, eyes squinting with joy, head slightly tilted back'], surpriza:['😮', 'surprised and amazed, eyebrows raised, mouth slightly open'], ganditoare:['🤔', 'thoughtful, a slight smile, eyes looking a little to the side'], trista:['🥺', 'a little sad and touched, soft eyes, gentle pout']};
+const EXPR_ALIAS = {zambet:'zambet', 'zâmbet':'zambet', ras:'ras', 'râs':'ras', surpriza:'surpriza', 'surpriză':'surpriza', ganditoare:'ganditoare', 'gânditoare':'ganditoare', 'gânditor':'ganditoare', ganditor:'ganditoare', trista:'trista', 'tristă':'trista', trist:'trista', neutra:'', 'neutră':'', neutru:''};
+const exprSetOf = (c, k) => c && c.expr && c.expr[k] && Object.keys(c.expr[k]).length >= 3 ? c.expr[k] : null;
+function lumaThumb(sv){
+  const cv = lumaThumb.cv || (lumaThumb.cv = document.createElement('canvas')); cv.width = 32; cv.height = 24;
+  const g = cv.getContext('2d', {willReadFrequently:true}); g.drawImage(sv, 0, 0, 32, 24);
+  const d = g.getImageData(0, 0, 32, 24).data, out = new Uint8Array(32 * 24);
+  for(let i = 0; i < out.length; i++) out[i] = (d[i * 4] * 3 + d[i * 4 + 1] * 6 + d[i * 4 + 2]) / 10;
+  return out;
+}
+const lumaDiff = (a, b) => { let s = 0; for(let i = 0; i < a.length; i++) s += Math.abs(a[i] - b[i]); return s / a.length; };
+// cât taci, se uită la tine: dacă în cadru apare ceva nou (alt loc, un animal, un obiect arătat), comentează singură
+async function callWatch(c){
+  if(call !== c || !c.video || !c.see || !c.cam || c.state !== 'listen' || c.looking || c.interim) return;
+  const sv = $('.callv .cself'); if(!sv || !sv.videoWidth) return;
+  const th = lumaThumb(sv);
+  if(!c.ref){ c.ref = th; return; }
+  if(lumaDiff(th, c.ref) < 16){ c.chg = 0; return; }
+  if((c.chg = (c.chg || 0) + 1) < 2) return;                                   // schimbarea trebuie să țină ~4 s
+  if(Date.now() - (c.lastLook || c.t0) < 30e3 || (c.looks || 0) >= 6 || Date.now() - (c.lastSpeakEnd || 0) < 8e3) return;
+  c.looking = true; c.ref = th; c.chg = 0;
+  const img = callFrame(c);
   try{
-    const sv = $('.callv .cself'); if(!c.video || !c.see || !c.cam || !sv || !sv.videoWidth) return null;
-    const k = 512 / Math.max(sv.videoWidth, sv.videoHeight), cv = document.createElement('canvas');
+    if(!img) return;
+    const j = parseJSON(await stream('Ești ochii unui personaj într-un apel video. Răspunzi DOAR cu JSON valid.', [{role:'user', image:img, text:
+`Imaginea e ce se vede acum în camera lui. Înainte se vedea: ${c.lastSeen || 'nu știu'}.
+E ceva NOU și demn de remarcat de un prieten într-un apel video (a apărut un animal, cineva, un obiect pe care i-l arată, a schimbat locul sau camera, face ceva amuzant, s-a schimbat mult lumina)? Mici mișcări sau aceeași scenă nu contează.
+JSON: {"nou":false,"ce":"ce se vede acum, 4-12 cuvinte, în română"}`}], {max:120, aux:true, cid:c.c.id}));
+    c.lastSeen = String(j.ce || c.lastSeen || '').slice(0, 120);
+    if(!j.nou || call !== c || c.state !== 'listen' || c.interim) return;
+    c.lastLook = Date.now(); c.looks = (c.looks || 0) + 1;
+    callReply({liveImg:img, pro:true, note:`(Notă de regie, nu o menționa ca atare: în camera lui tocmai ai observat ceva nou: ${c.lastSeen}. Reacționează spontan și scurt, ca într-un apel video: o exclamație, o întrebare sau un comentariu firesc despre ce vezi. ${callFix(c)}.)`});
+  }catch(e){} finally { c.looking = false; }
+}
+// „👀 Uită-te”: îi arăți ceva și comentează exact ce vede
+function callLook(c){
+  if(call !== c || !c.video) return;
+  if(!c.cam){ toast('Pornește întâi camera (butonul Video).'); return; }
+  if(c.state === 'think'){ toast('Stai puțin, se gândește…'); return; }
+  if(c.state === 'speak'){ c.interrupted = true; try{ speechSynthesis.cancel(); }catch(e){} if(busy && live && live.ch === c.ch) busy.abort(); }
+  const img = callFrame(c, 768, true); if(!img){ toast('Camera nu e gata încă.'); return; }
+  fxBurst('👀', 6); c.lastLook = Date.now(); c.ref = null;
+  callReply({liveImg:img, pro:true, note:`(Notă de regie, nu o menționa ca atare: ${S.userName.trim() || 'el'} îți arată ceva la cameră chiar acum (vezi imaginea). Uită-te atent și spune concret ce vezi și ce părere ai, în felul tău, scurt, ca într-un apel video. ${callFix(c)}.)`});
+}
+// expresiile ei, generate o singură dată pentru imaginea de bază a apelului
+async function exprGen(c, baseK){
+  if(S.imgProv === 'none'){ toast('Pornește pozele din Setări.'); return false; }
+  const base = await DB.get(baseK); if(!base) return false;
+  c.expr = c.expr || {}; const set = c.expr[baseK] = c.expr[baseK] || {};
+  let n = 0;
+  for(const [k, [, en]] of Object.entries(EXPR)){
+    if(set[k]) continue;
+    if(capLeft() < (neurPerPhoto() || 5000)){ toast('Limita zilnică de poze a fost atinsă; continui mâine.', 3500); break; }
+    try{
+      let b = await genImage(`Edit this exact photo: the same person, the same face and identity, the same clothes, the same pose, background, framing and light. Change ONLY the facial expression to: ${en}. Photorealistic, natural, no other changes.`, base, null, null, {force:{two:false, px:768}});
+      try{ if(b.type === 'image/png') b = await toJpeg(b, 1536, .9); }catch(e){}
+      set[k] = await saveImg(b); n++; addUsage(c.id, imgPrice(), 'img'); await saveChars();
+      if(call && call.c === c) exprInject(call);
+    }catch(e){ toast('O expresie n-a ieșit: ' + e.message, 3500); }
+  }
+  return n > 0;
+}
+function exprInject(c){   // adaugă în apel imaginile cu expresii deja gata
+  const set = c.expr0 && exprSetOf(c.c, c.expr0); const cv = $('.callv .cvid'); if(!set || !cv) return;
+  for(const [k, key] of Object.entries(set)) if(!cv.querySelector(`img[data-ex="${k}"]`)) cv.insertAdjacentHTML('afterbegin', `<img class="ex" data-ex="${k}" data-k="${esc(key)}" alt="">`);
+  hydrate(cv); c.exprReady = true; clearInterval(c.picT);
+  const b = $('#clExpr'); if(b) b.remove();
+}
+function exprShow(c, k){
+  const cv = $('.callv .cvid'); if(!cv || !c.exprReady) return;
+  k = EXPR_ALIAS[String(k || '').toLowerCase()] ?? '';
+  const target = k && cv.querySelector(`img[data-ex="${k}"]`) || cv.querySelector('img:not(.ex)');
+  if(!target || target.classList.contains('on')) return;
+  cv.querySelectorAll('img').forEach(i => i.classList.toggle('on', i === target));
+  clearTimeout(c.exT); if(k) c.exT = setTimeout(() => { if(call === c && c.state !== 'speak') exprShow(c, ''); }, 9000);
+}
+function callFrame(c, px = 512, force = false){   // un cadru mic din camera ta, doar pentru replica asta (nu se salvează nicăieri)
+  try{
+    const sv = $('.callv .cself'); if(!c.video || !(c.see || force) || !c.cam || !sv || !sv.videoWidth) return null;
+    const k = px / Math.max(sv.videoWidth, sv.videoHeight), cv = document.createElement('canvas');
     cv.width = Math.round(sv.videoWidth * k); cv.height = Math.round(sv.videoHeight * k);
     const g = cv.getContext('2d'); if(c.facing === 'user'){ g.translate(cv.width, 0); g.scale(-1, 1); }
     g.drawImage(sv, 0, 0, cv.width, cv.height);
@@ -5959,12 +6052,12 @@ function callListen(quiet){
   let final = '', interim = '', lastT = 0;
   c.rec = r; c.state = 'listen'; c.interrupted = false; callState('te ascultă…', 'listen');
   if(!quiet && S.callTick !== 'off') callTick();
-  r.onresult = e => { let t = ''; for(let i = 0; i < e.results.length; i++){ t += e.results[i][0].transcript; if(e.results[i].isFinal) final = t; } interim = t.trim(); lastT = Date.now(); $('#clCap').innerHTML = `<span class="cme">${esc(interim)}</span>`; };
+  r.onresult = e => { let t = ''; for(let i = 0; i < e.results.length; i++){ t += e.results[i][0].transcript; if(e.results[i].isFinal) final = t; } interim = t.trim(); c.interim = interim; lastT = Date.now(); $('#clCap').innerHTML = `<span class="cme">${esc(interim)}</span>`; };
   // 8.14: nu mai așteptăm pauza lungă a telefonului: după ~0,85 s de liniște încheiem noi
   const watch = setInterval(() => { if(c.rec !== r){ clearInterval(watch); return; } if(interim && lastT && Date.now() - lastT > 850){ clearInterval(watch); try{ r.stop(); }catch(e){} } }, 150);
   r.onerror = e => { if(e.error === 'not-allowed' || e.error === 'service-not-allowed'){ toast('Permite accesul la microfon pentru Taifas.', 3500); endCall(); history.back(); } };
   r.onend = async () => {
-    clearInterval(watch);
+    clearInterval(watch); c.interim = '';
     if(call !== c || c.rec !== r) return;
     c.rec = null;
     const t = (final || interim).trim();
