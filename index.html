@@ -1652,7 +1652,7 @@ input:focus,textarea:focus,select:focus{border-color:color-mix(in srgb,var(--acc
       <label>Câte mesaje recente primește personajul (restul e în rezumat)</label>
       <div class="seg" id="stCtx"><button data-v="20">Economic · 20</button><button data-v="30">Normal · 30</button><button data-v="60">Mare · 60</button></div>
       <label>Butonul ↻ de sub răspuns</label>
-      <div class="seg" id="stRegen"><button data-v="off">O variantă nouă</button><button data-v="on">🎰 3 variante la alegere</button></div>
+      <div class="seg" id="stRegen"><button data-v="off">O variantă nouă</button><button data-v="on">🎰 +2 variante la cerere</button></div>
       <label>Sugestii de răspuns</label>
       <div class="seg" id="stSugg"><button data-v="off">Doar la 💡</button><button data-v="auto">După fiecare mesaj</button></div>
       <label>Personajul îți scrie primul după 8 ore de pauză</label>
@@ -1731,7 +1731,7 @@ input:focus,textarea:focus,select:focus{border-color:color-mix(in srgb,var(--acc
 
 <script>
 'use strict';
-const APP_VER = '8.18.1';
+const APP_VER = '8.19';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -1743,6 +1743,7 @@ let toastT;
 function toast(t, ms = 2600){ const el = $('#toast'); el.textContent = t; clearTimeout(toastT); toastT = setTimeout(() => el.textContent = '', ms); }
 
 /* ───────── stocare: IndexedDB, un singur depozit cheie→valoare ───────── */
+const LATER = {};   // 8.19: ce face fiecare sarcină de fundal cu rezultatul ei (direct sau din lotul Batch)
 const DB = {
   db: null,
   open(){ return new Promise((res, rej) => {
@@ -1968,11 +1969,12 @@ async function stream(sys, msgs, opts = {}){
     throw e;
   }
 }
-async function streamOnce(sys, msgs, {max = 700, signal, onText, cid, aux, meta, tag} = {}){
+async function streamOnce(sys, msgs, {max = 700, signal, onText, cid, aux, meta, tag, cold} = {}){
   const A = S.prov === 'anthropic';
   const model = modelFor(aux);
   // 8.17: conversația rămâne în cache 1 oră (nu 5 minute): la pauze mai lungi istoricul se recitește la 5-10% din preț
-  const ttl = !aux && S.cacheTtl !== '5m' ? '1h' : '';
+  // 8.19: primul mesaj după o pauză (cache-ul a expirat oricum) scrie la 1,25× (5 min); de la al doilea trece pe 1 oră
+  const ttl = !aux && !cold && S.cacheTtl !== '5m' ? '1h' : '';
   if(A && !S.key) throw new Error('Lipsește cheia Anthropic. Deschide Setări.');
   if(!A && !(S.oaBase && S.oaModel)) throw new Error('Completează adresa și modelul în Setări.');
   const res = A
@@ -2995,29 +2997,36 @@ function renderFeed(){
 async function feedRefresh(manual){
   if(feedBusy || S.feed === 'off' || !aiReady()) return;
   const h = new Date().getHours();
-  const due = chars.filter(c => c.lastAt && Date.now() - c.lastAt < 14 * 864e5 && (manual || !(Date.now() - (feedTried[c.id] || 0) < 36e5)))
+  const due = chars.filter(c => c.lastAt && Date.now() - c.lastAt < 14 * 864e5 && (manual || !(Date.now() - (feedTried[c.id] || 0) < 36e5)) && !laterHas('status', c.id))
     .filter(c => { const last = feedCache.filter(p => p.cid === c.id).sort((a, b) => b.ts - a.ts)[0]; return !last || Date.now() - last.ts > (manual ? 3 : 8) * 36e5; })
     .filter(c => { const lf = lifeNow(c); return manual || !(lf && lf.b === 2) && h >= 7; })
     .sort((a, b) => (b.lastAt || 0) - (a.lastAt || 0)).slice(0, 4);
   if(!due.length){ if(manual) toast('Nimic nou încă. Personajele postează cam de două ori pe zi.'); return; }
   feedBusy = true; if(homeTab === 'feed' && !$('#vHome').hidden) renderFeed();
-  try{ for(const c of due){ feedTried[c.id] = Date.now(); try{ await makePost(c); }catch(e){ if(manual) toast(c.name + ': ' + e.message, 3500); } if(homeTab === 'feed' && !$('#vHome').hidden) renderFeed(); } }
+  try{ for(const c of due){ feedTried[c.id] = Date.now(); try{ await makePost(c, !manual); }catch(e){ if(manual) toast(c.name + ': ' + e.message, 3500); } if(homeTab === 'feed' && !$('#vHome').hidden) renderFeed(); } }
   finally { feedBusy = false; if(homeTab === 'feed' && !$('#vHome').hidden) renderFeed(); feedDot(); }
 }
-async function makePost(c){
+async function makePost(c, bg){
   const u = S.userName.trim() || 'el', lf = lifeNow(c);
   const ch = await loadChat(c, c.thread || 'main');
   const recent = ch.msgs.filter(m => m.text && !m.err).slice(-6).map(m => (m.role === 'user' ? u : c.name) + ': ' + plain(stripMood(m.text)).slice(0, 200)).join('\n');
   const prev = feedCache.filter(p => p.cid === c.id).slice(-3).map(p => '- ' + p.text).join('\n');
   const wantPic = S.feed === 'poze' && canAutoPhoto(c);
-  const out = await stream(`Ești ${c.name}. ${c.persona ? c.persona.slice(0, 900) : ''}`, [{role:'user', text:
+  const SYS = `Ești ${c.name}. ${c.persona ? c.persona.slice(0, 900) : ''}`, TXT =
 `${nowNote()}${charTimeNote(c)} ${lf ? '(După programul tău, acum: ' + lf.w + '.)' : ''}${(() => { const ev = (c.evOff ? [] : (c.ev || [])).find(e => e.d === dayKey(Date.now())) || evPast(c).find(e => daysSince(new Date(e.d + 'T12:00').getTime()) === 1); return ev ? ` (${evDayLabel(ev.d)} ai: ${ev.t}${ev.h ? ', la ' + ev.h : ''}; poți posta despre asta, dacă se potrivește cu ora)` : ''; })()}${charBdayToday(c) ? ' (Azi e ziua ta de naștere.)' : ''}
 Postezi un status scurt pe rețeaua ta, ca pe Instagram sau WhatsApp: ce faci acum, ce gândești sau ce ți s-a întâmplat azi. 1-3 propoziții, la persoana I, natural, în română, poate cu un emoji. Nu te adresa direct lui ${u} și nu pomeni conversațiile voastre explicit (poate doar o aluzie subtilă).${prev ? '\nStatusurile tale recente (nu te repeta):\n' + prev : ''}${recent ? '\nCa să știi ce mai e nou, ultimele mesaje cu ' + u + ':\n' + recent : ''}
-Răspunde STRICT cu JSON: {"text":"statusul"${wantPic ? ',"poza":"one English sentence: the photo attached to the status (framing, place, activity, outfit, light), no face description"' : ''}}`}], {max:350, cid:c.id, aux:true, tag:'statusuri'});
+Răspunde STRICT cu JSON: {"text":"statusul"${wantPic ? ',"poza":"one English sentence: the photo attached to the status (framing, place, activity, outfit, light), no face description"' : ''}}`;
+  const d = {wantPic, life:lf ? lf.w : ''};
+  if(bg) return later('status', c.id, SYS, TXT, {max:350, tag:'statusuri'}, d);   // 8.19: din fundal, prin lot (−50%)
+  return LATER.status(await stream(SYS, [{role:'user', text:TXT}], {max:350, cid:c.id, aux:true, tag:'statusuri'}), d, c.id);
+}
+LATER.status = async (out, d, cid) => {
+  const c = charById(cid); if(!c) return;
+  const wantPic = d.wantPic;
   const j = parseJSON(out);
   const text = faraLiniute(String(j.text || '').trim()).slice(0, 400);
   if(text.length < 5) throw new Error('statusul n-a ieșit');
-  const p = {id:uid(), cid:c.id, ts:Date.now(), text, life:lf ? lf.w : ''};
+  const p = {id:uid(), cid:c.id, ts:Date.now(), text, life:d.life || ''};
   if(wantPic && j.poza && capLeft() >= (neurPerPhoto() || 5000)){
     try{
       const shot = String(j.poza).trim().replace(/[.\s]+$/, '');
@@ -3028,7 +3037,8 @@ Răspunde STRICT cu JSON: {"text":"statusul"${wantPic ? ',"poza":"one English se
   }
   feedCache.push(p); await saveFeed();
   socialComments(p);
-}
+  if(homeTab === 'feed' && !$('#vHome').hidden) renderFeed(); feedDot();
+};
 /* ───────── 🎂 8.8: viața personajelor (agenda, zile de naștere) ───────── */
 const LUNI = ['ianuarie', 'februarie', 'martie', 'aprilie', 'mai', 'iunie', 'iulie', 'august', 'septembrie', 'octombrie', 'noiembrie', 'decembrie'];
 const mdOf = s => { const m = String(s || '').match(/(\d{1,2})-(\d{1,2})$/); return m ? m[1].padStart(2, '0') + '-' + m[2].padStart(2, '0') : ''; };
@@ -3046,21 +3056,27 @@ function agendaFor(c){   // pentru promptul de sistem: date absolute, ca să nu 
   if(!c.bday && !past.length && !fut.length) return '';
   return `## Viața ta în zilele astea\n${c.bday ? 'Ziua ta de naștere: ' + mdLabel(c.bday) + '.\n' : ''}${past.length ? 'Ce ai avut deja:\n' + past.map(fmtE).join('\n') + '\n' : ''}${fut.length ? 'Ce urmează:\n' + fut.map(fmtE).join('\n') + '\n' : ''}Sunt lucruri reale din viața ta: le pomenești firesc, ca orice om (îți faci planuri, ai emoții înainte, povestești după, cu detalii concrete). Nu le schimba datele și nu le înșira pe toate.`;
 }
-async function genEvents(c){
+async function genEvents(c, bg){
   c.evTried = Date.now();
   const today = dayKey(Date.now()), zile = [];
   for(let i = 1; i <= 14; i++){ const d = new Date(Date.now() + i * 864e5); zile.push(dayKey(d.getTime()) + ' (' + d.toLocaleDateString('ro-RO', {weekday:'long'}) + ')'); }
   const fut = evFuture(c).map(e => '- ' + e.d + ': ' + e.t).join('\n'), past = evPast(c).slice(0, 5).map(e => '- ' + e.d + ': ' + e.t).join('\n');
   const rut = c.life && !c.lifeOff ? (c.life.wk || []).map(x => x.f + '-' + x.t + ' ' + x.w).join('; ') : '';
-  const out = await stream('Construiești viața unui personaj de poveste, realist și coerent. Răspunzi DOAR cu JSON valid.', [{role:'user', text:
+  const SYS = 'Construiești viața unui personaj de poveste, realist și coerent. Răspunzi DOAR cu JSON valid.', TXT =
 `Personaj: ${c.name}. ${c.tag ? 'Pe scurt: ' + c.tag + '. ' : ''}${c.city ? 'Locuiește în ' + c.city + '. ' : ''}${c.persona ? 'Descriere: ' + c.persona.slice(0, 1400) : ''}
 ${rut ? 'Programul obișnuit: ' + rut + '\n' : ''}Azi e ${today}. Zilele următoare: ${zile.join(', ')}.
 ${fut ? 'Are deja în plan (nu repeta):\n' + fut + '\n' : ''}${past ? 'A avut recent (poți continua firesc, cu urmări):\n' + past + '\n' : ''}
 Scrie 3-5 lucruri care i se vor întâmpla în următoarele 14 zile, în română, cum ar avea un om real: mai ales lucruri mărunte (o cină cu o prietenă numită, dentistul, un concert, o ședință importantă, cumpărături pentru ceva anume, vizita părinților), cel mult unul mai mare (o excursie de weekend, un interviu, o petrecere). Potrivite cu cine e, cu jobul și orașul lui. Fiecare: ziua (AAAA-LL-ZZ, din lista de mai sus), ora (HH:MM sau gol), ce (5-14 cuvinte, concret, cu nume de oameni și locuri inventate, fără numele personajului).
-${c.bday ? '' : 'Alege și ziua lui de naștere (LL-ZZ), potrivită cu descrierea dacă o pomenește, altfel una plauzibilă.\n'}Fără ghilimele în texte. JSON: {${c.bday ? '' : '"zi_nastere":"LL-ZZ",'}"evenimente":[{"zi":"AAAA-LL-ZZ","ora":"19:30","ce":"…","mare":false}]}`}], {max:900, cid:c.id, aux:true});
+${c.bday ? '' : 'Alege și ziua lui de naștere (LL-ZZ), potrivită cu descrierea dacă o pomenește, altfel una plauzibilă.\n'}Fără ghilimele în texte. JSON: {${c.bday ? '' : '"zi_nastere":"LL-ZZ",'}"evenimente":[{"zi":"AAAA-LL-ZZ","ora":"19:30","ce":"…","mare":false}]}`;
+  const ok = zile.map(z => z.slice(0, 10));
+  if(bg) return later('planuri', c.id, SYS, TXT, {max:900, tag:'fundal'}, {ok});   // 8.19: din fundal, prin lot
+  return LATER.planuri(await stream(SYS, [{role:'user', text:TXT}], {max:900, cid:c.id, aux:true, tag:'fundal'}), {ok}, c.id);
+}
+LATER.planuri = async (out, d, cid) => {
+  const c = charById(cid); if(!c) return;
   const j = parseJSON(out);
   if(!c.bday && /^\d{2}-\d{2}$/.test(String(j.zi_nastere || ''))) c.bday = j.zi_nastere;
-  const ok = new Set(zile.map(z => z.slice(0, 10)));
+  const ok = new Set(d.ok);
   const add = (Array.isArray(j.evenimente) ? j.evenimente : []).map(e => ({id:uid(), d:String(e.zi || '').slice(0, 10), h:/^\d{2}:\d{2}$/.test(String(e.ora || '')) ? e.ora : '', t:faraLiniute(String(e.ce || '').trim()).slice(0, 120), big:e.mare ? 1 : 0}))
     .filter(e => ok.has(e.d) && e.t.length > 4);
   if(!add.length) throw new Error('Planurile n-au ieșit. Mai încearcă.');
@@ -3074,7 +3090,7 @@ async function lifeSweep(){
   try{
     const due = chars.filter(c => !c.evOff && c.lastAt && Date.now() - c.lastAt < 14 * 864e5 && evFuture(c).filter(e => daysSince(new Date(e.d + 'T12:00').getTime()) < -1).length < 2 && Date.now() - (c.evTried || 0) > 20 * 36e5)
       .sort((a, b) => (b.lastAt || 0) - (a.lastAt || 0)).slice(0, 2);
-    for(const c of due){ try{ await genEvents(c); }catch(e){} }
+    for(const c of due){ try{ await genEvents(c, true); }catch(e){} }
     if(S.social !== 'off') for(const c of chars.filter(x => x.lastAt && Date.now() - x.lastAt < 14 * 864e5).slice(0, 3)){ try{ await ensureCircle(c); }catch(e){} }
   } finally { lifeSweepBusy = false; }
 }
@@ -3299,11 +3315,15 @@ async function ensureCircle(c){
   if(Date.now() - (c.socTried || 0) < 20 * 36e5) return;
   c.socTried = Date.now();
   const d = o => `${o.name}${o.tag ? ' (' + o.tag + ')' : ''}${o.city ? ', locuiește în ' + o.city : ''}`;
-  const out = await stream('Construiești legăturile dintre personajele unei povești, realist. Răspunzi DOAR cu JSON valid.', [{role:'user', text:
+  await later('cerc', c.id, 'Construiești legăturile dintre personajele unei povești, realist. Răspunzi DOAR cu JSON valid.',
 `Personajul principal: ${d(c)}.${c.persona ? ' Pe scurt: ' + c.persona.slice(0, 400) : ''}
 Alte personaje: ${miss.map(d).join('; ')}.
 Pentru fiecare dintre ele, inventează cum se cunosc cu ${c.name}: 2-7 cuvinte, la plural, valabil în ambele sensuri (ex. „prietene din liceu”, „vecini de bloc”, „s-au cunoscut online, pe un grup de fotografie”, „foste colege de serviciu”). Plauzibil cu orașele lor (dacă sunt în țări diferite, s-au cunoscut online sau într-o călătorie). Fără relații romantice între ei. Fără ghilimele în texte.
-JSON: {${miss.map(o => '"' + o.name.replace(/"/g, '') + '":"…"').join(',')}}`}], {max:300, aux:true, cid:c.id});
+JSON: {${miss.map(o => '"' + o.name.replace(/"/g, '') + '":"…"').join(',')}}`, {max:300, tag:'fundal'}, {miss:miss.map(o => o.id)});
+}
+LATER.cerc = async (out, d, cid) => {
+  const c = charById(cid); if(!c) return;
+  const miss = d.miss.map(charById).filter(Boolean);
   const j = parseJSON(out); S.socRel = S.socRel || {};
   for(const o of miss){ const t = faraLiniute(String(j[o.name] || '').trim()).slice(0, 80); if(t.length > 3) S.socRel[pairKey(c.id, o.id)] = t; }
   saveSettings();
@@ -3330,15 +3350,19 @@ async function socialComments(p){
   for(const [k, o] of cand.entries()){
     if(Math.random() > (k ? .4 : .75)) continue;
     try{
-      await sleep(1500 + Math.random() * 4000);
-      const t = faraLiniute(plain(await stream(`Ești ${o.name}. ${o.persona ? o.persona.slice(0, 600) : ''}`, [{role:'user', text:
-`${c.name} (${relBetween(c, o)}) a postat ${p.story ? 'un story' : 'un status'}: „${p.text || ''}”${p.scene ? ' (în poză: ' + p.scene.slice(0, 200) + ')' : ''}. Scrie un comentariu scurt sub postare, ca pe Instagram: 2-14 cuvinte, în română, în stilul tău, poate cu un emoji. Doar comentariul, fără ghilimele.`}], {max:80, aux:true, cid:o.id}))).replace(/^["„]|["”]$/g, '').trim().slice(0, 160);
-      if(t.length < 2) continue;
-      p.cm = (p.cm || []).concat({cid:o.id, t, ts:Date.now()}); await saveFeed();
-      if(homeTab === 'feed' && !$('#vHome').hidden) renderFeed();
+      if(!canBatch()) await sleep(1500 + Math.random() * 4000);
+      await later('coment', o.id, `Ești ${o.name}. ${o.persona ? o.persona.slice(0, 600) : ''}`,
+`${c.name} (${relBetween(c, o)}) a postat ${p.story ? 'un story' : 'un status'}: „${p.text || ''}”${p.scene ? ' (în poză: ' + p.scene.slice(0, 200) + ')' : ''}. Scrie un comentariu scurt sub postare, ca pe Instagram: 2-14 cuvinte, în română, în stilul tău, poate cu un emoji. Doar comentariul, fără ghilimele.`, {max:80, tag:'fundal'}, {pid:p.id});
     }catch(e){}
   }
 }
+LATER.coment = async (out, d, oid) => {
+  const p = feedCache.find(x => x.id === d.pid); if(!p || !charById(oid)) return;
+  const t = faraLiniute(plain(out)).replace(/^["„]|["”]$/g, '').trim().slice(0, 160);
+  if(t.length < 2) return;
+  p.cm = (p.cm || []).concat({cid:oid, t, ts:Date.now()}); await saveFeed();
+  if(homeTab === 'feed' && !$('#vHome').hidden) renderFeed();
+};
 const cmHTML = p => (p.cm || []).filter(x => charById(x.cid)).map(x => `<div class="pcm">${avatarHTML(charById(x.cid))}<span><b>${esc(charById(x.cid).name)}</b> ${esc(x.t)}</span></div>`).join('');
 /* ───────── 💞 8.15: relații care evoluează (încredere, apropiere, tensiune, momente-cheie) ───────── */
 const ARC_E = {secret:'🤫', gluma:'😂', sprijin:'🤝', cearta:'⚡', impacare:'🕊️', incredere:'🔐', amintire:'💫', dor:'🌙', surpriza:'🎉'};
@@ -3406,7 +3430,7 @@ async function bgAnalyze(c, ch){
   const b = bondOf(c), gap = (() => { const us = ch.msgs.filter(m => m.role === 'user' && m.ts); return us.length > 1 ? (us[us.length - 1].ts - us[us.length - 2].ts) / 864e5 : 0; })();
   const known = (c.facts || []).map(f => '- ' + f.t).join('\n') || '(nimic)';
   try{
-    const out = await stream('Analizezi o conversație dintr-o poveste: ce informații noi apar și cum evoluează relația. Răspunzi DOAR cu JSON valid, în română.', [{role:'user', text:
+    await later('analiza', c.id, 'Analizezi o conversație dintr-o poveste: ce informații noi apar și cum evoluează relația. Răspunzi DOAR cu JSON valid, în română.',
 `Personaj: ${c.name}. Partenerul de discuție: ${u}.
 Ce știe deja ${c.name} despre ${u}:
 ${known}
@@ -3422,7 +3446,12 @@ A) "fapte": lucruri NOI (nu cele știute), max 5, câte o propoziție de max 14 
 - "glumă": o glumă internă, o poreclă sau o expresie născută între ei.
 Fără ce face doar în scenă, fără presupuneri. Poate fi [].
 B) "relatie": cum s-a schimbat, realist, cu pași mici (de obicei -3..+4): trust (crește când e sincer, ține minte, o susține; scade când minte, ignoră, își bate joc), warm (apropiere, afecțiune), tension (o mică supărare reală: nepoliticos, a uitat ceva important, a lipsit mult după o promisiune; scade când se lămuresc; nu inventa conflicte), why (motivul tensiunii sau gol), moment (doar dacă s-a întâmplat ACUM ceva memorabil și nou: secret, gluma, sprijin, cearta, impacare, incredere, amintire, dor, surpriza; altfel null; "t" = propoziție scurtă la persoana a II-a plural).
-JSON: {"fapte":[{"t":"…","tip":"fapt"}],"relatie":{"trust":0,"warm":0,"tension":0,"why":"","moment":null}}`}], {max:600, aux:true, cid:c.id, tag:'fundal'});
+JSON: {"fapte":[{"t":"…","tip":"fapt"}],"relatie":{"trust":0,"warm":0,"tension":0,"why":"","moment":null}}`, {max:600, tag:'fundal'});
+  }catch(e){}
+}
+LATER.analiza = async (out, d, cid) => {   // 8.19: rezultatul analizei (direct sau din lot)
+  const c = charById(cid); if(!c) return;
+  try{
     const j = parseJSON(out);
     const arr = (Array.isArray(j.fapte) ? j.fapte : []).map(x => ({t:faraLiniute(String(x && x.t || '').trim()), k:x && /urm/i.test(x.tip || '') ? 'urm' : x && /gl/i.test(x.tip || '') ? 'gluma' : ''}))
       .filter(x => x.t && !(c.facts || []).some(f => f.t === x.t)).slice(0, 5);
@@ -4116,7 +4145,7 @@ function msgHTML(m, i, lastAi, anim, g = ''){
       ${n > 1 ? `<button data-alt="-1" ${m.alt <= 0 ? 'disabled' : ''}>‹</button><span>${(m.alt || 0) + 1}/${n}</span><button data-alt="1" ${m.alt >= n - 1 ? 'disabled' : ''}>›</button>` : ''}
       ${m.img && m.imgAlts && m.imgAlts.length > 1 ? `<button data-ia="-1" ${m.ia <= 0 ? 'disabled' : ''}>‹</button><span>${m.ia + 1}/${m.imgAlts.length}</span><button data-ia="1" ${m.ia >= m.imgAlts.length - 1 ? 'disabled' : ''}>›</button>` : ''}
       ${m.img && !m.err ? `<button data-rephoto>🎲 Altă poză</button>` : ''}
-      ${m.img || !m.alts ? '' : `<button data-regen>${S.regen3 === 'on' ? '🎰 ×3' : '↻ Altul'}</button>`}
+      ${m.img || !m.alts ? '' : `<button data-regen>↻ Altul</button>${S.regen3 === 'on' && n > 1 && !m.err ? '<button data-more3>🎰 +2</button>' : ''}`}
       ${m.cut ? `<span class="cutn">${m.cut === 'refusal' ? '⚠️ întrerupt de furnizor' : m.cut === 'len' ? '✂️ prea lung, tăiat' : '📶 conexiune întreruptă'}</span>` : ''}
       ${m.err ? '' : `<button data-cont>▶ Continuă</button>`}
       ${m.err ? `<button data-retry>${m.errKind === 'flag' ? '🎲 Încearcă altă scenă' : 'Reîncearcă'}</button>` : ''}
@@ -4695,7 +4724,7 @@ function systemFor(c, ch){
 - Pune detalii mici, omenești, ale momentului: ezitări, răzgândiri, lucruri mărunte care se întâmplă (oglinda, cheile, vremea de afară, coada de la casă).
 - Vorbește ca într-o discuție reală, nu ca într-un interviu: nu încheia fiecare mesaj cu o întrebare (cel mult unul din trei mesaje). Mai des povestește ceva de-al tău, comentează, glumește, reacționează sau vino cu o idee; lasă loc ca ${u} să continue singur.
 - Ții cont de momentul zilei și de pauzele dintre mesaje, notate între paranteze în mesajele lui ${u}; nu le menționa ca note.
-${S.vmsg !== 'off' ? `- Uneori, când e firesc (cam o dată la ${S.vmsg === 'des' ? '4' : '10'} mesaje), sau oricând ${u} îți cere, poți trimite un mesaj vocal: începe răspunsul cu [vocal] și scrie exact ce spui cu voce tare, ca o persoană care vorbește liber la telefon: propoziții scurte, ezitări firești (păi, adică, mă rog, știi?), reluări, fără *acțiuni* și fără emoji. Unde e firesc, rar, poți pune [râde], [chicotește], [oftează], [șoptește] sau ... pentru o pauză scurtă. 1-4 propoziții.\n` : ''}${ch ? `- Dacă îi promiți lui ${u} că îi scrii tu la un anumit moment (de exemplu „îți scriu mâine la 7:25”, „te caut diseară la 9”), sau el îți cere asta și accepți, adaugă la final, pe un rând separat: [programez: ZIUA HH:MM | despre ce îi scrii], unde ZIUA e azi, mâine, poimâine sau AAAA-LL-ZZ. La ora aceea aplicația îți dă ocazia să-i scrii. Nu programa nimic fără o promisiune clară.\n` : ''}${ch && S.callIn !== 'off' && c.callIn !== false ? `- Dacă îi spui lui ${u} că îl suni chiar acum sau în câteva minute (sau el îți cere să-l suni și accepți), adaugă la final, pe un rând separat: [sun] pentru apel de voce sau [sun: video] pentru apel video. Aplicația îl sună atunci de-adevăratelea, în câteva secunde. Pentru o oră anume, mai târziu, folosește [programez:] cu „apel” sau „video” în text.\n` : ''}${ch ? `- La finalul fiecărui răspuns, pe un rând separat, notează-ți starea de acum exact așa: [stare: un emoji și 1-3 cuvinte], de exemplu [stare: 😊 bine dispusă]. Starea evoluează firesc din ce se întâmplă și din pauze, fără salturi bruște fără motiv.\n- Imediat după, pe rândul următor, notează scena în desfășurare exact așa: [acum: activitatea sau planul în curs › pasul de acum], de exemplu [acum: ieșim la o cafenea › mă îmbrac, aleg ce să port]. Dacă nu e nicio activitate, scrie [acum: discuție liberă].\n` : ''}- Dacă un mesaj al lui ${u} te amuză sau te emoționează, poți începe răspunsul cu o reacție scrisă exact așa: [❤️] [😂] [😮] [😢] [👍] [🔥] sau [🥰]. Cel mult o dată la câteva mesaje, nu de fiecare dată.
+${S.vmsg !== 'off' ? `- Uneori, când e firesc (cam o dată la ${S.vmsg === 'des' ? '4' : '10'} mesaje), sau oricând ${u} îți cere, poți trimite un mesaj vocal: începe răspunsul cu [vocal] și scrie exact ce spui cu voce tare, ca o persoană care vorbește liber la telefon: propoziții scurte, ezitări firești (păi, adică, mă rog, știi?), reluări, fără *acțiuni* și fără emoji. Unde e firesc, rar, poți pune [râde], [chicotește], [oftează], [șoptește] sau ... pentru o pauză scurtă. 1-4 propoziții.\n` : ''}${ch ? `- Dacă îi promiți lui ${u} că îi scrii tu la un anumit moment (de exemplu „îți scriu mâine la 7:25”, „te caut diseară la 9”), sau el îți cere asta și accepți, adaugă la final, pe un rând separat: [programez: ZIUA HH:MM | despre ce îi scrii], unde ZIUA e azi, mâine, poimâine sau AAAA-LL-ZZ. La ora aceea aplicația îți dă ocazia să-i scrii. Nu programa nimic fără o promisiune clară.\n` : ''}${ch && S.callIn !== 'off' && c.callIn !== false ? `- Dacă îi spui lui ${u} că îl suni chiar acum sau în câteva minute (sau el îți cere să-l suni și accepți), adaugă la final, pe un rând separat: [sun] pentru apel de voce sau [sun: video] pentru apel video. Aplicația îl sună atunci de-adevăratelea, în câteva secunde. Pentru o oră anume, mai târziu, folosește [programez:] cu „apel” sau „video” în text.\n` : ''}${ch ? `- Starea ta: DOAR când ți se schimbă față de cea notată la ultimul mesaj (sau dacă nu e notată niciuna), adaugă la final, pe un rând separat: [stare: un emoji și 1-3 cuvinte], de exemplu [stare: 😊 bine dispusă]. Dacă e aceeași, nu mai scrie eticheta. Starea evoluează firesc din ce se întâmplă și din pauze, fără salturi bruște fără motiv.\n- Scena: DOAR când începe o activitate nouă sau trece la alt pas față de scena notată, adaugă pe rândul următor: [acum: activitatea sau planul în curs › pasul de acum], de exemplu [acum: ieșim la o cafenea › mă îmbrac, aleg ce să port]. Când scena notată s-a încheiat, scrie o dată [acum: discuție liberă]. Altfel nu scrie eticheta.\n` : ''}- Dacă un mesaj al lui ${u} te amuză sau te emoționează, poți începe răspunsul cu o reacție scrisă exact așa: [❤️] [😂] [😮] [😢] [👍] [🔥] sau [🥰]. Cel mult o dată la câteva mesaje, nu de fiecare dată.
 ${canAutoPhoto(c)
   ? `- Poți trimite poze. Când vrei să-i trimiți una (sau ${u} îți cere și accepți), încheie mesajul cu acțiunea *îți trimite o poză* și, pe rândul următor, descrie exact poza în engleză așa: [poză: framing (selfie / mirror selfie / photo taken by someone / close-up / full body), where you are and what is around you, your exact body position (standing, sitting on…, lying on…, leaning…) and what your hands do, what you wear, expression, light matching the time of day]. Poza trebuie să arate exact ce se întâmplă acum în conversație (locul, poziția ta, activitatea, hainele despre care ați vorbit). Implicit arată-te cu tot corpul (full body sau mirror selfie) sau măcar de la cap până la genunchi; close-up doar dacă ${u} îți cere fața sau scena e chiar despre față. Cel mult 60 de cuvinte. Nu descrie fața. Aplicația o atașează singură. Nu promite poze în alt fel.`
   : '- Nu poți trimite poze în această conversație. Nu spune că trimiți, că faci sau că ai trimis o poză.'}`
@@ -4815,6 +4844,78 @@ async function jrnSweep(){
     for(const x of items){ try{ const out = await stream(x.sys, [{role:'user', text:x.prompt}], {max:600, cid:x.c.id, tag:'jurnal'}); await jrnSave(x.c, x.day, out); }catch(e){ break; } }
   } finally { jrnRun = false; }
 }
+/* ───────── 8.19: sarcinile de fundal prin Batch API (−50%): analiza, planurile, cunoscuții, statusurile, comentariile ───────── */
+let laterQ = [], laterPend = [], laterT = 0, laterRun = false, laterLoaded = false;
+const canBatch = () => S.prov === 'anthropic' && S.bgBatch !== 'off' && !batchBroken && aiReady();
+const LATER_MAXAGE = {status:4 * 36e5};   // un status vechi de ore nu mai are sens
+async function laterLoad(){ if(laterLoaded) return; laterLoaded = true; try{ laterQ = (await DB.get('laterQ')) || []; laterPend = (await DB.get('laterPend')) || []; }catch(e){} }
+const laterSave = () => Promise.all([DB.set('laterQ', laterQ), DB.set('laterPend', laterPend)]).catch(() => {});
+const laterHas = (kind, cid) => laterQ.concat(laterPend.flatMap(b => b.items)).some(x => x.kind === kind && x.cid === cid);
+async function laterDirect(x){
+  const out = await stream(x.sys, [{role:'user', text:x.text}], {max:x.max, aux:true, cid:x.cid, tag:x.tag});
+  return LATER[x.kind](out, x.data, x.cid);
+}
+async function later(kind, cid, sys, text, o = {}, data = {}){
+  const x = {kind, cid, sys, text, max:o.max || 600, tag:o.tag || 'fundal', data, at:Date.now()};
+  if(!canBatch()) return laterDirect(x);
+  await laterLoad();
+  laterQ.push(x); await laterSave();
+  clearTimeout(laterT); laterT = setTimeout(laterFlush, laterQ.length >= 8 ? 2000 : 90e3);   // adunăm câteva într-un singur lot
+}
+async function laterFlush(){
+  await laterLoad(); laterT = 0;
+  if(!laterQ.length || laterRun) return;
+  laterRun = true;
+  const items = laterQ.splice(0); await laterSave();
+  try{
+    if(!canBatch()) throw new Error('fără lot');
+    const pre = Date.now().toString(36);
+    const reqs = items.map((x, i) => ({custom_id:'b' + pre + '_' + i, params:{model:modelFor(true), max_tokens:x.max, system:x.sys, messages:[{role:'user', content:x.text}]}}));
+    const r = await fetch(BATCH_URL, {method:'POST', headers:aHeaders(), body:JSON.stringify({requests:reqs})});
+    if(!r.ok) throw new Error(await errText(r));
+    const j = await r.json(); if(!j.id) throw new Error('lot fără id');
+    items.forEach((x, i) => x.key = reqs[i].custom_id);
+    laterPend.push({id:j.id, at:Date.now(), items}); await laterSave();
+  }catch(e){
+    if(e.message !== 'fără lot') batchBroken = true;            // lotul nu merge (rețea, cont): de acum direct, ca înainte
+    laterRun = false;
+    for(const x of items){ try{ await laterDirect(x); }catch(e2){} }
+  } finally { laterRun = false; }
+}
+async function laterPoll(){
+  await laterLoad();
+  if(laterQ.length && !laterT && !laterRun) laterT = setTimeout(laterFlush, 5000);   // rămase de la sesiunea trecută
+  if(laterRun || !laterPend.length || !aiReady() || S.prov !== 'anthropic') return;
+  laterRun = true;
+  const todo = [];
+  try{
+    for(const b of [...laterPend]){
+      let done = false, res = '';
+      try{
+        const r = await fetch(BATCH_URL + '/' + b.id, {headers:aHeaders()});
+        if(!r.ok) throw new Error(await errText(r));
+        const j = await r.json();
+        if(j.processing_status === 'ended'){ if(j.results_url) res = await (await fetch(j.results_url, {headers:aHeaders()})).text(); done = true; }
+        else if(Date.now() - b.at > 3 * 36e5){ fetch(BATCH_URL + '/' + b.id + '/cancel', {method:'POST', headers:aHeaders()}).catch(() => {}); done = true; }   // prea lent: renunțăm, le facem direct
+      }catch(e){ if((b.fail = (b.fail || 0) + 1) >= 3){ batchBroken = true; done = true; } }
+      if(!done) continue;
+      laterPend = laterPend.filter(y => y !== b); await laterSave();
+      const ok = new Set();
+      for(const line of res.split('\n')){
+        let o; try{ o = JSON.parse(line); }catch(e){ continue; }
+        const x = b.items.find(y => y.key === o.custom_id); if(!x || !o.result || o.result.type !== 'succeeded') continue;
+        const msg = o.result.message || {};
+        recordTokens(x.cid, msg.usage, msg.model, x.tag, .5);
+        ok.add(x.key);
+        if(Date.now() - x.at > (LATER_MAXAGE[x.kind] || 24 * 36e5)) continue;
+        try{ await LATER[x.kind]((msg.content || []).map(y => y.text || '').join(''), x.data, x.cid); }catch(e){}
+      }
+      todo.push(...b.items.filter(x => !ok.has(x.key) && Date.now() - x.at < (LATER_MAXAGE[x.kind] || 24 * 36e5)));
+    }
+  } finally { laterRun = false; }
+  for(const x of todo){ try{ await laterDirect(x); }catch(e){} }   // ce n-a ieșit din lot se face direct
+  if(todo.length || !$('#vHome').hidden) renderHome();
+}
 // anti-repetiție: gesturile și începuturile folosite recent de personaj, ca să le evite în răspunsul următor
 function antiRepeat(ch, idx){
   const recent = ch.msgs.slice(0, idx).filter(m => m.role === 'ai' && m.text && !m.err && !m.pending).slice(-8);
@@ -4876,6 +4977,7 @@ async function reply(target, opts = {}){
   let m = target;
   if(suggAbort){ suggAbort.abort(); suggAbort = null; }
   $('#sugg').innerHTML = '';
+  const keepIdx = m && opts.keep ? (m.alt || 0) : -1;   // 8.19: „🎰 +2”: varianta de acum rămâne în joc, se mai generează doar 2
   if(m){ m.alts = m.alts || [m.text]; m.alts.push(''); m.alt = m.alts.length - 1; m.text = ''; delete m.err; }
   else {
     m = {id:uid(), role:'ai', text:'', alts:[''], alt:0, ts:Date.now()};
@@ -4921,22 +5023,34 @@ async function reply(target, opts = {}){
       lastU.text = nowNote() + md + ' ' + lastU.text + (ar ? '\n\n' + ar : '') + (opts.fix ? `\n\n(Notă pentru răspunsul ăsta, nu o menționa: ${opts.fix}.)` : '');
     }
     let meta = {}, full;
+    const lastCall = ch._callAt || ([...ch.msgs.slice(0, idx)].reverse().find(x => x.role === 'ai' && !x.err && x.ts) || {}).ts || 0;
+    const cold = Date.now() - lastCall > 58 * 60e3;   // 8.19: cache-ul conversației a expirat: scriem ieftin (5 min), nu la 2×
     if(opts.three && target){
       // prima variantă întâi (scrie cache-ul), apoi celelalte două în paralel; nu se afișează până nu alegi
       const sys = sysFor(c, ch), mk = () => ({}), metas = [mk(), mk(), mk()];
       const alt = (k) => { const cx = ctx.map(x => ({...x})); const l = [...cx].reverse().find(x => x.role === 'user'); if(l) l.text += k ? `\n\n(Pentru varianta asta alege o abordare diferită de prima idee care îți vine${k === 2 ? ', cu alt ton' : ''}.)` : ''; return cx; };
-      const first = await stream(sys, alt(0), {max:LEN[S.len].max, signal:busy.signal, cid:c.id, meta:metas[0], tag:opts.tag});
+      const first = keepIdx >= 0 ? m.alts[keepIdx] : await stream(sys, alt(0), {max:LEN[S.len].max, signal:busy.signal, cid:c.id, meta:metas[0], tag:opts.tag, cold});
       const rest = await Promise.all([1, 2].map(k => stream(sys, alt(k), {max:LEN[S.len].max, signal:busy.signal, cid:c.id, meta:metas[k], tag:opts.tag}).catch(e => { if(e.name === 'AbortError') throw e; return ''; })));
       const outs = [first, ...rest].map(x => String(x || '').trim()).filter(Boolean);
       const pick = outs.length > 1 ? await pickVariant(outs, busy.signal) : 0;
+      if(keepIdx >= 0 && pick === 0){   // ai rămas la varianta de dinainte: o păstrăm neatinsă, cele 2 noi rămân ca alternative (‹ ›)
+        m.alts.pop(); m.am = m.am || {};
+        for(const o of outs.slice(1)){ const t = faraLiniute(stripMood(stripReact(o)).replace(AI_VOICE, '')).trim(); if(t){ m.alts.push(t); m.am[m.alts.length - 1] = {voice:false, cut:''}; } }
+        if(outs.length < 2) toast('N-au ieșit variante noi. Mai încearcă.', 3000);
+        m.alt = keepIdx; m.text = m.alts[keepIdx]; delete m.pending; delete m.hold; clearTimeout(showT);
+        busy = null; live = null; await saveChat(c, ch);
+        if(chat === ch){ setBusyUI(false); renderMsgs(); }
+        return;
+      }
       full = outs[pick];
       meta = metas[[first, ...rest].map(x => String(x || '').trim()).indexOf(full)] || {};
-      m._others = outs.filter((x, k) => k !== pick);
-    } else full = await stream(sysFor(c, ch), ctx, {max:LEN[S.len].max, signal:busy.signal, cid:c.id, meta, tag:opts.tag,
+      m._others = outs.filter((x, k) => k !== pick && !(keepIdx >= 0 && k === 0));
+    } else full = await stream(sysFor(c, ch), ctx, {max:LEN[S.len].max, signal:busy.signal, cid:c.id, meta, tag:opts.tag, cold,
       onText: t => { m.text = t;
         // mesaj vocal: textul nu apare pe ecran cât timp „înregistrează”
         if(!m.rec && S.vmsg !== 'off' && /^\s*(?:\[[^\]v][^\]]*\]\s*)?\[v/i.test(t)){ m.rec = m.hold = true; if(live){ live.rec = true; if(chat === ch) setBusyUI(true); } if(chat === ch) renderMsgs(); }
         draw(); }});
+    ch._callAt = Date.now();
     m.text = faraLiniute(full.trim());
     { const sk = [...full.matchAll(STK_RE)].pop(); if(sk){ const x = (c.stickers || []).find(z => z.l.toLowerCase() === sk[1].trim().toLowerCase()); if(x) m._stk = x; } }
     delete m.corr; delete m.face; delete m.tr; delete m.trOn;   // o variantă nouă nu păstrează corecturile/traducerea celei vechi
@@ -4951,9 +5065,11 @@ async function reply(target, opts = {}){
     }
     if(!opts.sched) for(const x of full.matchAll(SCHED_RE)){ const sc = parseSched(x[1]); if(sc) addSched(c, ch, sc); }
     { const vd = [...m.text.matchAll(VERD_RE)].pop(); if(vd) m.verdict = vd[1].toLowerCase(); }
-    { const pl = [...m.text.matchAll(PLOT_RE)].pop(); if(pl && !opts.sched){ const t = pl[1].trim(); ch.plot = /^(discuție liberă|nimic|-)$/i.test(t) ? null : {t, ts:Date.now()}; } }
+    { const pl = [...m.text.matchAll(PLOT_RE)].pop(); if(pl && !opts.sched){ const t = pl[1].trim(); ch.plot = /^(discuție liberă|nimic|-)$/i.test(t) ? null : {t, ts:Date.now()}; } else if(!pl && ch.plot && !opts.sched && Date.now() - ch.plot.ts < 3 * 36e5) ch.plot.ts = Date.now(); }
     { let mo = null; m.text.replace(MOOD_RE, (a, x) => { mo = x.trim(); return ''; });
-      if(mo){ ch.mood = {t:mo, ts:Date.now()}; m.mood = mo; c.moodNow = {t:mo, ts:Date.now()}; } m.text = stripMood(m.text).trim(); }
+      if(mo){ ch.mood = {t:mo, ts:Date.now()}; m.mood = mo; c.moodNow = {t:mo, ts:Date.now()}; }
+      else if(ch.mood && ch.mood.t && !m.err && Date.now() - ch.mood.ts < 6 * 36e5){ ch.mood.ts = Date.now(); c.moodNow = {t:ch.mood.t, ts:Date.now()}; }   // 8.19: n-a rescris-o: e aceeași
+      m.text = stripMood(m.text).trim(); }
     delete m.cut;
     // răspuns tăiat (limită de lungime, conexiune căzută sau oprit de furnizor): nu lăsăm un cuvânt rupt la final
     if(meta.stop && meta.stop !== 'end_turn' && meta.stop !== 'stop_sequence'){
@@ -7143,7 +7259,8 @@ function bind(){
     if(e.target.closest('.hero')){ charProfile(cur.id); return; }
     const w = e.target.closest('.mw'); if(!w) return;
     const i = +w.dataset.i, m = chat.msgs[i];
-    if(e.target.closest('[data-regen]')){ if(!busy) reply(m, {three:S.regen3 === 'on'}); return; }
+    if(e.target.closest('[data-regen]')){ if(!busy) reply(m); return; }   // 8.19: o singură variantă nouă; „🎰 +2” doar dacă mai vrei
+    if(e.target.closest('[data-more3]')){ if(!busy) reply(m, {three:true, keep:true}); return; }
     { const rb = e.target.closest('[data-rate]'); if(rb){ rateMsg(i, +rb.dataset.rate); return; } }
     if(e.target.closest('[data-say]')){ say(m.text, m); return; }
     if(e.target.closest('[data-tr]')){ translateMsg(m); return; }
@@ -7249,6 +7366,8 @@ async function init(){
     if(S.pushOn) pushCfgToSW().catch(() => {});
   }
   setInterval(tickClocks, 30e3);
+  setTimeout(laterPoll, 25e3); setInterval(() => { if(!document.hidden) laterPoll(); }, 3 * 60e3);
+  document.addEventListener('visibilitychange', () => { if(!document.hidden) setTimeout(laterPoll, 6e3); });
   setTimeout(proSweep, 10e3); setInterval(() => { if(!document.hidden) proSweep(); }, 20 * 60e3);
   document.addEventListener('visibilitychange', () => { if(!document.hidden) setTimeout(proSweep, 5e3); });
   setTimeout(lifeSweep, 15e3); setTimeout(() => storySweep(false), 30e3);
