@@ -1055,6 +1055,8 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
 .lnlist small{display:block;color:var(--tx3);font-size:.7rem}
 .phonev{position:fixed;inset:0;z-index:56;background:#000d;backdrop-filter:blur(10px);display:grid;place-items:center;animation:fi .25s}
 .phonev.out{opacity:0;transition:opacity .25s}
+.phload{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:24px;text-align:center;color:#fff;background:#0009;backdrop-filter:blur(6px)}
+.phload small{opacity:.8;font-size:.78rem}.phload .btn{margin-top:6px}
 .phframe{position:relative;width:min(330px,86vw);height:min(660px,78vh);border-radius:44px;border:10px solid #111;box-shadow:0 0 0 2px #333,0 30px 80px #000;overflow:hidden;background:#000;color:#fff}
 .phwall,.phwall img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .phwall::after{content:"";position:absolute;inset:0;background:linear-gradient(#0006,#0002 40%,#000a)}
@@ -1731,7 +1733,7 @@ input:focus,textarea:focus,select:focus{border-color:color-mix(in srgb,var(--acc
 
 <script>
 'use strict';
-const APP_VER = '8.19';
+const APP_VER = '8.19.1';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -3514,17 +3516,23 @@ async function genPhone(c){
   const u = S.userName.trim() || 'el';
   const facts = (c.facts || []).slice(-10).map(f => f.t).join('; ');
   const ev = (c.ev || []).filter(e => e.d >= dayKey(Date.now())).slice(0, 3).map(e => e.d + ': ' + e.t).join('; ');
-  const out = await stream('Creezi conținutul realist al telefonului unui personaj. Răspunzi DOAR cu JSON valid.', [{role:'user', text:
+  const SYS = 'Creezi conținutul realist al telefonului unui personaj de poveste. Răspunzi DOAR cu JSON valid, compact, fără text în plus.', TXT =
 `Personaj: ${c.name}. ${c.tag ? c.tag + '. ' : ''}${c.city ? 'Locuiește în ' + c.city + '. ' : ''}${c.persona ? c.persona.slice(0, 1200) : ''}
 ${ev ? 'Ce urmează în agenda lui: ' + ev + '\n' : ''}${facts ? 'Ce știe despre ' + u + ': ' + facts + '\n' : ''}
-1. "songs": 12 piese reale (artist și titlu exact, piese existente), pe gustul lui, de genuri potrivite cu personalitatea și vârsta, eventual câteva românești dacă se potrivește.
-2. "notes": 5 notițe din aplicația lui de Notes, scrise de el, în română, la persoana I, naturale și scurte (titlu + 1-6 rânduri): o listă de cumpărături, idei sau planuri legate de agenda lui, un citat sau un gând, ceva despre muncă sau hobby, și o notiță despre ${u} (lucruri pe care vrea să le țină minte despre el, drăguț, fără nimic intim).
+1. "songs": 10 piese reale (artist și titlu exact, piese existente), pe gustul lui, de genuri potrivite cu personalitatea și vârsta, eventual câteva românești dacă se potrivește.
+2. "notes": 4 notițe din aplicația lui de Notes, scrise de el, în română, la persoana I, naturale și scurte (titlu + 1-4 rânduri): o listă de cumpărături, idei sau planuri legate de agenda lui, un citat sau un gând, ceva despre muncă sau hobby, și o notiță despre ${u} (lucruri pe care vrea să le țină minte despre el, drăguț, fără nimic intim).
 3. "now": indexul piesei pe care o ascultă acum.
-JSON: {"songs":[{"a":"artist","t":"titlu"}],"notes":[{"t":"titlu","b":"text"}],"now":0}`}], {max:1600, aux:true, cid:c.id});
+JSON: {"songs":[{"a":"artist","t":"titlu"}],"notes":[{"t":"titlu","b":"text"}],"now":0}`;
+  // 8.19.1: buget mai mare (răspunsul tăiat la jumătate dădea „n-a ieșit”) și, dacă modelul mic nu reușește, o dată cu cel principal
+  let out = '', ok = false;
+  for(const aux of [true, false]){
+    try{ out = await stream(SYS, [{role:'user', text:TXT}], {max:3000, aux, cid:c.id, tag:'fundal'}); const t = parseJSON(out); ok = Array.isArray(t.songs) && t.songs.length >= 4; }catch(e){ if(!aux) throw e; }
+    if(ok || !S.aux || S.aux === 'off') break;
+  }
   const j = parseJSON(out);
   const songs = (Array.isArray(j.songs) ? j.songs : []).map(x => ({a:String(x.a || '').slice(0, 60), t:String(x.t || '').slice(0, 80)})).filter(x => x.a && x.t).slice(0, 15);
   const notes = (Array.isArray(j.notes) ? j.notes : []).map(x => ({t:faraLiniute(String(x.t || '')).slice(0, 60), b:faraLiniute(String(x.b || '')).slice(0, 600), ts:Date.now() - Math.random() * 6 * 864e5})).filter(x => x.t);
-  if(songs.length < 4) throw new Error('Telefonul n-a ieșit. Mai încearcă.');
+  if(songs.length < 4 && notes.length < 2) throw new Error('Telefonul n-a ieșit. Mai încearcă.');
   c.phone = {songs, notes, now:Math.max(0, Math.min(songs.length - 1, +j.now || 0)), day:dayKey(Date.now()), at:Date.now()};
   await saveChars();
 }
@@ -3538,8 +3546,24 @@ function phoneFor(c){
   const n = phoneNow(c);
   return `## Telefonul tău (${S.userName.trim() || 'el'} îl poate vedea în aplicație)\nPlaylistul tău: ${c.phone.songs.map(s => s.a + ' – ' + s.t).join('; ')}.${n ? ` Azi asculți des: ${n.a} – ${n.t}.` : ''}\nNotițele tale: ${c.phone.notes.map(x => '„' + x.t + '”').join(', ')}. Le pomenești doar dacă vine vorba.`.replace(/ – /g, ' - ');
 }
+let phoneGen = null;
 async function openPhone(c){
-  if(!c.phone){ toast('Îi deschid telefonul…', 2500); try{ await genPhone(c); }catch(e){ toast(e.message, 3500); return; } }
+  if(phoneEl) closePhone();
+  if(!c.phone){   // 8.19.1: telefonul apare imediat, cu „se deschide…”, nu doar un toast care dispare cât încă se generează
+    const ld = document.createElement('div'); ld.className = 'phonev';
+    ld.innerHTML = `<div class="phframe"><div class="phwall">${c.photo ? `<img data-k="${esc(photoNow(c))}" alt="">` : ''}</div><div class="phload"><span class="spin"></span><b>Îi deschid telefonul…</b><small>Prima dată durează câteva secunde</small></div></div><button class="phx" aria-label="Închide">✕</button>`;
+    document.body.appendChild(ld); hydrate(ld); phoneEl = ld;
+    ld.onclick = e => { if(e.target.closest('.phx')) closePhone(); };
+    try{ await (phoneGen && phoneGen.c === c ? phoneGen.p : (phoneGen = {c, p:genPhone(c)}).p); }
+    catch(e){
+      if(phoneEl !== ld) return;
+      ld.querySelector('.phload').innerHTML = `<b>N-a mers</b><small>${esc(e.message || 'Eroare')}</small><button class="btn sm pri" data-again>Încearcă din nou</button>`;
+      ld.querySelector('[data-again]').onclick = () => { closePhone(); setTimeout(() => openPhone(c), 280); };
+      return;
+    } finally { phoneGen = null; }
+    if(phoneEl !== ld) return;   // l-ai închis între timp: rămâne generat pentru data viitoare
+    ld.remove(); phoneEl = null;
+  }
   const chats = await allChats(c);
   const pics = chats.flatMap(ch => ch.msgs.filter(m => m.img && m.role === 'ai').map(m => ({k:m.img, ts:m.ts}))).concat(feedCache.filter(p => p.cid === c.id && p.img).map(p => ({k:p.img, ts:p.ts}))).sort((a, b) => b.ts - a.ts);
   const now = charNow(c), np = phoneNow(c), lf = lifeNow(c);
