@@ -1,5 +1,5 @@
 window.__taifas = true;   // 8.20.1: semn pentru index.html că app.js s-a încărcat
-const APP_VER = '9.6';
+const APP_VER = '9.7';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -687,8 +687,8 @@ async function scenePhoto(c, shot, signal, fix, opt = {}){
     const pPair = `${head} The reference image shows the two of them side by side: on the LEFT is ${c.name}${physFull(c, id) ? ' (' + physFull(c, id) + ')' : ''}; on the RIGHT is ${u}${S.userPhys ? ' (' + S.userPhys + ')' : ''}. ${tail}`;
     const pTwo = `${head} Image 1 is a close-up of ${c.name}'s face${physFull(c, id) ? ' (' + physFull(c, id) + ')' : ''}; image 2 is a close-up of ${u}'s face${S.userPhys ? ' (' + S.userPhys + ')' : ''}. ${tail}`;
     const model = S.imgProv === 'worker' ? (S.wkChat && S.wkChat !== 'fal' ? S.wkChat : S.wkModel) : undefined;
-    if(S.imgProv === 'worker') return {prompt:pTwo, blob: await genImage(pTwo, await cropFace(full, cb), signal, await cropFace(me, ub), {model, p1:pPair, one:ref})};
-    return {prompt:pPair, blob: await genImage(pPair, ref, signal, null, {model})};
+    if(S.imgProv === 'worker') return {prompt:pTwo, blob: await genImage(pTwo, await cropFace(full, cb), signal, await cropFace(me, ub), {model, p1:pPair, one:ref, why:opt.why || (fix ? 'refacere' : isAuto(opt) ? opt.tag : 'chat')})};
+    return {prompt:pPair, blob: await genImage(pPair, ref, signal, null, {model, why:opt.why || (fix ? 'refacere' : isAuto(opt) ? opt.tag : 'chat')})};
   }
   const phys = physFull(c, id) ? ` Her/his permanent physical traits (exactly as in the reference): ${physFull(c, id)}.` : '';
   const fixLine = fix ? ` Important corrections from the previous attempt: ${fix}.` : '';
@@ -696,23 +696,23 @@ async function scenePhoto(c, shot, signal, fix, opt = {}){
   if(full && S.imgProv === 'worker' && S.wkChat === 'fal' && hasKey('fal') && !(isAuto(opt) && S.autoModel === 'eco')){
     const face = await cropFace(full, id && !id.none ? id : null);
     const prompt = `${fr.p}. ${shot}.${fix ? ` Important corrections from the previous attempt: ${fix}.` : ''} Use the supplied face reference as a strict identity anchor, not as inspiration: this must be the same individual, with the same facial geometry, eye shape and spacing, nose, lips, jaw, skin tone and texture, hairline, hair color and texture. Do not generate a similar-looking substitute. Keep the character's natural body build and proportions consistent with the permanent traits below; do not reshape the body. ${physFull(c, id) ? 'Permanent face and body traits: ' + physFull(c, id) + '.' : ''} Only the location, clothing, pose, expression, camera angle and lighting may change, following this scene description. ${stil}`;
-    return {prompt, blob: await genImage(prompt, face, signal, null, {prov:'fal'})};
+    return {prompt, blob: await genImage(prompt, face, signal, null, {prov:'fal', why:opt.why || (fix ? 'refacere' : isAuto(opt) ? opt.tag : 'chat')})};
   }
   if(full && S.imgProv === 'worker'){
     const R = await idRefs(c);
     const prompt = idPrompt(c, shot, fr, R, fix, true);
-    return {prompt, blob: await genImage(prompt, R.face, signal, R.body, {model: sceneModel(opt), p1: idPrompt(c, shot, fr, R, fix, false), extra: R.extraAll})};
+    return {prompt, blob: await genImage(prompt, R.face, signal, R.body, {model: sceneModel(opt), p1: idPrompt(c, shot, fr, R, fix, false), extra: R.extraAll, why: opt.why || (fix ? 'refacere' : isAuto(opt) ? opt.tag : 'chat')})};
   }
   if(full && S.imgProv === 'fal'){
     const prompt = `${fr.p}. ${shot}.${fixLine} Same person as in the reference image (same face, skin tone, hair, body type).${phys} New location, outfit, pose and light exactly as described, not those of the reference. ${stil}`;
-    return {prompt, blob: await genImage(prompt, full, signal)};
+    return {prompt, blob: await genImage(prompt, full, signal, null, {why:opt.why || (fix ? 'refacere' : isAuto(opt) ? opt.tag : 'chat')})};
   }
   if(S.imgProv === 'worker' || S.imgProv === 'fal'){
     const prompt = [c.look || '', fr.p, shot + fixLine, stil].filter(Boolean).join('. ');
-    return {prompt, blob: await genImage(prompt, null, signal)};
+    return {prompt, blob: await genImage(prompt, null, signal, null, {why:opt.why || (fix ? 'refacere' : isAuto(opt) ? opt.tag : 'chat')})};
   }
   const prompt = [fr.p, shot + fixLine, full ? 'Same person as in the reference image; take only the face, hair and body type from it, everything else (place, pose, clothing, light) from this description.' + phys : c.look || '', stil].filter(Boolean).join('. ');
-  return {prompt, blob: await genImage(prompt, full, signal)};
+  return {prompt, blob: await genImage(prompt, full, signal, null, {why:opt.why || (fix ? 'refacere' : isAuto(opt) ? opt.tag : 'chat')})};
 }
 /* ═════════ 🧬 8.21 identitate fixă ═════════
    1. PAȘAPORT: fața, părul, corpul, semnele (alunițe, tatuaje, piercinguri) și ochelarii, citite o dată din poza de profil.
@@ -790,7 +790,7 @@ const idLabel = d => d == null ? 'fața nu se vede' : d <= .4 ? 'aceeași persoa
 const faceFixOn = (c, opt = {}) => S.faceFix !== 'off' && S.imgProv === 'worker' && !!S.wkBase && !!c.photo && !opt.together && (c.stil || 'photo') === 'photo' && sceneModel(opt) === 'eco';
 const neurUsd = (model, size) => S.imgProv === 'worker' && S.cfPlan === 'paid' && neurToday >= 10000 ? (neurPerPhoto(model, size) || 0) * NEUR_USD : 0;
 const toBlob = (cv, q = .93) => new Promise(r => cv.toBlob(r, 'image/jpeg', q));
-async function facePass(c, blob, signal, model = 'eco', shot = ''){
+async function facePass(c, blob, signal, model = 'eco', shot = '', why = 'retus'){
   const u = URL.createObjectURL(blob); let im;
   try{ im = await loadImgEl(u); } finally { URL.revokeObjectURL(u); }
   const faces = await faceDescs(blob); if(!faces.length) return null;          // fața nu se vede (de spate, prea mică): poza rămâne așa
@@ -810,7 +810,7 @@ async function facePass(c, blob, signal, model = 'eco', shot = ''){
   for(const key of (c.refs || []).slice(0, 2)){ const b2 = await DB.get(key).catch(() => null); if(b2) extra.push(await cropFace(b2, (c.refBoxes || {})[key] || null)); }
   const faceMarks = id && id.marks ? id.marks.filter(m => /face|cheek|lip|nose|eye|brow|forehead|chin|jaw|temple|ear|mole|freckle|dimple/i.test(m)) : [];
   const prompt = `Edit image 1. Replace ONLY the face of the person in image 1 with the exact face of the person in image 2${extra.length ? ' (images 3' + (extra.length > 1 ? ' and 4' : '') + ' show the same face from other angles)' : ''}: the same individual, with identical facial geometry, eye shape and spacing, eye color, eyebrows, nose, lips, jaw and chin, skin tone and skin texture${faceMarks.length ? ', and these marks in exactly the same place: ' + faceMarks.join('; ') : ''}${id && id.glasses ? ', wearing ' + id.glasses : ''}. ${String(shot).includes(EXPR_ASK) ? 'Keep the facial expression of image 1.' : 'Give the face the same facial expression as in image 2' + (id && id.expr ? ' (' + id.expr + ')' : '') + '.'} Keep the real skin of image 2: its texture, pores, spots, under-eye shadows and lines, and the same face width; do not beautify, smooth, slim or make the face younger. Keep everything else from image 1 exactly as it is: head position and angle, gaze direction, the light direction and color on the face, hair, background, framing, sharpness and photo grain. One seamless, photorealistic, unretouched phone photo.`;
-  const ed = await genImage(prompt, crop, signal, pface, {model, force:{two:true}, size:K + 'x' + K, extra, quiet:true});
+  const ed = await genImage(prompt, crop, signal, pface, {model, force:{two:true}, size:K + 'x' + K, extra, quiet:true, why});
   const ue = URL.createObjectURL(ed); let ei;
   try{ ei = await loadImgEl(ue); } finally { URL.revokeObjectURL(ue); }
   // culorile retușului se aliniază cu ale decupajului original (media și contrastul pe fiecare canal), ca lipitura să nu se vadă
@@ -850,11 +850,11 @@ async function bodyPass(c, blob, signal, shot){
   const bt = bodyText(c, id); if(!bt) return null;
   const whole = await wholeRef(prof), size = S.wkSize || '768x1024';
   const prompt = `Edit image 1. Change ONLY the body of the person in image 1 so that it is exactly the body of the person in image 2: ${bt}. The same weight and the same proportions of shoulders, arms, bust, waist, belly, hips, thighs and legs as in image 2; never slimmer, smaller or more idealized. Keep everything else from image 1 exactly: the face, head, hair and expression, the pose and position, the same clothes (same garments, colors and style, fitted naturally to this body), the room and background, the framing, the light and the photo grain. One seamless, photorealistic, unretouched phone photo.`;
-  return await genImage(prompt, blob, signal, whole, {model:'eco', force:{two:true}, size, px1:Math.max(...size.split('x').map(Number)), quiet:true});
+  return await genImage(prompt, blob, signal, whole, {model:'eco', force:{two:true}, size, px1:Math.max(...size.split('x').map(Number)), quiet:true, why:'corp'});
 }
 // 8.23: retușul rămâne doar dacă telefonul măsoară că fața a ieșit mai aproape de poza de profil
-async function retouchBest(c, blob, signal, model, shot){
-  const y = await facePass(c, blob, signal, model, shot); if(!y) return null;
+async function retouchBest(c, blob, signal, model, shot, why){
+  const y = await facePass(c, blob, signal, model, shot, why); if(!y) return null;
   const d0 = (await localFace(blob, c)).d, d1 = (await localFace(y, c)).d;
   const better = d1 != null && (d0 == null || d1 < d0 - .01);
   return {blob: better ? y : blob, used: better, d: better ? d1 : d0, before: d0, after: d1};
@@ -888,6 +888,8 @@ JSON: {"scene":0,"framing":0,"hair":0,"marks":0,"body":0,"expression":0,"fix":""
   if(local && local.d != null && local.d > ID_MAX) fix = 'the face must be exactly the reference person: same facial geometry, eyes, eyebrows, nose, lips and jaw' + (fix ? '; ' + fix : '');
   return {d: local ? local.d : null, face: local && local.d != null ? Math.round(idPct(local.d) / 10) : null, scene:n('scene'), framing:n('framing'), hair:n('hair'), marks:n('marks'), body:n('body'), expr:n('expression'), fix};
 }
+// 9.7: o refacere costă cât o poză nouă; pe 9B se reface doar ce e clar greșit (pe Eco, ieftin, rămân pragurile de dinainte)
+const checkSerious = x => !!x && ((x.d != null && x.d > .55) || (x.scene != null && x.scene < 5) || (x.framing != null && x.framing < 4));
 const checkBad = x => !!x && ((x.d != null && x.d > ID_MAX) || (x.scene != null && x.scene < 6) || (x.framing != null && x.framing < 5) || (x.hair != null && x.hair < 6) || (x.marks != null && x.marks < 6) || (x.body != null && x.body < 6));
 const checkScore = x => !x ? 0 : (x.d != null ? (1 - x.d) * 20 : (x.face != null ? x.face * 2 : 10)) + (x.scene ?? 5) + (x.framing ?? 5) * .5 + (x.hair ?? 5) * .7 + (x.marks ?? 5) * .5 + (x.body ?? 5) * .8;
 /* 8.25: cea mai bună din N. Asemănarea variază mult de la o generare la alta (74–87% pe același model), deci se fac
@@ -903,7 +905,7 @@ function bestN(c, opt = {}){
 async function bestScene(c, shot, signal, corr, opt = {}){
   const n = S.wkChat === 'fal' && !(isAuto(opt) && S.autoModel === 'eco') ? 1 : bestN(c, opt);
   if(n < 2) return await scenePhoto(c, shot, signal, corr, opt);
-  const rs = await Promise.allSettled(Array.from({length:n}, () => scenePhoto(c, shot, signal, corr, opt)));
+  const rs = await Promise.allSettled(Array.from({length:n}, (_, k) => scenePhoto(c, shot, signal, corr, k ? {...opt, why:'variante'} : opt)));
   const ab = rs.find(r => r.status === 'rejected' && r.reason && r.reason.name === 'AbortError'); if(ab) throw ab.reason;
   const ok = rs.filter(r => r.status === 'fulfilled').map(r => r.value);
   if(!ok.length) throw rs[0].reason;
@@ -937,7 +939,7 @@ async function makeScenePhoto(c, shot, signal, opt = {}){
   const a = await one(null);
   if(S.imgCheck === 'off') return a;
   try{ a.check = await checkPhoto(c, a.blob, shot, signal, opt.together); }catch(e){ if(e.name === 'AbortError') throw e; return a; }
-  if(!checkBad(a.check)) return a;
+  if(!(sceneModel(opt) === 'eco' ? checkBad : checkSerious)(a.check)) return a;
   // doar fața nu ține: încă un retuș, pe 9B (mai fidel), din poza generată; scena e deja bună, deci nu mai întrebăm Haiku
   if(fixOn && a.raw && !otherBad(a.check)){
     if(capLeft() < (neurPerPhoto('ancorat', '512x512') || 5000)) return a;
@@ -1018,7 +1020,7 @@ async function genImage(prompt, ref, signal, ref2, opt = {}){
         const b = d.data?.[0]?.b64_json; if(!b) throw new Error('Worker-ul n-a întors imagine.');
         if(!opt.force && i > 0 && steps[0].two && !wkSimple){ wkSimple = true; console.warn('Worker: 2 repere au dat eroare, folosesc doar poza de profil'); }
         lastImgModel = model;
-        neurAdd(neurPerPhoto(model, opt.size) || 5000);
+        neurAdd(neurPerPhoto(model, opt.size) || 5000, opt.why);
         return b64ToBlob(b, 'image/png');
       }
       lastErr = await errText(r);
@@ -2326,7 +2328,7 @@ async function genAvatars(c){
   for(const [k, , desc] of AV_V){
     try{
       const prompt = `A new head-and-shoulders portrait photo of the same person as in the reference image (keep the face, hair and identity exactly). ${desc}. Framing like a profile picture. ${STIL_TAG[c.stil || 'photo']}`;
-      let bl = await genImage(prompt, ref);
+      let bl = await genImage(prompt, ref, null, null, {why:'profil'});
       try{ if(bl.type === 'image/png') bl = await toJpeg(bl, 1024, .9); }catch(e){}
       const old = avs[k]; avs[k] = await saveImg(bl); if(old) delImg(old).catch(() => {});
       addUsage(c.id, imgPrice(), 'img', null, 'profil'); ok++;
@@ -2557,7 +2559,7 @@ async function genStickers(c){
   for(const [l, desc] of STK){
     try{
       const prompt = `A cute sticker of the same person as in the reference image (keep the face, hair and identity recognizable), cartoon sticker style with a thick white outline, bust only, ${desc}, plain soft pastel background, centered, no text.`;
-      let bl = await genImage(prompt, ref);
+      let bl = await genImage(prompt, ref, null, null, {why:'profil'});
       try{ bl = await toJpeg(bl, 512, .88); }catch(e){}
       out.push({l, k:await saveImg(bl)}); ok++;
       addUsage(c.id, imgPrice(), 'img', null, 'profil');
@@ -4956,9 +4958,9 @@ async function exprGen(c, baseK){
   const same = async b => { if(!ref) return 0; try{ const fs = await faceDescs(b); return fs.length ? Math.min(...fs.map(f => fdist(f.d, ref))) : 1; }catch(e){ return 0; } };
   const one = async ([k, [, en]]) => {
     const p = `Edit this exact photo: the same person, the same face and identity, the same clothes, the same pose, background, framing and light. Change ONLY the facial expression to: ${en}. Keep the real skin texture. Photorealistic, natural, no other changes.`;
-    let b = await genImage(p, base, null, null, {force:{two:false, px:768}, model, quiet:true}), d = await same(b); addUsage(c.id, imgPrice(), 'img', null, 'apel');
+    let b = await genImage(p, base, null, null, {force:{two:false, px:768}, model, quiet:true, why:'expresii'}), d = await same(b); addUsage(c.id, imgPrice(), 'img', null, 'apel');
     if(d > .45 && (S.imgProv !== 'worker' || capLeft() >= per)){   // fața a alunecat: încă o încercare, rămâne cea mai apropiată
-      try{ const b2 = await genImage(p, base, null, null, {force:{two:false, px:768}, model, quiet:true}), d2 = await same(b2); addUsage(c.id, imgPrice(), 'img', null, 'apel'); if(d2 < d){ b = b2; d = d2; } }catch(e){}
+      try{ const b2 = await genImage(p, base, null, null, {force:{two:false, px:768}, model, quiet:true, why:'expresii'}), d2 = await same(b2); addUsage(c.id, imgPrice(), 'img', null, 'apel'); if(d2 < d){ b = b2; d = d2; } }catch(e){}
     }
     try{ if(b.type === 'image/png') b = await toJpeg(b, 1536, .9); }catch(e){}
     set[k] = await saveImg(b); await saveChars();
@@ -5573,7 +5575,7 @@ async function runPortrait(){
     const stil = $('#edStil').value || 'photo';
     const prompt = `head and shoulders portrait of an adult, ${look}, looking at the camera, friendly expression, simple softly blurred background. ${STIL_TAG[stil]}`;
     const E = ed;
-    let pb = await genImage(prompt, null);
+    let pb = await genImage(prompt, null, null, null, {why:'profil'});
     try{ if(pb.type === 'image/png') pb = await toJpeg(pb, 2048, .92); }catch(e){}
     if(ed !== E || $('#vEdit').hidden){ btn.disabled = false; return; }    // ai ieșit din editor între timp
     ed.photoBlob = pb;
@@ -5809,7 +5811,11 @@ const utcDay = () => new Date().toISOString().slice(0, 10);
 // statistica Cloudflare vine cu câteva minute întârziere: total = cifra serverului + estimările pozelor din ultimele 10 minute
 function neurCalc(){ const d = utcDay(); if(neurDay !== d){ neurDay = d; neurSrv = 0; neurLoc = []; } neurLoc = neurLoc.filter(x => Date.now() - x.t < 6e5); neurToday = neurSrv + neurLoc.reduce((s, x) => s + x.n, 0); }
 function neurSet(n){ neurCalc(); neurSrv = n; neurCalc(); }
-function neurAdd(n){ neurCalc(); neurLoc.push({t:Date.now(), n}); neurCalc(); }
+function neurAdd(n, why){ neurCalc(); neurLoc.push({t:Date.now(), n}); neurCalc();
+  // 9.7: pe ce s-au dus neuronii azi (estimare din aplicație; totalul exact vine de la Cloudflare)
+  const d = utcDay(); if(!S.neurBy || S.neurBy.d !== d) S.neurBy = {d, by:{}};
+  const k = why || 'alte'; S.neurBy.by[k] = (S.neurBy.by[k] || 0) + n; saveSettings(); }
+const NEUR_WHY = {chat:'📷 poze în chat', variante:'🎯 variante în plus', refacere:'🔁 refaceri', retus:'🧬 retușul feței', corp:'🧍 potrivirea corpului', expresii:'🎭 expresii (apel)', stories:'📸 stories', statusuri:'📱 statusuri', test:'🔬 comparații', profil:'🖼️ portrete, avatar, stickere', alte:'altele'};
 // cota se resetează la 00:00 UTC; afișăm ora locală (03:00 vara, 02:00 iarna)
 const resetAt = () => { const d = new Date(); return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1)).toLocaleTimeString('ro-RO', {hour:'2-digit', minute:'2-digit'}); };
 const CAP_USD = {free:0, '0.1':.10};
@@ -5839,13 +5845,15 @@ async function loadNeurons(after){
     catch(e){ if(e.st === 404){ box.className = 'neur'; box.textContent = 'Consumul de neuroni apare după ce urci Worker-ul v3.'; return; } throw e; }
     d = {...d, neurons:neurToday};
     const lim = d.limit || 10000, pc = Math.min(100, d.neurons / lim * 100);
-    const per = neurPerPhoto(), left = per ? Math.max(0, Math.floor((lim - d.neurons) / per)) : null;
+    const per = neurPerPhoto(sceneModel()), left = per ? Math.max(0, Math.floor((lim - d.neurons) / per)) : null;
     if(S.cfPlan === 'paid'){
       const over = Math.max(0, d.neurons - lim), day = new Date().toISOString().slice(0, 10);
       box.className = 'neur';
       box.innerHTML = `Azi: <b>${Math.round(d.neurons).toLocaleString('ro-RO')}</b> neuroni · primii ${lim.toLocaleString('ro-RO')} gratuiți`
         + (over ? ` · peste cotă: <b>${Math.round(over).toLocaleString('ro-RO')}</b> ≈ <b>${usd(over * NEUR_USD)}</b> azi` : left !== null ? ` · <b>~${left}</b> poze gratuite rămase, apoi ~${usd(per * NEUR_USD)}/poză` : '')
         + `<div class="bar"><i style="width:${pc}%"></i></div>`;
+      { const nb = S.neurBy && S.neurBy.d === utcDay() ? Object.entries(S.neurBy.by).filter(x => x[1] > 0).sort((a, b) => b[1] - a[1]) : [];
+        if(nb.length) box.innerHTML += `<div style="margin-top:6px;font-size:12px;color:var(--tx3)">Pe ce, azi (estimat de aplicație): ${nb.map(([k, v]) => (NEUR_WHY[k] || k) + ' ' + Math.round(v).toLocaleString('ro-RO')).join(' · ')}</div>`; }
       if(capLeft() !== Infinity && capLeft() < (per || 5000)) box.innerHTML += `<div style="margin-top:6px;color:var(--warn,#ffb020)">⏸ Pozele sunt oprite până la ${resetAt()} (limita ta).</div>`;
       if(after && over && neurWarned !== day){ neurWarned = day; toast(`Ai trecut de cota gratuită de azi. Pozele merg în continuare${per ? `, ~${usd(per * NEUR_USD)} fiecare` : ''}.`, 4500); }
       return;
@@ -5911,17 +5919,17 @@ async function refTest(){
     try{
       let b;
       if(o.best){
-        const rs = await Promise.allSettled(Array.from({length:o.best}, () => genImage(p2, R.face, null, R.body, {model:o.model, force:o.force, p1, extra:o.extra})));
+        const rs = await Promise.allSettled(Array.from({length:o.best}, () => genImage(p2, R.face, null, R.body, {model:o.model, force:o.force, p1, extra:o.extra, why:'test'})));
         const got = rs.filter(r => r.status === 'fulfilled').map(r => r.value); if(!got.length) throw rs[0].reason;
         const ds = []; for(const g of got) ds.push({g, d:(await localFace(g, c)).d}); ds.sort((x, y) => (x.d ?? 9) - (y.d ?? 9));
         o.note = ' (din ' + ds.map(x => x.d == null ? '?' : idPct(x.d) + '%').join(', ') + ')'; b = ds[0].g;
       } else
-      try{ b = o.prov === 'fal' ? await genImage(`${fr.p}. ${shot}.${physFull(c, R.id) ? ' The person: ' + physFull(c, R.id) + '.' : ''} ${STIL_TAG[c.stil || 'photo']}`, R.face, null, null, o) : await genImage(p2, R.face, null, R.body, o); }
-      catch(e){ if(o.force && o.force.two){ if(o.model === 'eco') twoOk = false; b = await genImage(p2, R.face, null, R.body, {model:o.model, force:{two:false, px:512}, p1}); fig.querySelector('figcaption').textContent = lbl.replace('2 repere', '1 reper') + ' (2 repere: eroare)'; } else throw e; }
+      try{ b = o.prov === 'fal' ? await genImage(`${fr.p}. ${shot}.${physFull(c, R.id) ? ' The person: ' + physFull(c, R.id) + '.' : ''} ${STIL_TAG[c.stil || 'photo']}`, R.face, null, null, o) : await genImage(p2, R.face, null, R.body, {...o, why:'test'}); }
+      catch(e){ if(o.force && o.force.two){ if(o.model === 'eco') twoOk = false; b = await genImage(p2, R.face, null, R.body, {model:o.model, force:{two:false, px:512}, p1, why:'test'}); fig.querySelector('figcaption').textContent = lbl.replace('2 repere', '1 reper') + ' (2 repere: eroare)'; } else throw e; }
       if(o.model === 'eco' && o.force && o.force.two && twoOk === null && !o.fix) twoOk = true;
       let note = o.note || '';
       if(o.body){ try{ const y = await bodyPass(c, b, null, shot); if(y) b = y; }catch(e){ note = ' (corpul: ' + String(e.message).slice(0, 40) + ')'; } }
-      if(o.fix){ const y = await retouchBest(c, b, null, 'eco', shot); if(y){ b = y.blob; note = y.used ? ' (retuș păstrat)' : ' (retușul n-a ajutat, poza fără retuș)'; } }
+      if(o.fix){ const y = await retouchBest(c, b, null, 'eco', shot, 'test'); if(y){ b = y.blob; note = y.used ? ' (retuș păstrat)' : ' (retușul n-a ajutat, poza fără retuș)'; } }
       fig.querySelector('.ph').outerHTML = `<img src="${URL.createObjectURL(b)}" data-big alt="">`;
       try{ const m = await idDistance(c, b); if(m) fig.querySelector('figcaption').textContent = lbl + ' · 🧬 ' + (m.d != null ? idPct(m.d) + '%' : 'fața nu se vede') + note; }catch(e){}
     }catch(e){ fig.querySelector('.ph').innerHTML = '✗'; fig.querySelector('figcaption').textContent = lbl + ': ' + String(e.message).slice(0, 60); }
@@ -5937,7 +5945,7 @@ async function testImages(){
   if(S.imgProv === 'worker' && S.wkBase) $('#stWkBase').value = S.wkBase = wkUrl(), saveSettings();
   const r = $('#stImgRes'); r.className = 'status'; r.innerHTML = '<span class="spin"></span> Generez o poză de test…';
   try{
-    const b = await genImage('a cup of coffee on a wooden table by a window, morning light, photorealistic', null);
+    const b = await genImage('a cup of coffee on a wooden table by a window, morning light, photorealistic', null, null, null, {why:'test'});
     const u = URL.createObjectURL(b);
     r.className = 'status ok'; r.innerHTML = `✓ Merge.<br><img src="${u}" style="width:140px;border-radius:12px;margin-top:8px" alt="">`;
     setTimeout(() => loadNeurons(true), 1500);
