@@ -1,5 +1,5 @@
 window.__taifas = true;   // 8.20.1: semn pentru index.html că app.js s-a încărcat
-const APP_VER = '9.2';
+const APP_VER = '9.3';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -98,7 +98,7 @@ async function delPhotoIfUnused(c, k){
   await delImg(k);
 }
 // când se șterg mesaje de dinaintea rezumatului, rezumatul nu mai e valabil
-function cutAt(ch, i){ if((ch.sumUpTo || 0) > i){ ch.sumUpTo = 0; ch.summary = ''; } }
+function cutAt(ch, i){ if((ch.sumUpTo || 0) > i){ ch.sumUpTo = 0; ch.summary = ''; } if((ch.sumNextTo || 0) > i){ delete ch.sumNext; delete ch.sumNextTo; } }
 async function hydrate(root = document){
   for(const el of root.querySelectorAll('img[data-k]')){
     const u = await imgUrl(el.dataset.k);
@@ -269,7 +269,7 @@ async function streamOnce(sys, msgs, {max = 700, signal, onText, cid, aux, meta,
     ? await fetch(apiUrl('anthropic', '/v1/messages'), {method:'POST', signal, headers:apiHeaders('anthropic', {
         'content-type':'application/json', 'anthropic-version':'2023-06-01'}),
         body: JSON.stringify({model, max_tokens:max, stream:true,
-          system:[{type:'text', text:sys, ...(conv ? {cache_control:ttl ? {type:'ephemeral', ttl:'1h'} : {type:'ephemeral'}} : {})}], messages:provMsgs(msgs, ttl)})})
+          system:[{type:'text', text:sys, ...(conv ? {cache_control:ttl ? {type:'ephemeral', ttl:'1h'} : {type:'ephemeral'}} : {})}], messages:provMsgs(conv ? msgs : msgs.map(x => x._cache ? {...x, _cache:false} : x), ttl)})})
     : await fetch(S.oaBase.replace(/\/+$/, '') + '/chat/completions', {method:'POST', signal, headers:{
         'content-type':'application/json', ...(S.oaKey ? {authorization:'Bearer ' + S.oaKey.trim()} : {})},
         body: JSON.stringify({model:S.oaModel, stream:true, max_tokens:max, ...(/openai|openrouter|groq|deepseek|together|mistral/i.test(S.oaBase) ? {stream_options:{include_usage:true}} : {}),
@@ -300,7 +300,7 @@ async function streamOnce(sys, msgs, {max = 700, signal, onText, cid, aux, meta,
       if(piece){ full += piece; onText && onText(full); }
     }
   }
-  } finally { recordTokens(cid, usage, model, tag || (aux ? 'fundal' : 'chat')); if(meta){ meta.stop = stop || (ended ? 'end_turn' : 'cut'); } }
+  } finally { recordTokens(cid, usage, model, tag || (aux ? 'fundal' : 'chat')); if(meta){ meta.stop = stop || (ended ? 'end_turn' : 'cut'); if(usage) meta.u = {cw:usage.cache_creation_input_tokens || 0, cr:usage.cache_read_input_tokens || 0}; } }
   return full;
 }
 // taie textul la ultima propoziție (sau acțiune) încheiată; dacă ar pierde prea mult, îl lasă cu „…”
@@ -3299,8 +3299,9 @@ function contextUpTo(idx, chx){
   const chat = chx || openChatObj();
   // fereastra pornește din 40 în 40 de mesaje (nu se mută la fiecare răspuns), ca începutul conversației să rămână identic și să fie citit din cache
   // 9.2: din 40 în 40 (era 20): la fiecare mutare tot istoricul se rescrie în cache la 2×; mesajele în plus se citesc la 1/10 din preț
-  const span = +S.ctxN || 30, raw = idx - span, STEP = 40;
-  let from = Math.max(chat.sumUpTo || 0, raw <= 0 ? 0 : Math.floor(raw / STEP) * STEP);
+  const span = +S.ctxN || 30, raw = idx - span, STEP = 40, win = raw <= 0 ? 0 : Math.floor(raw / STEP) * STEP;
+  if(chat.sumNext && win >= chat.sumNextTo){ chat.summary = chat.sumNext; chat.sumUpTo = chat.sumNextTo; delete chat.sumNext; delete chat.sumNextTo; }   // 9.3: rezumatul nou intră odată cu mutarea ferestrei
+  let from = Math.max(chat.sumUpTo || 0, win);
   if(from >= idx) from = Math.max(0, idx - span);
   chat._from = from;   // 8.17: când fereastra se mută, se reface și promptul înghețat (`sysFor`)
   const sum = chat.summary ? [{role:'user', text:`(Rezumatul conversației de până acum, ca să-ți amintești: ${chat.summary})`}, {role:'assistant', text:'*dă din cap*'}] : [];
@@ -3590,6 +3591,8 @@ async function reply(target, opts = {}){
     let meta = {}, full;
     const lastCall = ch._callAt || ([...ch.msgs.slice(0, idx)].reverse().find(x => x.role === 'ai' && !x.err && x.ts) || {}).ts || 0;
     const cold = Date.now() - lastCall > 58 * 60e3;   // 8.19: cache-ul conversației a expirat: scriem ieftin (5 min), nu la 2×
+    const solo = !!(opts.pro || opts.sched);         // 9.3: mesaj trimis singur, când lipsești: fără scriere în cache
+    const why0 = {from:ch._lastFrom, sum:ch._lastSum, sys:ch._sys && ch._sys.text};
     if(opts.three && target){
       // prima variantă întâi (scrie cache-ul), apoi celelalte două în paralel; nu se afișează până nu alegi
       const sys = sysFor(c, ch), mk = () => ({}), metas = [mk(), mk(), mk()];
@@ -3610,12 +3613,18 @@ async function reply(target, opts = {}){
       full = outs[pick];
       meta = metas[[first, ...rest].map(x => String(x || '').trim()).indexOf(full)] || {};
       m._others = outs.filter((x, k) => k !== pick && !(keepIdx >= 0 && k === 0));
-    } else full = await stream(sysFor(c, ch), ctx, {max:LEN[S.len].max, signal:busy.signal, cid:c.id, meta, tag:opts.tag, cold, conv:true,
+    } else full = await stream(sysFor(c, ch), ctx, {max:LEN[S.len].max, signal:busy.signal, cid:c.id, meta, tag:opts.tag, cold, conv:!solo,
       onText: t => { m.text = t;
         // mesaj vocal: textul nu apare pe ecran cât timp „înregistrează”
         if(!m.rec && S.vmsg !== 'off' && /^\s*(?:\[[^\]v][^\]]*\]\s*)?\[v/i.test(t)){ m.rec = m.hold = true; if(live){ live.rec = true; if(chat === ch) setBusyUI(true); } if(chat === ch) renderMsgs(); }
         draw(); }});
     ch._callAt = Date.now();
+    // 9.3: de ce s-a rescris tot istoricul în cache (dacă s-a rescris): pentru Consum
+    if(meta.u && !solo && meta.u.cw > 1500 && meta.u.cr < meta.u.cw){
+      const why = cold ? 'pauza' : (why0.from !== undefined && why0.from !== ch._from) ? 'fereastra' : (ch._lastSum !== undefined && why0.sum !== (ch.summary || '')) ? 'rezumat' : (why0.sys && ch._sys && why0.sys !== ch._sys.text) ? 'prompt' : 'altele';
+      noteRewrite(why);
+    }
+    ch._lastFrom = ch._from; ch._lastSum = ch.summary || '';
     m.text = faraLiniute(full.trim());
     { const sk = [...full.matchAll(STK_RE)].pop(); if(sk){ const x = (c.stickers || []).find(z => z.l.toLowerCase() === sk[1].trim().toLowerCase()); if(x) m._stk = x; } }
     delete m.corr; delete m.face; delete m.tr; delete m.trOn;   // o variantă nouă nu păstrează corecturile/traducerea celei vechi
@@ -3820,6 +3829,14 @@ function imgPrice(){
   return {gemini:.04, fal:.035, worker:0}[S.imgProv] || 0;
 }
 let usageQ = Promise.resolve();
+function noteRewrite(why){
+  usageQ = usageQ.then(async () => {
+    const u = await DB.get('usage') || {months:{}, chars:{}}, mo = new Date().toISOString().slice(0, 7);
+    const M = u.months[mo] = u.months[mo] || {txt:0, img:0, n:0};
+    M.rw = M.rw || {}; M.rw[why] = (M.rw[why] || 0) + 1;
+    await DB.set('usage', u);
+  }).catch(() => {});
+}
 function addUsage(cid, usd, kind, tok, tag){
   tag = tag || (kind === 'img' ? 'poze' : kind === 'voc' ? 'voce' : 'chat');
   usageQ = usageQ.then(async () => {
@@ -3861,7 +3878,10 @@ async function renderCost(){
       const L = {chat:['💬', 'Conversații'], apel:['📞', 'Apeluri'], poze:['📷', 'Poze în chat'], stories:['📸', 'Stories'], statusuri:['📱', 'Statusuri'], voce:['🎙️', 'Voce'], fundal:['⚙️', 'Fundal (memorie, relație, planuri)'], jurnal:['📔', 'Jurnal'], profil:['🖼️', 'Portrete, avatar, stickere'], pozeai:['🧠', 'Poze: plan și verificare (AI)']};
       const tk = M.tk || {}, kf = n => n >= 1000 ? (n / 1000).toFixed(n >= 1e4 ? 0 : 1).replace('.', ',') + 'k' : String(Math.round(n));
       const cp = k => { const T = tk[k]; if(!T || !T.n) return ''; const all = T.inp + T.cw + T.cr;
-        return `<div style="font-size:12px;color:var(--tx3);margin:-4px 0 8px 26px">${T.n} apeluri (din 9.0)${all ? ` · cache ${Math.round(T.cr / all * 100)}% · ~${kf(all / T.n)} intrare (${kf(T.cw / T.n)} scris în cache) · ~${kf(T.out / T.n)} ieșire pe apel` : ''}</div>`; };
+        const rw = k === 'chat' && M.rw ? Object.entries(M.rw).sort((a, b) => b[1] - a[1]) : [];
+        const RW = {pauza:'pauză de peste o oră', fereastra:'fereastra s-a mutat', rezumat:'rezumat nou', prompt:'s-a refăcut fișa personajului', altele:'altceva (mesaj editat, reacție, poză)'};
+        const rwl = rw.length ? `<br>Rescrieri complete ale istoricului: ${rw.map(([w, n]) => n + ' × ' + (RW[w] || w)).join(' · ')}` : '';
+        return `<div style="font-size:12px;color:var(--tx3);margin:-4px 0 8px 26px">${T.n} apeluri (din 9.0)${all ? ` · cache ${Math.round(T.cr / all * 100)}% · ~${kf(all / T.n)} intrare (${kf(T.cw / T.n)} scris în cache) · ~${kf(T.out / T.n)} ieșire pe apel` : ''}${rwl}</div>`; };
       return `<div class="cbreak"><div class="cbh">Unde se duc banii luna asta</div>${by.map(([k, v]) => `<div class="cbr"><span>${(L[k] || ['•', k])[0]} ${esc((L[k] || ['', k])[1])}</span><div class="cbb"><i style="width:${Math.max(3, v / mx * 100)}%"></i></div><b>${usd(v)}</b></div>${cp(k)}`).join('')}</div>`; })()}
     ${P ? `<div class="row2"><span>Luna trecută</span><span>${usd(tot(P))}</span></div>` : ''}
     ${top.map(([c, v]) => `<div class="row2"><span>${esc(c.name)}</span><span>${usd(v)}</span></div>`).join('')}`;
@@ -4210,16 +4230,20 @@ async function askPhoto(spont, target, mode, opt = {}){
 // memorie lungă: partea veche a conversației se strânge într-un rezumat
 async function summarizeIfNeeded(c, ch){
   const N = ch.msgs.length, from = ch.sumUpTo || 0;
-  if(N - from < 60 || ch._sumBusy || ch.dead) return;
+  // 9.3: rezumatul stă la începutul istoricului; fiecare rezumat nou rescrie tot istoricul în cache la 2×.
+  //      Se reface din 40 în 40 de mesaje (era 30), cu „to” aliniat la 40, ca să cadă odată cu mutarea ferestrei.
+  //      Rezumatul nou se pregătește din timp (ch.sumNext) și intră în istoric abia când fereastra se mută (contextUpTo),
+  //      ca rezumatul și fereastra să producă o singură rescriere, nu două.
+  if(N - from < 60 || ch._sumBusy || ch.dead || ch.sumNext) return;
   ch._sumBusy = true;
-  const to = N - 30;
+  const to = Math.ceil((from + 1) / 40) * 40;
   const u = S.userName || 'utilizatorul';
   const part = ch.msgs.slice(from, to).filter(m => m.text).map(m => (m.role === 'user' ? u : c.name) + ': ' + m.text).join('\n');
   try{
     const s = await stream('Rezumi conversații. Scrii în română, concis, la persoana a III-a.', [{role:'user', text:
       `Rezumatul de până acum:\n${ch.summary || '(niciunul)'}\n\nMesaje noi:\n${part}\n\nScrie rezumatul actualizat, cel mult 220 de cuvinte: ce s-a întâmplat, fapte importante despre ${u}, promisiuni, cum a evoluat relația dintre ${c.name} și ${u}.`}], {max:700, cid:c.id, aux:true});
     delete ch._sumBusy;
-    if(s.trim() && !ch.dead && charById(c.id)){ ch.summary = s.trim(); ch.sumUpTo = to; await DB.set(chatKey(c.id, ch.tid), ch); }
+    if(s.trim() && !ch.dead && charById(c.id)){ ch.sumNext = s.trim(); ch.sumNextTo = to; await DB.set(chatKey(c.id, ch.tid), ch); }
   }catch(e){ /* reîncearcă la mesajul următor */ }
   delete ch._sumBusy;
 }
