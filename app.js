@@ -1,5 +1,5 @@
 window.__taifas = true;   // 8.20.1: semn pentru index.html că app.js s-a încărcat
-const APP_VER = '9.8';
+const APP_VER = '9.8.1';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -427,30 +427,37 @@ function todEn(){
 // trăsăturile fizice + poziția feței, citite o singură dată per poză de profil (c.faceBox: {k, x,y,w,h | none, phys})
 async function identityOf(c, force){
   if(!c.photo) return null;
-  if(!force && c.faceBox && c.faceBox.k === c.photo && c.faceBox.phys !== undefined && (c.faceBox.v === 2 || !aiReady()) && (c.faceBox.phys || !aiReady() || Date.now() - (c.faceBox.at || 0) < 864e5)) return c.faceBox;
+  if(!force && c.faceBox && c.faceBox.k === c.photo && c.faceBox.phys !== undefined && ((c.faceBox.v === 2 && (c.faceBox.ok === 1 || (c.faceBox.ok === -1 && Date.now() - (c.faceBox.at || 0) < 6 * 36e5))) || !aiReady()) && (c.faceBox.phys || !aiReady() || Date.now() - (c.faceBox.at || 0) < 864e5)) return c.faceBox;
   const full = await DB.get(c.photo); if(!full) return null;
-  let b = null, phys = '';
-  if(aiReady()){
+  let b = null, phys = '', ok = 0;
+  // 9.8.1: răspunsul nu mai poate fi tăiat pe jumătate (limita era 600 de tokeni, iar JSON-ul trunchiat se „repara” și se salva
+  //        cu descrierea neterminată și fără corp); dacă vine tăiat, se cere încă o dată
+  for(let tryN = 0; tryN < 2 && aiReady() && !ok; tryN++){
     try{
-      const out = await stream('You analyse reference photos for an image generator. Answer with JSON only.', [{role:'user', image:await blobToB64(await toJpeg(full, 1024, .85)), text:
+      const meta = {};
+      const out = await stream('You analyse reference photos for an image generator. Answer with the JSON object only, starting with {, no other text.', [{role:'user', image:await blobToB64(await toJpeg(full, 1024, .85)), text:
 `1. Find the main person's face (forehead to chin, ear to ear) as fractions 0-1 of the image width/height, top-left origin.
 2. "physique": ONLY the permanent traits of the face and head, in English, comma-separated, max 50 words: apparent age, ethnicity-neutral skin tone, face shape, eye color and shape, eyebrows, nose, lips, hair (exact color, length, texture, parting, style), glasses if worn, distinctive marks (moles, freckles, tattoos, piercings).
 3. "body": the body exactly as it looks in the photo, in neutral factual English, comma-separated, max 45 words: apparent height (petite / average / tall), build (slim, slender, athletic, average, curvy, full-figured, plus-size, muscular), shoulders, waist, hips and legs proportions, overall body shape, skin tone on the body. If the body is not visible, write "not visible".
 NO clothing, NO jewelry except glasses/piercings, NO background, NO pose, NO expression.
-JSON: {"x":0.0,"y":0.0,"w":0.0,"h":0.0,"physique":"...","body":"..."} (if no face is visible, x,y,w,h = 0)`}], {max:600, aux:true});
+JSON: {"x":0.0,"y":0.0,"w":0.0,"h":0.0,"physique":"...","body":"..."} (if no face is visible, x,y,w,h = 0)`}], {max:1500, aux:true, meta});
+      if(meta.stop && meta.stop !== 'end_turn') continue;   // tăiat: mai încercăm o dată
       const j = parseJSON(out), n = k => Math.min(1, Math.max(0, +j[k] || 0));
+      if(!String(j.physique || '').trim()) continue;
+      ok = 1;
       if(n('w') > .02 && n('h') > .02) b = {x:n('x'), y:n('y'), w:n('w'), h:n('h'), by:'ai'};
       phys = String(j.physique || '').trim().slice(0, 500);
       const bd = String(j.body || '').trim(); if(bd && !/not visible/i.test(bd)) phys += (phys ? '; body: ' : 'body: ') + bd.slice(0, 400);
     }catch(e){}
   }
+  if(!ok){ ok = -1; if(c.faceBox && c.faceBox.k === c.photo && c.faceBox.phys && !phys) phys = c.faceBox.phys; }   // eșuat de două ori: păstrăm ce era și reîncercăm peste 6 ore   // o citire eșuată nu șterge descrierea veche
   if(!b && 'FaceDetector' in window){
     const u = URL.createObjectURL(full);
     try{ const im = await loadImgEl(u), f = (await new FaceDetector({fastMode:false, maxDetectedFaces:3}).detect(im)).sort((a, z) => z.boundingBox.width * z.boundingBox.height - a.boundingBox.width * a.boundingBox.height)[0];
       if(f){ const r = f.boundingBox; b = {x:r.x / im.naturalWidth, y:r.y / im.naturalHeight, w:r.width / im.naturalWidth, h:r.height / im.naturalHeight, by:'tel'}; } }catch(e){}
     finally{ URL.revokeObjectURL(u); }
   }
-  c.faceBox = b ? {k:c.photo, ...b, phys, at:Date.now(), v:2} : {k:c.photo, none:true, phys, at:Date.now(), v:2};
+  c.faceBox = b ? {k:c.photo, ...b, phys, at:Date.now(), v:2, ok} : {k:c.photo, none:true, phys, at:Date.now(), v:2, ok};
   await saveChars();
   return c.faceBox;
 }
