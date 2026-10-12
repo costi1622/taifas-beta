@@ -1,5 +1,5 @@
 window.__taifas = true;   // 8.20.1: semn pentru index.html că app.js s-a încărcat
-const APP_VER = '9.1';
+const APP_VER = '9.2';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -3297,9 +3297,10 @@ ${canAutoPhoto(c)
 const openChatObj = () => chat;
 function contextUpTo(idx, chx){
   const chat = chx || openChatObj();
-  // fereastra pornește din 20 în 20 de mesaje (nu se mută la fiecare răspuns), ca începutul conversației să rămână identic și să fie citit din cache
-  const span = +S.ctxN || 30, raw = idx - span;
-  let from = Math.max(chat.sumUpTo || 0, raw <= 0 ? 0 : Math.floor(raw / 20) * 20);
+  // fereastra pornește din 40 în 40 de mesaje (nu se mută la fiecare răspuns), ca începutul conversației să rămână identic și să fie citit din cache
+  // 9.2: din 40 în 40 (era 20): la fiecare mutare tot istoricul se rescrie în cache la 2×; mesajele în plus se citesc la 1/10 din preț
+  const span = +S.ctxN || 30, raw = idx - span, STEP = 40;
+  let from = Math.max(chat.sumUpTo || 0, raw <= 0 ? 0 : Math.floor(raw / STEP) * STEP);
   if(from >= idx) from = Math.max(0, idx - span);
   chat._from = from;   // 8.17: când fereastra se mută, se reface și promptul înghețat (`sysFor`)
   const sum = chat.summary ? [{role:'user', text:`(Rezumatul conversației de până acum, ca să-ți amintești: ${chat.summary})`}, {role:'assistant', text:'*dă din cap*'}] : [];
@@ -3858,8 +3859,10 @@ async function renderCost(){
     ${totIn ? `<div class="row2"><span>Context citit din cache</span><span>${pc}%</span></div><div class="row2"><span>Economisit prin cache</span><span style="color:var(--ok)">${usd(M.saved || 0)}</span></div><div class="row2"><span>Cost mediu pe mesaj</span><span>${usd(M.txt / Math.max(1, M.mcalls || M.calls || 1))}</span></div>` : ''}
     ${(() => { const by = Object.entries(M.by || {}).filter(x => x[1] > 0).sort((a, b) => b[1] - a[1]); if(!by.length) return ''; const mx = by[0][1];
       const L = {chat:['💬', 'Conversații'], apel:['📞', 'Apeluri'], poze:['📷', 'Poze în chat'], stories:['📸', 'Stories'], statusuri:['📱', 'Statusuri'], voce:['🎙️', 'Voce'], fundal:['⚙️', 'Fundal (memorie, relație, planuri)'], jurnal:['📔', 'Jurnal'], profil:['🖼️', 'Portrete, avatar, stickere'], pozeai:['🧠', 'Poze: plan și verificare (AI)']};
-      const tk = M.tk || {}, cp = k => { const T = tk[k]; if(!T) return ''; const all = T.inp + T.cw + T.cr; return all ? ` <small style="color:var(--tx3)">${T.n} apeluri · cache ${Math.round(T.cr / all * 100)}%</small>` : ''; };
-      return `<div class="cbreak"><div class="cbh">Unde se duc banii luna asta</div>${by.map(([k, v]) => `<div class="cbr"><span>${(L[k] || ['•', k])[0]} ${esc((L[k] || ['', k])[1])}${cp(k)}</span><div class="cbb"><i style="width:${Math.max(3, v / mx * 100)}%"></i></div><b>${usd(v)}</b></div>`).join('')}</div>`; })()}
+      const tk = M.tk || {}, kf = n => n >= 1000 ? (n / 1000).toFixed(n >= 1e4 ? 0 : 1).replace('.', ',') + 'k' : String(Math.round(n));
+      const cp = k => { const T = tk[k]; if(!T || !T.n) return ''; const all = T.inp + T.cw + T.cr;
+        return `<div style="font-size:12px;color:var(--tx3);margin:-4px 0 8px 26px">${T.n} apeluri (din 9.0)${all ? ` · cache ${Math.round(T.cr / all * 100)}% · ~${kf(all / T.n)} intrare (${kf(T.cw / T.n)} scris în cache) · ~${kf(T.out / T.n)} ieșire pe apel` : ''}</div>`; };
+      return `<div class="cbreak"><div class="cbh">Unde se duc banii luna asta</div>${by.map(([k, v]) => `<div class="cbr"><span>${(L[k] || ['•', k])[0]} ${esc((L[k] || ['', k])[1])}</span><div class="cbb"><i style="width:${Math.max(3, v / mx * 100)}%"></i></div><b>${usd(v)}</b></div>${cp(k)}`).join('')}</div>`; })()}
     ${P ? `<div class="row2"><span>Luna trecută</span><span>${usd(tot(P))}</span></div>` : ''}
     ${top.map(([c, v]) => `<div class="row2"><span>${esc(c.name)}</span><span>${usd(v)}</span></div>`).join('')}`;
 }
