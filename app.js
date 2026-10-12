@@ -1,5 +1,5 @@
 window.__taifas = true;   // 8.20.1: semn pentru index.html că app.js s-a încărcat
-const APP_VER = '9.14';
+const APP_VER = '9.15';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -107,17 +107,20 @@ function idleTick(){
   };
   if('requestIdleCallback' in window) requestIdleCallback(go, {timeout:4000}); else setTimeout(go, 300);
 }
+// 9.15: și fără un <img> încărcat: dimensiunile vin din fișier (decodat în afara firului principal)
+function thumbsFor(k){ if(k && !thBusy.has(k) && !(imeta[k] && imeta[k].m && imeta[k].s && imeta[k].lq)) makeThumbs(k, null); }
 function makeThumbs(k, im){
-  if(!k || !im || !im.naturalWidth || thBusy.has(k)) return;
-  const W = im.naturalWidth, H = im.naturalHeight; thBusy.add(k);
+  if(!k || thBusy.has(k) || (im && !im.naturalWidth)) return;
+  let W = im ? im.naturalWidth : 0, H = im ? im.naturalHeight : 0; thBusy.add(k);
   idleJob(async () => {
     try{
-      const meta = imeta[k] = imeta[k] || {}; meta.w = W; meta.h = H;
       const blob = await DB.get(k); if(!blob) return;
+      if(!W){ const bm = await createImageBitmap(blob); W = bm.width; H = bm.height; bm.close(); }
+      const meta = imeta[k] = imeta[k] || {}; meta.w = W; meta.h = H;
       // redimensionare în afara firului principal; fără createImageBitmap, prin canvas (ca înainte)
       const shrink = async px => {
         const s = Math.min(1, px / Math.max(W, H)), w = Math.max(1, Math.round(W * s)), h = Math.max(1, Math.round(H * s));
-        let src = null; try{ src = await createImageBitmap(blob, {resizeWidth:w, resizeHeight:h, resizeQuality:'high'}); }catch(e){ src = im; }
+        let src = null; try{ src = await createImageBitmap(blob, {resizeWidth:w, resizeHeight:h, resizeQuality:'high'}); }catch(e){ src = im; } if(!src) throw new Error('fără sursă');   // nu salvăm o miniatură goală
         const cv = document.createElement('canvas'); cv.width = w; cv.height = h; cv.getContext('2d').drawImage(src, 0, 0, w, h); if(src.close) src.close(); return cv;
       };
       if(!meta.lq) meta.lq = (await shrink(24)).toDataURL('image/jpeg', .5);
@@ -159,7 +162,10 @@ async function hydrate(root = document){
     if(u) el.src = u; el.removeAttribute('data-k');
   }
   for(const el of root.querySelectorAll('[data-bgk]')){
-    const u = await imgUrl(el.dataset.bgk); el.style.backgroundImage = u ? `url("${u}")` : ''; el.removeAttribute('data-bgk');
+    const k = el.dataset.bgk; let u = '';
+    if(imeta[k] && imeta[k].m === 1){ u = await imgUrl(thKey('m', k)); if(!u){ delete imeta[k].m; imetaSave(); } }   // 9.15: fundal din miniatură
+    if(!u){ u = await imgUrl(k); if(!(imeta[k] && imeta[k].m)) thumbsFor(k); }
+    el.style.backgroundImage = u ? `url("${u}")` : ''; el.removeAttribute('data-bgk');
   }
 }
 function loadImgEl(src){ return new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = src; }); }
@@ -1075,18 +1081,30 @@ async function genImage(prompt, ref, signal, ref2, opt = {}){
 /* ───────── navigare ───────── */
 const VIEWS = ['vHome', 'vChat', 'vEdit', 'vSet', 'vWelcome', 'vProf'];
 let flyNext = false, vtT = 0;
+// 9.15: lucruri de făcut după ce ecranul nou s-a așezat (după glisare), ca să nu încarce animația
+let viewTok = 0; const settleQ = [];
+function afterShow(fn){ settleQ.push(fn); }
+function viewSettled(tok){ if(tok !== viewTok) return; const q = settleQ.splice(0); q.forEach(fn => { try{ fn(); }catch(e){ console.warn(e); } }); }
 function show(id, push = true, dir){
   const was = VIEWS.find(v => !$('#' + v).hidden);
   VIEWS.forEach(v => $('#' + v).hidden = v !== id);
   const el = $('#' + id);
   // 8.9: ecranul vechi rămâne vizibil cât timp alunecă (are deja `hidden`, deci logica îl vede închis)
-  $$('.view').forEach(v => v.classList.remove('vin-f', 'vin-b', 'vin-z', 'vout-f', 'vout-b', 'vout-z')); clearTimeout(vtT);
+  $$('.view').forEach(v => v.classList.remove('vin-f', 'vin-b', 'vin-z', 'vout-f', 'vout-b', 'vout-z', 'vprep-f', 'vprep-b', 'vprep-z', 'vhold')); clearTimeout(vtT);
+  const tok = ++viewTok;
   if(was && was !== id && fxOn()){
     const d = flyNext ? 'z' : (dir || (push ? 'f' : (id === 'vHome' ? 'b' : 'f'))) === 'f' ? 'f' : 'b';
-    const old = $('#' + was); void el.offsetWidth;
-    el.classList.add('vin-' + d); old.classList.add('vout-' + d);
-    vtT = setTimeout(() => { el.classList.remove('vin-' + d); old.classList.remove('vout-' + d); }, 380);
-  }
+    const old = $('#' + was);
+    // 9.15: ecranul nou se așază și se desenează întâi în afara vederii (cât construiește chatul, lista…), iar glisarea pornește
+    //       abia după aceea: animația nu mai pierde cadre cu construirea ecranului
+    el.classList.add('vprep-' + d); old.classList.add('vhold');
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      if(tok !== viewTok) return;
+      el.classList.remove('vprep-' + d); old.classList.remove('vhold');
+      el.classList.add('vin-' + d); old.classList.add('vout-' + d);
+      vtT = setTimeout(() => { el.classList.remove('vin-' + d); old.classList.remove('vout-' + d); viewSettled(tok); }, 380);
+    }));
+  } else setTimeout(() => viewSettled(tok), 0);
   flyNext = false;
   if(push && id !== 'vHome' && !(history.state && history.state.v === id)) history.pushState({v:id}, '');
 }
@@ -1173,10 +1191,11 @@ function renderHome(){
     + homeHeroHTML(recent)
     + `<div class="hsec">Personajele tale <span>${chars.length}</span></div>`;
   const bk = !q && bkDue() ? `<div class="bkslim"><span>💾</span><span class="bkt"><b>Backup: ${esc(bkAgo())}</b><small>Totul stă doar în telefonul ăsta</small></span><button class="btn sm pri" data-bk="share">📤 Drive</button><button class="btn sm" data-bk="dl" aria-label="Salvează">⬇</button><button class="bkx" data-bk="later" aria-label="Mai târziu">✕</button></div>` : '';
-  $('#homeChars').innerHTML = bk + top + (!chars.length ? `<button class="card empty" data-new><b>Niciun personaj încă</b>Apasă ＋ jos ca să creezi primul personaj, din poză sau din imaginație.</button>` : '') +
-    shown.map(c => `<button class="card${c.fav ? ' isfav' : ''}" data-open="${c.id}">${c.fav ? '<span class="fav">⭐</span>' : ''}${c.unread ? `<span class="ubadge">${c.unread > 9 ? '9+' : c.unread}</span>` : ''}${c.lastAt && c.last || clockHTML(c) ? `<span class="tl">${c.lastAt && c.last ? `<span class="when">${when(c.lastAt)}</span>` : ''}${clockHTML(c, 'when clk')}</span>` : ''}
-      ${c.photo ? `<img data-k="${esc(photoNow(c))}" alt="">` : `<div class="ph" style="background:${colorFor(c)}">${esc(c.name[0] || '?')}</div>`}
-      <div class="ov"><b>${esc(c.name)}</b>${c.tag ? `<small>${esc(c.tag)}</small>` : ''}${cardStatus(c)}${c.rel ? `<span class="crel">💞 ${esc(relOf(c).name)}</span>` : ''}${c.last ? `<em class="lm">${esc(c.last)}</em>` : ''}</div></button>`).join('') + (chars.length && !q ? `<button class="card new" data-new><span>＋</span><em>Personaj nou</em></button>` : '');
+  // 9.15: doar cardurile schimbate se refac (înainte, la fiecare întoarcere pe Acasă se refăcea tot, cu pozele decodate din nou)
+  patchKeyed($('#homeChars'), [['bk', bk], ['top', top], ['empty', !chars.length ? `<button class="card empty" data-new><b>Niciun personaj încă</b>Apasă ＋ jos ca să creezi primul personaj, din poză sau din imaginație.</button>` : ''],
+    ...shown.map(c => ['card:' + c.id, `<button class="card${c.fav ? ' isfav' : ''}" data-open="${c.id}">${c.fav ? '<span class="fav">⭐</span>' : ''}${c.unread ? `<span class="ubadge">${c.unread > 9 ? '9+' : c.unread}</span>` : ''}${c.lastAt && c.last || clockHTML(c) ? `<span class="tl">${c.lastAt && c.last ? `<span class="when">${when(c.lastAt)}</span>` : ''}${clockHTML(c, 'when clk')}</span>` : ''}
+      ${c.photo ? `<img data-k="${esc(photoNow(c))}" data-t="m" alt="">` : `<div class="ph" style="background:${colorFor(c)}">${esc(c.name[0] || '?')}</div>`}
+      <div class="ov"><b>${esc(c.name)}</b>${c.tag ? `<small>${esc(c.tag)}</small>` : ''}${cardStatus(c)}${c.rel ? `<span class="crel">💞 ${esc(relOf(c).name)}</span>` : ''}${c.last ? `<em class="lm">${esc(c.last)}</em>` : ''}</div></button>`]), ['new', chars.length && !q ? `<button class="card new" data-new><span>＋</span><em>Personaj nou</em></button>` : '']].filter(b => b[1]), homeStore.chars);
   const withChat = chars.filter(c => c.last).sort((a, b) => (b.lastAt || 0) - (a.lastAt || 0));
   const pinned = withChat.filter(c => c.pinned), rest = withChat.filter(c => !c.pinned);
   const crow = c => {
@@ -1190,10 +1209,10 @@ function renderHome(){
         <span class="cbot"><small>${prev}</small>${n > 1 ? `<span class="thr">🧵 ${n}</span>` : ''}${c.unread ? `<span class="badge">${c.unread > 9 ? '9+' : c.unread}</span>` : ''}</span>${(() => { const lf = lifeNow(c), ck = clockHTML(c, 'nclk'); if(charBdayToday(c)) return `<span class="clife">${ck}🎂 Își serbează ziua azi</span>`; return lf && lf.w ? `<span class="clife">${ck}${LIFE_E[lf.b]} ${esc(lf.w)}</span>` : ck ? `<span class="clife">${clockHTML(c, 'nclk solo')}</span>` : ''; })()}</span>
       </button></div>`;
   };
-  $('#homeChats').innerHTML = storyRowHTML() + (withChat.length
-    ? (pinned.length ? '<div class="clabel">Fixate</div>' + pinned.map(crow).join('') + (rest.length ? '<div class="clabel">Recente</div>' : '') : '') + rest.map(crow).join('')
-      + '<div class="hint" style="text-align:center;margin:14px 0">Glisează spre stânga pe o conversație ca s-o fixezi sau s-o golești.</div>'
-    : `<div class="empty">Nicio conversație încă.<br>Alege un personaj din „Acasă".</div>`);
+  patchKeyed($('#homeChats'), [['stories', storyRowHTML()], ...(withChat.length
+    ? [...(pinned.length ? [['lp', '<div class="clabel">Fixate</div>'], ...pinned.map(c => ['row:' + c.id, crow(c)]), ...(rest.length ? [['lr', '<div class="clabel">Recente</div>']] : [])] : []), ...rest.map(c => ['row:' + c.id, crow(c)]),
+      ['hint', '<div class="hint" style="text-align:center;margin:14px 0">Glisează spre stânga pe o conversație ca s-o fixezi sau s-o golești.</div>']]
+    : [['none', `<div class="empty">Nicio conversație încă.<br>Alege un personaj din „Acasă".</div>`]])].filter(b => b[1]), homeStore.chats);
   $$('[data-bk]').forEach(b => b.onclick = e => { e.stopPropagation(); const k = b.dataset.bk; if(k === 'later'){ S.bkSnooze = Date.now() + 2 * 864e5; saveSettings(); renderHome(); } else exportAll(k === 'share'); });
   hydrate($('#vHome')); bindStoryRow($('#vHome'));
 }
@@ -1224,10 +1243,14 @@ async function openChat(id, push = true, tid, dir){
   renderScene();
   updateComposer();
   resetMsgWin(); markBusy(2200);   // 9.13.1: fără lucru de fundal cât se deschide
+  const full0 = msgStart; msgStart = Math.max(msgStart, chat.msgs.length - 15); msgLight = msgStart > full0;   // 9.15: întâi doar ce încape pe ecran
   show('vChat', push, dir);
   if(cur.unread){ cur.unread = 0; saveChars(); }
   renderMsgs(true);
   hydrate($('#vChat'));
+  // 9.15: după animație, restul ferestrei (până la 60 de mesaje) se adaugă deasupra; ce vezi rămâne pe loc
+  if(msgStart > full0){ const ch0 = chat; afterShow(() => { msgLight = false; if(chat !== ch0 || $('#vChat').hidden || msgStart <= full0) return;
+    const box = $('#msgs'), fromBottom = box.scrollHeight - box.scrollTop; msgStart = full0; renderMsgs(false, true); box.scrollTop = box.scrollHeight - fromBottom; }); }
   setBusyUI(!!(busy && live && live.ch === chat));
   $('#sugg').innerHTML = '';
   clearReply(); jumpCount = 0;
@@ -2942,10 +2965,10 @@ function statusLine(){
 let jumpCount = 0;
 // 9.4: câte mesaje sunt în pagină. Înainte se construia tot istoricul (sute de bule, fiecare cu blur) la fiecare schimbare.
 const MSG_WIN = 60, MSG_MORE = 60;
-let msgStart = 0, msgFor = null, moreObs = null, moreBusy = false;
+let msgStart = 0, msgFor = null, moreObs = null, moreBusy = false, msgLight = false;   // 9.15: msgLight = faza ușoară de la deschidere
 function resetMsgWin(){ msgFor = chat; msgStart = Math.max(0, (chat ? chat.msgs.length : 0) - MSG_WIN); }
 function loadEarlier(){
-  if(moreBusy || !chat || msgStart <= 0) return;
+  if(moreBusy || msgLight || !chat || msgStart <= 0) return;
   moreBusy = true;
   const box = $('#msgs'), h0 = box.scrollHeight, t0 = box.scrollTop;
   msgStart = Math.max(0, msgStart - MSG_MORE);
@@ -3241,6 +3264,21 @@ function renderMsgs(toBottom, keep){
   updateHead(); updateJump();
   if(cur && !(busy && live && live.ch === chat)) $('#chTag').innerHTML = statusLine();
 }
+// 9.15: același lucru pentru orice listă (Acasă: carduri, conversații)
+function patchKeyed(box, blocks, store){
+  const keys = new Set(), tpl = document.createElement('template'), next = [];
+  for(const [k] of blocks){ if(keys.has(k)){ box.innerHTML = blocks.map(b => b[1]).join(''); store.clear(); return; } keys.add(k); }
+  for(const [k, h] of blocks){
+    const old = store.get(k);
+    let nodes = old && old.h === h && old.nodes.every(n => n.parentNode === box) ? old.nodes : null;
+    if(!nodes){ tpl.innerHTML = h; nodes = [...tpl.content.children]; store.set(k, {h, nodes}); }
+    next.push(...nodes);
+  }
+  for(let i = 0; i < next.length; i++){ const at = box.children[i]; if(at !== next[i]) box.insertBefore(next[i], at || null); }
+  while(box.children.length > next.length) box.lastElementChild.remove();
+  for(const k of [...store.keys()]) if(!keys.has(k)) store.delete(k);
+}
+const homeStore = {chars:new Map(), chats:new Map()};
 // 9.13: în pagină se schimbă doar blocurile al căror conținut s-a schimbat; restul rămân (cu pozele deja încărcate)
 const msgDom = new Map();
 // marcajele „proaspăt” (animația de intrare, developarea pozei) nu contează la comparare: altfel bula s-ar reface după prima afișare
@@ -4203,7 +4241,7 @@ async function charProfile(id, push = true){
     </div>
     ${hiDays.length ? `<div class="igHi">${hiDays.map((h, k) => `<button data-hi="${k}"><span><img data-k="${esc(h.items[0].k)}" alt=""></span><small>${esc(hiLabel(h.d))}</small></button>`).join('')}</div>` : ''}
     <div class="pftabs ig" id="pfTabs"><button data-pt="poze"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>Poze</button><button data-pt="despre">✨ Despre</button><button data-pt="memorie">🧠 Memorie</button></div>
-    <div class="pfSec igGrid"><div class="pfGal">${pics.length ? pics.map(k => `<button data-view="${esc(k)}">${picMeta[k].story ? '<i>📸</i>' : ''}<img data-k="${esc(k)}" alt="" loading="lazy"></button>`).join('') : ''}</div>${pics.length ? '' : `<p class="igEmpty">📷<br>Încă nicio poză de la ${esc(c.name)}.<br><small>Cere-i una din ＋ în conversație.</small></p>`}</div>
+    <div class="pfSec igGrid"><div class="pfGal">${pics.length ? pics.map(k => `<button data-view="${esc(k)}">${picMeta[k].story ? '<i>📸</i>' : ''}<img data-lk="${esc(k)}" data-t="m" alt="" loading="lazy"></button>`).join('') : ''}</div>${pics.length ? '' : `<p class="igEmpty">📷<br>Încă nicio poză de la ${esc(c.name)}.<br><small>Cere-i una din ＋ în conversație.</small></p>`}</div>
     ${c.aspect ? `<div class="pfSec"><h3>Cum arată</h3><p>${esc(c.aspect)}</p></div>` : ''}
     <div class="pfSec"><h3><span>💞 Relația voastră</span></h3><div class="relbox"><span class="lv" id="pfRelName"></span><small id="pfRelSub"></small><button class="btn sm" id="pfRelSet" style="margin-left:auto">Schimbă</button></div><div class="relbar"><i id="pfRelBar"></i></div><div id="pfBond" class="bond"></div></div>
     <div class="pfSec" id="pfPrefsSec"><h3>🎯 Ce a învățat din notele tale</h3><ul class="facts" id="pfPrefs"></ul></div>
@@ -4224,6 +4262,8 @@ async function charProfile(id, push = true){
     <div class="pfFoot">Creat pe ${new Date(c.created || first).toLocaleDateString('ro-RO', {day:'numeric', month:'long', year:'numeric'})} · cost estimat ${usd(spent)}</div>`;
   const body = $('#pfBody');
   hydrate(body);
+  // 9.15: grila de poze se încarcă după ce s-a așezat profilul (nu în timpul glisării), din miniaturi
+  afterShow(() => { body.querySelectorAll('img[data-lk]').forEach(i => { i.dataset.k = i.dataset.lk; i.removeAttribute('data-lk'); }); hydrate(body); });
   show('vProf', push);
   $('#pfScroll').scrollTop = 0; profScroll();
   const ab = $('#pfAbout'); if(ab) requestAnimationFrame(() => { if(ab.scrollHeight > ab.clientHeight + 4){ $('#pfMore').hidden = false; $('#pfMore').onclick = () => { ab.classList.remove('clamp3'); $('#pfMore').hidden = true; }; } });
@@ -6453,6 +6493,7 @@ function cspSync(boot){
 async function init(){
   try{ await DB.open(); }catch(e){ document.body.innerHTML = '<p class="empty">Browserul nu permite stocarea locală (IndexedDB). Ieși din modul privat.</p>'; return; }
   await imetaLoad();   // 9.13: dimensiunile pozelor și miniaturile
+  setTimeout(() => { for(const c of chars) for(const k of [c.photo, ...Object.values(c.avs || {})]) thumbsFor(k); }, 4000);   // 9.15: miniaturile pozelor de profil, din timp
   const saved = await DB.get('settings');
   S = {...DEF, ...(saved || {})};
   if(saved) S.sv = saved.sv || 0;                     // setări vechi fără versiune: rulăm migrările

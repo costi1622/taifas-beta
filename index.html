@@ -60,6 +60,9 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--tx);font-family:
 button,input,textarea,select{font:inherit;color:inherit}
 button{cursor:pointer;border:0;background:none}
 [hidden]{display:none!important}
+/* 9.15: ecranele ascunse rămân „păstrate” (așezarea și desenul lor se refolosesc la întoarcere), nu scoase din pagină */
+.view[hidden]{display:flex!important;visibility:hidden;content-visibility:hidden;pointer-events:none}
+.view[hidden]:is(.vout-f,.vout-b,.vout-z,.vhold){visibility:visible;content-visibility:visible}   /* ecranul care pleacă se vede cât alunecă */
 .view{position:fixed;inset:0;display:flex;flex-direction:column;background:var(--bg)}
 .top{display:flex;align-items:center;gap:10px;padding:calc(10px + var(--safe-t)) 14px 10px;flex:none;position:relative;z-index:2}
 .top h1{margin:0;font-size:1.5rem;font-weight:800;letter-spacing:-.5px;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent;flex:1}
@@ -556,6 +559,11 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
 .view.vout-f{z-index:4;animation:voutf .36s cubic-bezier(.22,.9,.25,1) forwards}
 .view.vin-b{z-index:4;animation:vinb .36s cubic-bezier(.22,.9,.25,1)}
 .view.vout-b{z-index:5;animation:voutb .36s cubic-bezier(.22,.9,.25,1) forwards}
+/* 9.15: pregătirea: ecranul nou stă în poziția de start (în afara vederii / dedesubt), cel vechi rămâne pe ecran, până se așază noul */
+.view.vprep-f{z-index:5;transform:translateX(100%)}
+.view.vprep-b{z-index:4;transform:translateX(-24%)}
+.view.vprep-z{z-index:5;opacity:0}
+.view[hidden].vhold{display:flex!important;visibility:visible;content-visibility:visible;pointer-events:none;z-index:5}
 /* 9.4: umbra marginii și întunecarea ecranului de dedesubt sunt straturi proprii, animate doar ca opacitate (fără filter/box-shadow pe ecranul întreg) */
 .view.vin-f,.view.vout-b,.view.vout-f,.view.vin-b{will-change:transform}
 .view.vin-f::before,.view.vout-b::before{content:"";position:absolute;top:0;bottom:0;left:-40px;width:40px;background:linear-gradient(to left,#0006,#0000);pointer-events:none}
