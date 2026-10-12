@@ -578,6 +578,18 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
 #homeScroll.tabin > :not([hidden]){animation:tabin .28s cubic-bezier(.2,.8,.3,1)}
 @keyframes tabin{from{opacity:0;transform:translateY(10px)}}
 .mw.anim .m.ai{animation:inL .32s cubic-bezier(.2,.8,.3,1)}
+/* 9.13: textul care se scrie: ultimul cuvânt intră estompat */
+.bub .nw{animation:nwIn .26s ease-out}
+@keyframes nwIn{from{opacity:0}}
+/* 9.13: data plutitoare (ziua mesajelor de sus, cât derulezi) */
+#dayFloat{position:absolute;left:50%;transform:translate(-50%,-6px);z-index:5;font-size:.74rem;color:var(--tx2);background:#1e1a26f0;padding:4px 11px;border-radius:99px;border:1px solid #ffffff12;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s}
+#dayFloat.on{opacity:1;transform:translate(-50%,0)}
+[data-theme=light] #dayFloat{background:#fffffff2;border-color:#00000012}
+/* 9.13: glisarea spre dreapta: săgeata ↩ apare pe măsură ce tragi */
+.mw.swr{position:relative}
+.mw.swr::before{content:"↩";position:absolute;left:6px;top:50%;transform:translateY(-50%) scale(calc(.6 + var(--swp,0) * .4));opacity:var(--swp,0);font-size:18px;color:var(--tx2);pointer-events:none}
+.mw.swr.ready::before{color:var(--acc)}
+@media (prefers-reduced-motion:reduce){.bub .nw{animation:none}}
 .mw.anim .m.me{animation:inR .32s cubic-bezier(.2,.8,.3,1)}
 @keyframes inL{from{opacity:0;transform:translateX(-14px) scale(.97)}}
 @keyframes inR{from{opacity:0;transform:translateX(14px) scale(.97)}}

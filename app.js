@@ -1,5 +1,5 @@
 window.__taifas = true;   // 8.20.1: semn pentru index.html că app.js s-a încărcat
-const APP_VER = '9.12';
+const APP_VER = '9.13';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -84,7 +84,36 @@ async function imgUrl(k){
   const u = URL.createObjectURL(b); urlCache.set(k, u); return u;
 }
 async function saveImg(blob){ const k = 'img:' + uid(); await DB.set(k, blob); return k; }
-async function delImg(k){ if(!k) return; const u = urlCache.get(k); if(u) URL.revokeObjectURL(u); urlCache.delete(k); await DB.del(k); }
+/* 9.13: miniaturi. În bule și la avatare se decodează o poză pe măsura ecranului (~1.300 / 192 px), nu poza întreagă (de la cameră, 10+ MP);
+   poza întreagă se deschide doar când o atingi. Pozele care sunt deja la mărimea ecranului (de ex. cele generate, 768×1024) rămân întregi. Miniaturile stau în baza de date cu prefixul thm:/ths: (nu intră în backup,
+   se refac singure); dimensiunile și o versiune de ~24 px (pentru locul rezervat, estompat) stau în `imeta`. */
+let imeta = {}, imetaT = 0;
+// pozele din bule: cât are nevoie ecranul (bula are până la ~460 px; telefonul are 2–3 pixeli fizici pe pixel) → fără pierdere vizibilă
+const TH = {m:Math.min(1440, Math.max(900, Math.round(460 * (window.devicePixelRatio || 2)))), s:192};
+async function imetaLoad(){ try{ imeta = (await DB.get('imeta')) || {}; }catch(e){ imeta = {}; } }
+function imetaSave(){ clearTimeout(imetaT); imetaT = setTimeout(() => { DB.set('imeta', imeta).catch(() => {}); }, 1500); }
+const thKey = (t, k) => 'th' + t + ':' + k;
+const thBusy = new Set();
+async function makeThumbs(k, im){
+  if(!k || !im || !im.naturalWidth || thBusy.has(k)) return;
+  thBusy.add(k);
+  try{
+    const W = im.naturalWidth, H = im.naturalHeight, meta = imeta[k] = imeta[k] || {};
+    meta.w = W; meta.h = H;
+    const draw = (px, q) => { const s = Math.min(1, px / Math.max(W, H)), cv = document.createElement('canvas'); cv.width = Math.max(1, Math.round(W * s)); cv.height = Math.max(1, Math.round(H * s));
+      const g = cv.getContext('2d'); g.imageSmoothingQuality = 'high'; g.drawImage(im, 0, 0, cv.width, cv.height); return cv; };
+    if(!meta.lq) meta.lq = draw(24, .5).toDataURL('image/jpeg', .5);
+    for(const [t, px] of Object.entries(TH)){
+      if(meta[t]) continue;
+      if(Math.max(W, H) <= px * 1.3){ meta[t] = 'same'; continue; }   // poza e deja mică
+      const b = await new Promise(r => draw(px).toBlob(r, 'image/jpeg', .86));
+      if(b){ await DB.set(thKey(t, k), b); meta[t] = 1; }
+    }
+    imetaSave();
+  }catch(e){} finally { thBusy.delete(k); }
+}
+async function delImg(k){ if(!k) return; for(const x of [k, thKey('m', k), thKey('s', k)]){ const u = urlCache.get(x); if(u) URL.revokeObjectURL(u); urlCache.delete(x); }
+  if(imeta[k]){ delete imeta[k]; imetaSave(); } await DB.del(k); DB.del(thKey('m', k)).catch(() => {}); DB.del(thKey('s', k)).catch(() => {}); }
 // șterge tot ce ține de un mesaj: poza, variantele ei și înregistrările vocale (fără poza de profil)
 async function purgeMsg(m, c){
   const keep = c && c.photo;
@@ -101,7 +130,10 @@ async function delPhotoIfUnused(c, k){
 function cutAt(ch, i){ if((ch.sumUpTo || 0) > i){ ch.sumUpTo = 0; ch.summary = ''; } if((ch.sumNextTo || 0) > i){ delete ch.sumNext; delete ch.sumNextTo; } }
 async function hydrate(root = document){
   for(const el of root.querySelectorAll('img[data-k]')){
-    const u = await imgUrl(el.dataset.k);
+    const k = el.dataset.k, t = el.dataset.t; let u = '';
+    if(t && imeta[k] && imeta[k][t] === 1){ u = await imgUrl(thKey(t, k)); if(!u){ delete imeta[k][t]; imetaSave(); } }   // după o restaurare, miniaturile se refac
+    if(!u) u = await imgUrl(k);
+    if(t && !(imeta[k] && imeta[k][t] && imeta[k].lq)) el.addEventListener('load', () => makeThumbs(k, el), {once:true});
     if(el.classList.contains('dev')){ el.onload = () => el.classList.add('go'); }
     el.decoding = 'async';   // 9.4: decodarea pozei nu mai blochează animațiile
     if(u) el.src = u; el.removeAttribute('data-k');
@@ -144,7 +176,7 @@ function photoNow(c){
   return c.avs[avKeyNow(c)] || c.photo;
 }
 function avatarHTML(c, cls = 'av'){
-  if(c && c.photo) return `<img class="${cls}" data-k="${esc(photoNow(c))}" alt="">`;
+  if(c && c.photo) return `<img class="${cls}" data-k="${esc(photoNow(c))}"${cls === 'av' || cls.startsWith('av"') ? ' data-t="s"' : ''} alt="">`;
   return `<span class="${cls}" style="background:${colorFor(c)}">${esc((c?.name || '?')[0].toUpperCase())}</span>`;
 }
 function colorFor(c){ let h = 0; for(const ch of (c?.id || 'x')) h = (h * 31 + ch.charCodeAt(0)) % 360; return `linear-gradient(135deg,hsl(${h} 55% 38%),hsl(${(h + 50) % 360} 55% 28%))`; }
@@ -1159,7 +1191,9 @@ async function openChat(id, push = true, tid, dir){
   tid = tid || cur.thread || 'main';
   if(!cur.threads.some(t => t.id === tid)) tid = cur.threads[0].id;
   cur.thread = tid;
+  const prevChat = chat;
   chat = (live && live.c.id === id && (live.ch.tid || 'main') === tid) ? live.ch : await loadChat(cur, tid);
+  if(prevChat && prevChat !== chat) setTimeout(() => pruneUrls(prevChat), 700);   // 9.13: după ce s-a afișat noua conversație
   if(!chat.msgs.length && cur.greet) chat.msgs.push(greetMsg(cur));
   $('#chAv').outerHTML = avatarHTML(cur, 'av" id="chAv');
   $('#chName').textContent = cur.name;
@@ -2656,6 +2690,12 @@ function syncTyping(){
   else if(!want && has) has.remove();
   else if(want && has && !!has.querySelector('.rec') !== !!live.rec){ has.outerHTML = typingHTML(); hydrate(box); }
 }
+// 9.13: locul pozei, rezervat dinainte la dimensiunea ei, cu o versiune mică estompată până vine poza
+function picAttr(k, own){
+  const mt = imeta[k]; if(!mt) return ' data-t="m"';
+  const st = [mt.lq ? `background-image:url(${mt.lq});background-size:cover` : '', own && mt.w && mt.h ? `aspect-ratio:${mt.w}/${mt.h}` : ''].filter(Boolean).join(';');
+  return ' data-t="m"' + (st ? ` style="${st}"` : '');
+}
 function msgHTML(m, i, lastAi, anim, g = ''){
   const me = m.role === 'user';
   if(m.pending && (!m.text || m.hold)) return '';            // „scrie…” apare în bara de jos
@@ -2669,10 +2709,10 @@ function msgHTML(m, i, lastAi, anim, g = ''){
     cls += ' picm';
     const fresh = !devDone.has(m.img) && m.ts && Date.now() - m.ts < 3 * 60e3;   // poza abia sosită „se developează”
     const loc = whereIn(m.where);
-    inner = `<div class="picbox${fresh ? ' flash' : ''}"><img class="pic big${fresh ? ' dev' : ''}" data-k="${esc(m.img)}" data-view="${esc(m.img)}" alt="">${loc ? `<span class="ploc">📍 ${esc(loc)}</span>` : ''}${tm}${reactHTML(m)}</div>${m.text ? `<div class="bub">${fmtMsg(m.text)}</div>` : ''}`;
+    inner = `<div class="picbox${fresh ? ' flash' : ''}"><img class="pic big${fresh ? ' dev' : ''}" data-k="${esc(m.img)}"${picAttr(m.img, false)} data-view="${esc(m.img)}" alt="">${loc ? `<span class="ploc">📍 ${esc(loc)}</span>` : ''}${tm}${reactHTML(m)}</div>${m.text ? `<div class="bub">${fmtMsg(m.text)}</div>` : ''}`;
     if(fresh) devDone.add(m.img);
   }
-  else if(m.img) inner = `<div class="bub picwrap">${quoteHTML(m)}<img class="pic" data-k="${esc(m.img)}" data-view="${esc(m.img)}" alt="">${m.text ? `<div class="cap">${fmtMsg(m.text)}</div>` : ''}${tm}${reactHTML(m)}</div>`;
+  else if(m.img) inner = `<div class="bub picwrap">${quoteHTML(m)}<img class="pic" data-k="${esc(m.img)}"${picAttr(m.img, true)} data-view="${esc(m.img)}" alt="">${m.text ? `<div class="cap">${fmtMsg(m.text)}</div>` : ''}${tm}${reactHTML(m)}</div>`;
   else if(m.voice && !m.pending) inner = `<div class="bub">${voiceHTML(m)}${tm}${reactHTML(m)}</div>`;
   else if(m.sticker) inner = `<div class="stk"><img data-k="${esc(m.sticker.k)}" data-view="${esc(m.sticker.k)}" alt="${esc(m.sticker.l)}">${tm}${reactHTML(m)}</div>`;
   else if(m.gift) inner = `<div class="bub gift"><span class="ge">${esc(m.gift.e)}</span><span class="gn">🎁 ${esc(m.gift.n)}</span>${m.text ? `<span class="gt">${esc(m.text)}</span>` : ''}${tm}${reactHTML(m)}</div>`;
@@ -2711,7 +2751,7 @@ const stripReact = t => String(t || '').replace(AI_REACT, '').replace(AI_VOICE, 
 const reactHTML = m => m.react ? `<span class="react">${m.react}</span>` : '';
 function quoteHTML(m){
   if(!m.reply) return '';
-  return `<button class="quote${m.reply.img ? ' qimg' : ''}" data-q="${esc(m.reply.id)}">${m.reply.img ? `<img data-k="${esc(m.reply.img)}" alt="">` : ''}<b>${esc(m.reply.name)}</b><span>${esc(m.reply.text)}</span></button>`;
+  return `<button class="quote${m.reply.img ? ' qimg' : ''}" data-q="${esc(m.reply.id)}">${m.reply.img ? `<img data-k="${esc(m.reply.img)}" data-t="s" alt="">` : ''}<b>${esc(m.reply.name)}</b><span>${esc(m.reply.text)}</span></button>`;
 }
 function plain(t){ return String(t || '').replace(/\*[^*]*\*/g, ' ').replace(/\s+/g, ' ').trim(); }
 function reactPicker(i){
@@ -2737,7 +2777,7 @@ function reactPicker(i){
 }
 function closeReactPicker(){ $$('.rpick,.rscrim').forEach(x => x.remove()); }
 let replyTo = null;
-function setReply(i){
+function setReply(i, quiet){
   const m = chat.msgs[i]; if(!m || m.pending || m.pendingImg || m.err) return;
   const name = m.role === 'user' ? (S.userName.trim() || 'Tu') : cur.name;
   replyTo = {id:m.id, name, text: (m.img && !m.text ? '📷 Poză' : plain(m.text)).slice(0, 140)};
@@ -2745,7 +2785,7 @@ function setReply(i){
   $('#rbTxt').textContent = replyTo.text;
   $('#replyBar').hidden = false;
   $('#inp').focus();
-  if(navigator.vibrate) try{ navigator.vibrate(8); }catch(_){}
+  if(!quiet && navigator.vibrate) try{ navigator.vibrate(8); }catch(_){}   // la glisare a vibrat deja la prag
 }
 function clearReply(){ replyTo = null; $('#replyBar').hidden = true; }
 // dispoziția: personajul o scrie la finalul răspunsului ca [stare: …]; o păstrăm pe conversație și o ascundem din text
@@ -3153,7 +3193,9 @@ function renderMsgs(toBottom, keep){
   let seen = seenMap.get(chat);
   if(!seen){ seen = new Set(chat.msgs.map(m => m.id)); seenMap.set(chat, seen); }
   const st0 = Math.min(msgStart, chat.msgs.length);
-  let html = st0 > 0 ? `<div id="msgMore">↑ mesaje mai vechi (${st0})</div>` : heroHTML(), prevDay = st0 > 0 ? new Date(chat.msgs[st0 - 1].ts || 0).toDateString() : '';
+  // 9.13: blocuri cu cheie (sus, zile, mesaje, „scrie…”); în pagină se schimbă doar blocurile care s-au schimbat
+  const blocks = [st0 > 0 ? ['more', `<div id="msgMore">↑ mesaje mai vechi (${st0})</div>`] : ['hero', heroHTML()]];
+  let prevDay = st0 > 0 ? new Date(chat.msgs[st0 - 1].ts || 0).toDateString() : '';
   // 8.9: mesaje grupate (același autor, la mai puțin de 3 minute): colțuri lipite, ora și avatarul doar la ultimul
   const vis = chat.msgs.map((m, i) => !(m.pending && (!m.text || m.hold)) ? i : -1).filter(i => i >= 0);
   const solo = m => m.img || m.pendingImg || m.err || m.sticker || m.gift || m.voice;
@@ -3162,20 +3204,64 @@ function renderMsgs(toBottom, keep){
   chat.msgs.forEach((m, i) => {
     if(i < st0){ if(!(m.pending && (!m.text || m.hold))) seen.add(m.id); return; }
     const d = new Date(m.ts || Date.now()).toDateString();
-    if(d !== prevDay && !(m.pending && (!m.text || m.hold))){ html += `<div class="day"><span>${dayLabel(m.ts || Date.now())}</span></div>`; prevDay = d; }
+    if(d !== prevDay && !(m.pending && (!m.text || m.hold))){ blocks.push(['day:' + d, `<div class="day"><span>${dayLabel(m.ts || Date.now())}</span></div>`]); prevDay = d; }
     const show = !(m.pending && (!m.text || m.hold));
     const fresh = show && !seen.has(m.id);
-    html += msgHTML(m, i, lastAi, fresh, grp[i] || '');
+    const h = msgHTML(m, i, lastAi, fresh, grp[i] || ''); if(h) blocks.push(['m:' + (m.id || 'i' + i), h]);
     if(fresh && !near && !toBottom && m.role === 'ai') jumpCount++;
     if(show) seen.add(m.id);
   });
-  box.innerHTML = html + typingHTML();
+  { const ty = typingHTML(); if(ty) blocks.push(['typing', ty]); }
+  patchMsgs(box, blocks);
   hydrate(box);
+  dayFloatSync();
   if((toBottom || near) && !keep) box.scrollTop = box.scrollHeight;
   const mo = $('#msgMore');
   if(mo){ if(!moreObs) moreObs = new IntersectionObserver(es => { if(es.some(e => e.isIntersecting)) loadEarlier(); }, {root:box, rootMargin:'400px 0px 0px 0px'}); moreObs.disconnect(); moreObs.observe(mo); }
   updateHead(); updateJump();
   if(cur && !(busy && live && live.ch === chat)) $('#chTag').innerHTML = statusLine();
+}
+// 9.13: în pagină se schimbă doar blocurile al căror conținut s-a schimbat; restul rămân (cu pozele deja încărcate)
+const msgDom = new Map();
+// marcajele „proaspăt” (animația de intrare, developarea pozei) nu contează la comparare: altfel bula s-ar reface după prima afișare
+const normMsg = h => h.replace(/^<div class="mw anim/, '<div class="mw').replace('class="picbox flash"', 'class="picbox"').replace('class="pic big dev"', 'class="pic big"');
+function patchMsgs(box, blocks){
+  const keys = new Set(); for(const [k] of blocks){ if(keys.has(k)) return fullMsgs(box, blocks); keys.add(k); }
+  const tpl = document.createElement('template'), next = [];
+  for(const [k, h] of blocks){
+    const c = normMsg(h), old = msgDom.get(k);
+    let el = old && old.cmp === c && old.el.parentNode === box ? old.el : null;
+    if(!el){ tpl.innerHTML = h; if(tpl.content.childElementCount !== 1) return fullMsgs(box, blocks); el = tpl.content.firstElementChild; msgDom.set(k, {el, cmp:c}); }
+    next.push(el);
+  }
+  for(let i = 0; i < next.length; i++){ const at = box.children[i]; if(at !== next[i]) box.insertBefore(next[i], at || null); }
+  while(box.children.length > next.length) box.lastElementChild.remove();
+  for(const k of [...msgDom.keys()]) if(!keys.has(k)) msgDom.delete(k);
+}
+function fullMsgs(box, blocks){
+  box.innerHTML = blocks.map(b => b[1]).join(''); msgDom.clear();
+  if(box.children.length === blocks.length) [...box.children].forEach((el, i) => msgDom.set(blocks[i][0], {el, cmp:normMsg(blocks[i][1])}));
+}
+// 9.13: memoria pozelor unei conversații din care ai ieșit se eliberează (cele încă afișate undeva rămân)
+function pruneUrls(ch){
+  if(!ch || !ch.msgs) return;
+  const keys = new Set();
+  for(const m of ch.msgs){ for(const k of [m.img, ...(m.imgAlts || []), m.reply && m.reply.img]) if(k){ keys.add(k); keys.add(thKey('m', k)); keys.add(thKey('s', k)); } }
+  const used = new Set([...document.images].map(i => i.src));
+  document.querySelectorAll('[style*="blob:"]').forEach(el => { const mm = String(el.getAttribute('style')).match(/blob:[^)"']+/g); if(mm) mm.forEach(u => used.add(u)); });
+  for(const k of keys){ const u = urlCache.get(k); if(u && !used.has(u)){ URL.revokeObjectURL(u); urlCache.delete(k); } }
+}
+// 9.13: data plutitoare (ca în WhatsApp): sub antet, ziua mesajelor de sus, cât derulezi
+let dayFT = 0;
+function dayFloatSync(scrolling){
+  const box = $('#msgs'), v = $('#vChat'); if(!box || !v || v.hidden) return;
+  let f = $('#dayFloat'); if(!f){ v.insertAdjacentHTML('beforeend', '<div id="dayFloat" aria-hidden="true"></div>'); f = $('#dayFloat'); }
+  const top = ($('#chTop') ? $('#chTop').offsetHeight : 60), y = box.scrollTop + top + 6;
+  let cur0 = null; for(const d of box.querySelectorAll('.day')){ if(d.offsetTop <= y) cur0 = d; else break; }
+  const show = scrolling && cur0 && cur0.offsetTop < y - 24;   // eticheta reală a zilei a trecut deja sub antet
+  f.style.top = top + 8 + 'px';
+  if(show){ const t = cur0.textContent; if(f.textContent !== t) f.textContent = t; f.classList.add('on'); clearTimeout(dayFT); dayFT = setTimeout(() => f.classList.remove('on'), 1200); }
+  else if(!scrolling) f.classList.remove('on');
 }
 function updateHead(){
   const box = $('#msgs'), h = box.querySelector('.hero');
@@ -3197,10 +3283,16 @@ function typeTick(m, st){
   if(!el || !m.pending){ typer.delete(m); return; }
   const back = st.target.length - st.shown;
   if(back > 0){
-    st.shown = Math.min(st.target.length, st.shown + Math.max(1, Math.ceil(back / 14)));
-    let vis = st.target.slice(0, st.shown);
+    const T = st.target;
+    let to = Math.min(T.length, st.shown + Math.max(1, Math.ceil(back / 14)));
+    while(to < T.length && /\S/.test(T[to])) to++;            // 9.13: până la capătul cuvântului (nu se mai văd cuvinte tăiate)
+    st.shown = to;
+    // ultimul cuvânt apărut primește o estompare scurtă (fără asteriscuri și semne în jur, ca să rămână în același element)
+    let a = to; while(a > 0 && /\s/.test(T[a - 1])) a--; let e2 = a; while(a > 0 && /\S/.test(T[a - 1])) a--;
+    while(a < e2 && /[*_(„"«\[]/.test(T[a])) a++; while(e2 > a && /[*_)”"»\].,!?…:;]/.test(T[e2 - 1])) e2--;
+    let vis = e2 > a ? T.slice(0, a) + '\uE000' + T.slice(a, e2) + '\uE001' + T.slice(e2, to) : T.slice(0, to);
     if((vis.match(/\*/g) || []).length % 2) vis += '*';      // acțiune începută: o închidem temporar ca să arate ca acțiune
-    el.innerHTML = fmtMsg(vis);
+    el.innerHTML = fmtMsg(vis).replace('\uE000', '<span class="nw">').replace('\uE001', '</span>');
     el.classList.add('typing');
     const box = $('#msgs'); if(box.scrollHeight - box.scrollTop - box.clientHeight < 160) box.scrollTop = box.scrollHeight;
   }
@@ -6025,6 +6117,7 @@ async function exportAll(share){
   for(const k of await DB.keys()){
     let v = await DB.get(k);
     if(String(k).startsWith('aud:')) continue;   // înregistrările vocale nu intră în backup (se refac la nevoie)
+    if(/^th[ms]:/.test(String(k))) continue;      // 9.13: nici miniaturile pozelor (se refac singure)
     if(k === 'settings'){ v = {...v}; for(const x of SECRET_SETTINGS) delete v[x]; }
     if(v instanceof Blob) v = {__blob:await blobToB64(v), type:v.type};
     out.data[k] = v;
@@ -6156,21 +6249,25 @@ function bind(){
     if(sLock !== 'x') return;
     const lim = dx > 0 ? 80 : (sLastAi ? -80 : 0);
     sEl.querySelector('.m').style.transform = `translateX(${Math.max(Math.min(0, lim), Math.min(80, dx * .5))}px)`;
+    if(dx > 0){ sEl.classList.add('swr'); sEl.style.setProperty('--swp', Math.min(1, dx / 70).toFixed(2));
+      const rd = dx >= 70; if(rd && !sEl.classList.contains('ready') && navigator.vibrate) try{ navigator.vibrate(10); }catch(_){} sEl.classList.toggle('ready', rd); }
   }, {passive:true});
   $('#msgs').addEventListener('touchend', e => {
     if(!sEl) return; const el = sEl; sEl = null;
-    const mm = el.querySelector('.m'); mm.style.transform = '';
+    const mm = el.querySelector('.m'); mm.style.transition = 'transform .22s cubic-bezier(.2,.8,.3,1)'; mm.style.transform = ''; setTimeout(() => { mm.style.transition = ''; }, 240);
+    el.classList.remove('swr', 'ready'); el.style.removeProperty('--swp');
     if(sLock !== 'x') return;
     const dx = e.changedTouches[0].clientX - sx;
     if(Math.abs(dx) < 70) return;
     const i = +el.dataset.i, m = chat.msgs[i];
-    if(dx > 0){ setReply(i); return; }
+    if(dx > 0){ setReply(i, true); return; }
     if(!sLastAi) return;
     if((m.alt || 0) < m.alts.length - 1){ setAlt(m, (m.alt || 0) + 1); saveChat(); renderMsgs(); } else reply(m);
   });
   $('#rbX').onclick = clearReply;
   $('#jumpDown').onclick = () => { const box = $('#msgs'); box.scrollTo({top:box.scrollHeight, behavior:'smooth'}); jumpCount = 0; };
   $('#msgs').addEventListener('scroll', updateJump, {passive:true});
+  { let rq = 0; $('#msgs').addEventListener('scroll', () => { if(rq) return; rq = requestAnimationFrame(() => { rq = 0; dayFloatSync(true); }); }, {passive:true}); }
   setInterval(() => { if(cur && chat && !$('#vChat').hidden && !(busy && live && live.ch === chat)) $('#chTag').innerHTML = statusLine(); }, 60e3);
   let tapT = null, tapI = -1;
   $('#msgs').addEventListener('click', e => {
@@ -6282,6 +6379,7 @@ function cspSync(boot){
 }
 async function init(){
   try{ await DB.open(); }catch(e){ document.body.innerHTML = '<p class="empty">Browserul nu permite stocarea locală (IndexedDB). Ieși din modul privat.</p>'; return; }
+  await imetaLoad();   // 9.13: dimensiunile pozelor și miniaturile
   const saved = await DB.get('settings');
   S = {...DEF, ...(saved || {})};
   if(saved) S.sv = saved.sv || 0;                     // setări vechi fără versiune: rulăm migrările
