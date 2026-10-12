@@ -1,5 +1,5 @@
 window.__taifas = true;   // 8.20.1: semn pentru index.html că app.js s-a încărcat
-const APP_VER = '9.13';
+const APP_VER = '9.13.1';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -79,7 +79,7 @@ async function saveChat(c = cur, ch = chat){
 const urlCache = new Map();
 async function imgUrl(k){
   if(!k) return '';
-  if(urlCache.has(k)) return urlCache.get(k);
+  if(urlCache.has(k)){ const u = urlCache.get(k); urlCache.delete(k); urlCache.set(k, u); return u; }   // 9.13.1: ordinea = ultima folosire
   const b = await DB.get(k); if(!b) return '';
   const u = URL.createObjectURL(b); urlCache.set(k, u); return u;
 }
@@ -94,23 +94,42 @@ async function imetaLoad(){ try{ imeta = (await DB.get('imeta')) || {}; }catch(e
 function imetaSave(){ clearTimeout(imetaT); imetaT = setTimeout(() => { DB.set('imeta', imeta).catch(() => {}); }, 1500); }
 const thKey = (t, k) => 'th' + t + ':' + k;
 const thBusy = new Set();
-async function makeThumbs(k, im){
+// 9.13.1: lucrul de fundal (miniaturi, eliberarea memoriei) se face doar când telefonul e liber: nu în timpul deschiderii unui chat
+//         sau al derulării (în 9.13 se făcea chiar la deschidere, pentru fiecare poză, și încetinea animația)
+let busyUntil = 0; const idleQ = []; let idleOn = false;
+const markBusy = (ms = 1800) => { busyUntil = Math.max(busyUntil, performance.now() + ms); };
+function idleJob(fn){ idleQ.push(fn); if(!idleOn){ idleOn = true; idleTick(); } }
+function idleTick(){
+  const go = d => {
+    if(performance.now() < busyUntil || (d && d.timeRemaining && d.timeRemaining() < 8)){ setTimeout(idleTick, 400); return; }
+    const fn = idleQ.shift(); if(!fn){ idleOn = false; return; }
+    Promise.resolve().then(fn).catch(() => {}).finally(() => setTimeout(idleTick, 120));
+  };
+  if('requestIdleCallback' in window) requestIdleCallback(go, {timeout:4000}); else setTimeout(go, 300);
+}
+function makeThumbs(k, im){
   if(!k || !im || !im.naturalWidth || thBusy.has(k)) return;
-  thBusy.add(k);
-  try{
-    const W = im.naturalWidth, H = im.naturalHeight, meta = imeta[k] = imeta[k] || {};
-    meta.w = W; meta.h = H;
-    const draw = (px, q) => { const s = Math.min(1, px / Math.max(W, H)), cv = document.createElement('canvas'); cv.width = Math.max(1, Math.round(W * s)); cv.height = Math.max(1, Math.round(H * s));
-      const g = cv.getContext('2d'); g.imageSmoothingQuality = 'high'; g.drawImage(im, 0, 0, cv.width, cv.height); return cv; };
-    if(!meta.lq) meta.lq = draw(24, .5).toDataURL('image/jpeg', .5);
-    for(const [t, px] of Object.entries(TH)){
-      if(meta[t]) continue;
-      if(Math.max(W, H) <= px * 1.3){ meta[t] = 'same'; continue; }   // poza e deja mică
-      const b = await new Promise(r => draw(px).toBlob(r, 'image/jpeg', .86));
-      if(b){ await DB.set(thKey(t, k), b); meta[t] = 1; }
-    }
-    imetaSave();
-  }catch(e){} finally { thBusy.delete(k); }
+  const W = im.naturalWidth, H = im.naturalHeight; thBusy.add(k);
+  idleJob(async () => {
+    try{
+      const meta = imeta[k] = imeta[k] || {}; meta.w = W; meta.h = H;
+      const blob = await DB.get(k); if(!blob) return;
+      // redimensionare în afara firului principal; fără createImageBitmap, prin canvas (ca înainte)
+      const shrink = async px => {
+        const s = Math.min(1, px / Math.max(W, H)), w = Math.max(1, Math.round(W * s)), h = Math.max(1, Math.round(H * s));
+        let src = null; try{ src = await createImageBitmap(blob, {resizeWidth:w, resizeHeight:h, resizeQuality:'high'}); }catch(e){ src = im; }
+        const cv = document.createElement('canvas'); cv.width = w; cv.height = h; cv.getContext('2d').drawImage(src, 0, 0, w, h); if(src.close) src.close(); return cv;
+      };
+      if(!meta.lq) meta.lq = (await shrink(24)).toDataURL('image/jpeg', .5);
+      for(const [t, px] of Object.entries(TH)){
+        if(meta[t]) continue;
+        if(Math.max(W, H) <= px * 1.3){ meta[t] = 'same'; continue; }   // poza e deja mică
+        const b = await new Promise(async r => (await shrink(px)).toBlob(r, 'image/jpeg', .86));
+        if(b){ await DB.set(thKey(t, k), b); meta[t] = 1; }
+      }
+      imetaSave();
+    }catch(e){} finally { thBusy.delete(k); }
+  });
 }
 async function delImg(k){ if(!k) return; for(const x of [k, thKey('m', k), thKey('s', k)]){ const u = urlCache.get(x); if(u) URL.revokeObjectURL(u); urlCache.delete(x); }
   if(imeta[k]){ delete imeta[k]; imetaSave(); } await DB.del(k); DB.del(thKey('m', k)).catch(() => {}); DB.del(thKey('s', k)).catch(() => {}); }
@@ -136,6 +155,7 @@ async function hydrate(root = document){
     if(t && !(imeta[k] && imeta[k][t] && imeta[k].lq)) el.addEventListener('load', () => makeThumbs(k, el), {once:true});
     if(el.classList.contains('dev')){ el.onload = () => el.classList.add('go'); }
     el.decoding = 'async';   // 9.4: decodarea pozei nu mai blochează animațiile
+    if(el.classList.contains('pic')) el.loading = 'lazy';   // 9.13.1: pozele din chat din afara ecranului se încarcă doar când ajungi la ele
     if(u) el.src = u; el.removeAttribute('data-k');
   }
   for(const el of root.querySelectorAll('[data-bgk]')){
@@ -1193,7 +1213,7 @@ async function openChat(id, push = true, tid, dir){
   cur.thread = tid;
   const prevChat = chat;
   chat = (live && live.c.id === id && (live.ch.tid || 'main') === tid) ? live.ch : await loadChat(cur, tid);
-  if(prevChat && prevChat !== chat) setTimeout(() => pruneUrls(prevChat), 700);   // 9.13: după ce s-a afișat noua conversație
+  if(prevChat && prevChat !== chat) idleJob(pruneUrls);   // 9.13.1: doar dacă s-au adunat foarte multe, și doar când telefonul e liber
   if(!chat.msgs.length && cur.greet) chat.msgs.push(greetMsg(cur));
   $('#chAv').outerHTML = avatarHTML(cur, 'av" id="chAv');
   $('#chName').textContent = cur.name;
@@ -1203,7 +1223,7 @@ async function openChat(id, push = true, tid, dir){
   applyLook(cur);
   renderScene();
   updateComposer();
-  resetMsgWin();
+  resetMsgWin(); markBusy(2200);   // 9.13.1: fără lucru de fundal cât se deschide
   show('vChat', push, dir);
   if(cur.unread){ cur.unread = 0; saveChars(); }
   renderMsgs(true);
@@ -3242,18 +3262,18 @@ function fullMsgs(box, blocks){
   box.innerHTML = blocks.map(b => b[1]).join(''); msgDom.clear();
   if(box.children.length === blocks.length) [...box.children].forEach((el, i) => msgDom.set(blocks[i][0], {el, cmp:normMsg(blocks[i][1])}));
 }
-// 9.13: memoria pozelor unei conversații din care ai ieșit se eliberează (cele încă afișate undeva rămân)
-function pruneUrls(ch){
-  if(!ch || !ch.msgs) return;
-  const keys = new Set();
-  for(const m of ch.msgs){ for(const k of [m.img, ...(m.imgAlts || []), m.reply && m.reply.img]) if(k){ keys.add(k); keys.add(thKey('m', k)); keys.add(thKey('s', k)); } }
+// 9.13.1: memoria pozelor: rămân în memorie (întoarcerea într-un chat e instantanee); doar când se adună peste 250,
+//         se eliberează cele mai vechi folosite care nu sunt pe ecran (9.13 elibera tot chatul la ieșire: la întoarcere, totul se decoda din nou)
+function pruneUrls(){
+  if(urlCache.size <= 250) return;
   const used = new Set([...document.images].map(i => i.src));
   document.querySelectorAll('[style*="blob:"]').forEach(el => { const mm = String(el.getAttribute('style')).match(/blob:[^)"']+/g); if(mm) mm.forEach(u => used.add(u)); });
-  for(const k of keys){ const u = urlCache.get(k); if(u && !used.has(u)){ URL.revokeObjectURL(u); urlCache.delete(k); } }
+  for(const [k, u] of urlCache){ if(urlCache.size <= 200) break; if(!used.has(u)){ URL.revokeObjectURL(u); urlCache.delete(k); } }
 }
 // 9.13: data plutitoare (ca în WhatsApp): sub antet, ziua mesajelor de sus, cât derulezi
 let dayFT = 0;
 function dayFloatSync(scrolling){
+  if(!scrolling){ const f0 = $('#dayFloat'); if(f0) f0.classList.remove('on'); return; }   // 9.13.1: la randare nu citim layout-ul
   const box = $('#msgs'), v = $('#vChat'); if(!box || !v || v.hidden) return;
   let f = $('#dayFloat'); if(!f){ v.insertAdjacentHTML('beforeend', '<div id="dayFloat" aria-hidden="true"></div>'); f = $('#dayFloat'); }
   const top = ($('#chTop') ? $('#chTop').offsetHeight : 60), y = box.scrollTop + top + 6;
@@ -6267,7 +6287,7 @@ function bind(){
   $('#rbX').onclick = clearReply;
   $('#jumpDown').onclick = () => { const box = $('#msgs'); box.scrollTo({top:box.scrollHeight, behavior:'smooth'}); jumpCount = 0; };
   $('#msgs').addEventListener('scroll', updateJump, {passive:true});
-  { let rq = 0; $('#msgs').addEventListener('scroll', () => { if(rq) return; rq = requestAnimationFrame(() => { rq = 0; dayFloatSync(true); }); }, {passive:true}); }
+  { let rq = 0; $('#msgs').addEventListener('scroll', () => { markBusy(900); if(rq) return; rq = requestAnimationFrame(() => { rq = 0; dayFloatSync(true); }); }, {passive:true}); }
   setInterval(() => { if(cur && chat && !$('#vChat').hidden && !(busy && live && live.ch === chat)) $('#chTag').innerHTML = statusLine(); }, 60e3);
   let tapT = null, tapI = -1;
   $('#msgs').addEventListener('click', e => {
