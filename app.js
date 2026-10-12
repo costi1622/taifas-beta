@@ -1,5 +1,5 @@
 window.__taifas = true;   // 8.20.1: semn pentru index.html că app.js s-a încărcat
-const APP_VER = '9.5';
+const APP_VER = '9.6';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -557,7 +557,17 @@ const subjLine = (c, id) => { const s0 = id && id.subj ? id.subj : ''; const u =
 const NO_BEAUTY = 'Do NOT beautify or idealize: same age, same weight and body shape, same skin texture, spots and under-eye shadows, same face width; no slimming, no smoothing, no younger look.';
 // 9.1: modelul pentru o poză: în chat = „Fidelitatea feței”; stories și statusuri pot avea setarea lor (Eco, mai ieftin)
 const isAuto = opt => !!opt && (opt.tag === 'stories' || opt.tag === 'statusuri');
-const sceneModel = (opt = {}) => isAuto(opt) && S.autoModel === 'eco' ? 'eco' : (S.wkChat && S.wkChat !== 'fal' ? S.wkChat : 'eco');
+// 9.6: cu o limită zilnică („Doar gratuit” / „Max $0,10”), 9B merge cât încape o poză întreagă plus o rezervă pentru Eco;
+//      apoi pozele trec singure pe Eco (cu retușul feței și variante) până la resetare, în loc să se oprească sau să coste
+const ECO_RESERVE = 600;
+const nineFits = () => !Number.isFinite(capLeft()) || capLeft() >= (neurPerPhoto('ancorat') || 1455) + ECO_RESERVE;
+const sceneModel = (opt = {}) => { const m = isAuto(opt) && S.autoModel === 'eco' ? 'eco' : (S.wkChat && S.wkChat !== 'fal' ? S.wkChat : 'eco'); return m === 'ancorat' && S.imgProv === 'worker' && !nineFits() ? 'eco' : m; };
+function nineDegradedNote(opt){
+  if(S.wkChat !== 'ancorat' || S.imgProv !== 'worker' || nineFits() || (isAuto(opt) && S.autoModel === 'eco')) return;
+  const d = new Date().toISOString().slice(0, 10); if(S.degDay === d) return;
+  S.degDay = d; saveSettings();
+  toast(`Cota gratuită de azi nu mai ajunge pentru 9B: pozele continuă pe Eco (cu retușul feței) până la ${resetAt()}, fără cost.`, 6000);
+}
 function idPrompt(c, shot, fr, R, fix, two){
   const phys = physFull(c, R && R.id) ? ` Permanent physical traits (exactly as in the reference): ${physFull(c, R && R.id)}.` : '';
   const wh = two && R && R.whole ? 1 : 0, nx = two && R && R.extraAll ? R.extraAll.length - wh : 0, n0 = 3 + wh;
@@ -907,6 +917,7 @@ async function bestScene(c, shot, signal, corr, opt = {}){
 // generează, retușează fața, verifică; dacă e cazul, încă un retuș (9B) sau o refacere completă; păstrează varianta mai bună
 const otherBad = x => !!x && ((x.scene != null && x.scene < 6) || (x.framing != null && x.framing < 5) || (x.hair != null && x.hair < 6) || (x.marks != null && x.marks < 6) || (x.body != null && x.body < 6));
 async function makeScenePhoto(c, shot, signal, opt = {}){
+  nineDegradedNote(opt);
   const fixOn = faceFixOn(c, opt);
   const one = async corr => {
     const x = await bestScene(c, shot, signal, corr, opt);
@@ -4937,7 +4948,8 @@ async function exprGen(c, baseK){
   const base = await DB.get(baseK); if(!base) return false;
   c.expr = c.expr || {}; const set = c.expr[baseK] = c.expr[baseK] || {};
   // 9.5: pe modelul ales la „Fidelitatea feței” (9B ține fața), toate deodată, fiecare verificată în telefon că e aceeași față
-  const model = S.imgProv === 'worker' && S.wkChat === 'ancorat' ? 'ancorat' : undefined, per = neurPerPhoto(model) || 5000;
+  const nine = S.imgProv === 'worker' && S.wkChat === 'ancorat' && (!Number.isFinite(capLeft()) || capLeft() >= 5 * (neurPerPhoto('ancorat') || 1455) + ECO_RESERVE);
+  const model = nine ? 'ancorat' : (S.imgProv === 'worker' ? 'eco' : undefined), per = neurPerPhoto(model) || 5000;   // 9.6: Eco dacă 9B nu încape în limita zilei
   let todo = Object.entries(EXPR).filter(([k]) => !set[k]);
   if(S.imgProv === 'worker'){ const fit = Math.floor(capLeft() / per); if(fit < todo.length){ todo = todo.slice(0, Math.max(0, fit)); if(!todo.length){ toast('Limita zilnică de poze a fost atinsă; continui mâine.', 3500); return false; } } }
   let ref = null; try{ const f = (await faceDescs(base)).sort((a, b) => b.a - a.a)[0]; if(f) ref = f.d; }catch(e){}
@@ -5745,7 +5757,7 @@ function syncSegs(){
   $('#stChatWrap').hidden = S.imgProv !== 'worker'; $('#stChatFal').hidden = S.wkChat !== 'fal'; drawChatHint(); drawFixHint(); drawBodyHint(); drawBestHint();
   drawWkEst();
   $('#stCapWrap').hidden = S.cfPlan !== 'paid';
-  $('#stCapHint').textContent = {free:'Factura rămâne $5/lună: când se termină neuronii gratuiți de azi, aplicația nu mai cere poze până la ' + resetAt() + '.',
+  $('#stCapHint').textContent = {free:'Factura rămâne $5/lună, fără nimic în plus. ' + (S.wkChat === 'ancorat' ? 'Pozele merg pe 9B cât încap în cei 10.000 de neuroni gratuiți (~6 pe zi), apoi trec singure pe Eco (cu retușul feței, ~115 neuroni) și abia când nu mai încape nici Eco se opresc' : 'Când se termină neuronii gratuiți de azi, pozele se opresc') + ' până la ' + resetAt() + '.',
     '0.1':'Cel mult ~$0,10 pe zi peste cei $5 (≈ $3/lună în cel mai rău caz). Apoi pozele se opresc până la ' + resetAt() + '.',
     none:'Fără oprire: fiecare poză peste cotă se adaugă la factură.'}[S.cfCap] || '';
   $('#ttsEl').hidden = S.tts !== 'el'; $('#ttsFal').hidden = S.tts !== 'fal';
@@ -6256,6 +6268,8 @@ async function init(){
   if((S.sv || 0) < 38){ S.bodyFix = 'off'; S.bestOf = '3'; S.sv = 38; saveSettings(); }
   // 9.1: pe 9B implicit o singură variantă (fiecare în plus costă o poză 9B întreagă)
   if((S.sv || 0) < 39){ if(!S.bestOf9) S.bestOf9 = '1'; if(!S.autoModel) S.autoModel = 'chat'; S.sv = 39; saveSettings(); }
+  // 9.6: fără costuri peste cei $5/lună: „Fără limită” → „Doar gratuit” (o dată; se poate pune înapoi)
+  if((S.sv || 0) < 40){ if(S.cfPlan === 'paid' && S.cfCap === 'none') S.cfCap = 'free'; S.sv = 40; saveSettings(); }
   if(cspSync(true)) return;   // 8.20: adresă nouă → repornim o dată, ca politica de securitate să o permită
   chars = (await DB.get('chars') || []).filter(c => c && c.id && c.name);
   if((S.sv || 0) < 34){
