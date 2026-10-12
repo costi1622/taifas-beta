@@ -104,7 +104,8 @@ button{cursor:pointer;border:0;background:none}
 .chathead .who div{min-width:0}
 .chathead b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .chathead small{display:block;color:var(--tx2);font-size:.78rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-#msgs{flex:1;overflow-y:auto;padding:14px 12px 8px;position:relative;z-index:1;display:flex;flex-direction:column;gap:10px}
+#msgs{flex:1;overflow-y:auto;padding:14px 12px 8px;position:relative;z-index:1;display:flex;flex-direction:column;gap:10px;overflow-anchor:none}
+#msgMore{align-self:center;font-size:12px;color:var(--tx3);padding:6px 12px;min-height:24px}
 .intro{text-align:center;padding:10px 20px 18px;color:var(--tx2)}
 .intro img,.intro .av{width:96px;height:96px;margin:0 auto 10px;border-radius:50%;box-shadow:0 0 0 3px var(--bg),0 0 0 5px var(--acc)}
 .intro b{display:block;color:var(--tx);font-size:1.15rem}
@@ -444,8 +445,8 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
 @keyframes ring{0%,100%{box-shadow:0 0 0 0 color-mix(in srgb,var(--acc) 70%,transparent)}50%{box-shadow:0 0 0 5px transparent}}
 #vChat.bg-clar .bg{opacity:1;filter:none;transform:none}
 #vChat.bg-clar .bg::after{content:"";position:absolute;inset:0;background:linear-gradient(#0e0c1233 0%,#0e0c1200 25%,#0e0c1259 55%,#0e0c12e0 82%,#0e0c12f5 100%)}
-#vChat.bg-clar .ai .bub{background:#1b1723c4;backdrop-filter:blur(12px)}
-#vChat.bg-clar .me .bub{background:color-mix(in srgb,var(--me) 82%,transparent);backdrop-filter:blur(12px)}
+#vChat.bg-clar .ai .bub{background:#1b1723e6}
+#vChat.bg-clar .me .bub{background:color-mix(in srgb,var(--me) 93%,transparent)}
 #vChat.bg-clar #composer{background:linear-gradient(#0e0c1200,#0e0c12d9 35%)}
 #vChat.bg-clar .under button{background:#0006}
 /* ===== 3.1 ===== */
@@ -551,15 +552,26 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
 /* tranziții între ecrane */
 /* 8.9: tranziții ca într-o aplicație nativă: ecranul nou alunecă peste cel vechi, care se retrage puțin */
 .view[hidden].vout-f,.view[hidden].vout-b,.view[hidden].vout-z{display:flex!important;pointer-events:none}
-.view.vin-f{z-index:5;animation:vinf .36s cubic-bezier(.22,.9,.25,1);box-shadow:-18px 0 40px #0007}
+.view.vin-f{z-index:5;animation:vinf .36s cubic-bezier(.22,.9,.25,1)}
 .view.vout-f{z-index:4;animation:voutf .36s cubic-bezier(.22,.9,.25,1) forwards}
 .view.vin-b{z-index:4;animation:vinb .36s cubic-bezier(.22,.9,.25,1)}
-.view.vout-b{z-index:5;animation:voutb .36s cubic-bezier(.22,.9,.25,1) forwards;box-shadow:-18px 0 40px #0007}
+.view.vout-b{z-index:5;animation:voutb .36s cubic-bezier(.22,.9,.25,1) forwards}
+/* 9.4: umbra marginii și întunecarea ecranului de dedesubt sunt straturi proprii, animate doar ca opacitate (fără filter/box-shadow pe ecranul întreg) */
+.view.vin-f,.view.vout-b,.view.vout-f,.view.vin-b{will-change:transform}
+.view.vin-f::before,.view.vout-b::before{content:"";position:absolute;top:0;bottom:0;left:-40px;width:40px;background:linear-gradient(to left,#0006,#0000);pointer-events:none}
+.view.vout-f::after,.view.vin-b::after{content:"";position:absolute;inset:0;background:#000;opacity:0;pointer-events:none;z-index:99;will-change:opacity}
+.view.vout-f::after{animation:dimIn .36s cubic-bezier(.22,.9,.25,1) forwards}
+.view.vin-b::after{animation:dimOut .36s cubic-bezier(.22,.9,.25,1) forwards}
+@keyframes dimIn{to{opacity:.4}}
+@keyframes dimOut{from{opacity:.4}to{opacity:0}}
+/* 9.4: bulele de mesaj și foile de jos nu mai au blur de fundal (fundal ceva mai opac, același aspect); restul blururilor se opresc cât alunecă ecranul */
+/* 9.4: blururile de fundal (bule, bare, foi) se opresc cât alunecă ecranul: altfel se recalculează la fiecare cadru */
+.view:is(.vin-f,.vin-b,.vin-z,.vout-f,.vout-b,.vout-z) *{-webkit-backdrop-filter:none!important;backdrop-filter:none!important}
 .view.vin-z{z-index:5;animation:vinz .34s cubic-bezier(.2,.8,.3,1)}
 .view.vout-z{z-index:4;animation:voutz .34s ease-out forwards}
 @keyframes vinf{from{transform:translateX(100%)}}
-@keyframes voutf{to{transform:translateX(-24%);filter:brightness(.6)}}
-@keyframes vinb{from{transform:translateX(-24%);filter:brightness(.6)}}
+@keyframes voutf{to{transform:translateX(-24%)}}
+@keyframes vinb{from{transform:translateX(-24%)}}
 @keyframes voutb{to{transform:translateX(100%)}}
 @keyframes vinz{from{opacity:0;transform:scale(1.04)}}
 @keyframes voutz{to{opacity:.4;transform:scale(.96)}}
@@ -736,7 +748,7 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
 [data-theme=light] .hero:not(.clear) .ov b{color:var(--tx);text-shadow:0 1px 14px #fff}
 [data-theme=light] .hero:not(.clear) .ov small{color:var(--tx2);text-shadow:0 1px 10px #fff}
 [data-theme=light] #vChat.bg-clar .bg::after{background:linear-gradient(#00000033 0%,#0000 25%,#f7f4fa59 55%,#f7f4fae6 82%,#f7f4faf7 100%)}
-[data-theme=light] #vChat.bg-clar .ai .bub{background:#ffffffd1}
+[data-theme=light] #vChat.bg-clar .ai .bub{background:#ffffffeb}
 [data-theme=light] #vChat.bg-clar #composer{background:linear-gradient(#f7f4fa00,#f7f4fae6 35%)}
 [data-theme=light] #vChat.bg-clar .under button{background:#ffffffb3}
 [data-theme=light] .card{box-shadow:0 6px 18px #0002}
@@ -1126,6 +1138,12 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
 .vreact .vlook{width:auto;height:auto;border-radius:22px;padding:8px 10px;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:1.35rem;background:color-mix(in srgb,var(--acc) 45%,#0006)}
 .vreact .vlook small{font-size:.58rem;font-weight:700}
 .callv .cvid img.ex{transition:opacity .45s}
+/* 9.5: fața care vorbește (WebGL), peste poza activă, cu aceeași mișcare de cameră */
+.callv .cvid canvas.cface{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center 25%;opacity:0;transition:opacity .35s;animation:handheld 11s ease-in-out infinite alternate;pointer-events:none}
+.callv .cvid canvas.cface.on{opacity:1}
+.callv.vid:not(.live) .cvid canvas.cface{opacity:0}
+.callv.vid[data-st=speak] .cvid canvas.cface{filter:brightness(1.06) saturate(1.05)}
+@media (prefers-reduced-motion:reduce){.callv .cvid canvas.cface{animation:none!important}}
 /* 8.17: unde se duc banii */
 .cbreak{margin:12px 0 6px;padding:10px 12px;border-radius:14px;background:color-mix(in srgb,var(--tx) 4%,transparent);border:1px solid var(--hair)}
 .cbh{font-size:.74rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--tx3);margin-bottom:8px}
@@ -1149,7 +1167,7 @@ button,.btn,.ib{transition:transform .15s var(--ease),background-color .2s,opaci
 .btn.pri{box-shadow:0 8px 20px color-mix(in srgb,var(--acc) 32%,transparent)}
 input[type=text],input[type=password],input[type=url],input[type=datetime-local],input:not([type]),textarea,select{border-radius:14px;border-color:var(--hair);background:color-mix(in srgb,var(--bg2) 85%,var(--bg));transition:border-color .2s,box-shadow .2s}
 input:focus,textarea:focus,select:focus{border-color:color-mix(in srgb,var(--acc) 70%,transparent);box-shadow:0 0 0 4px color-mix(in srgb,var(--acc) 14%,transparent)}
-.sheet{border-radius:26px 26px 0 0;background:color-mix(in srgb,var(--bg2) 94%,transparent);backdrop-filter:blur(24px);border-top:1px solid var(--hair);box-shadow:0 -18px 50px #0007;animation:su .28s var(--ease)}
+.sheet{border-radius:26px 26px 0 0;background:color-mix(in srgb,var(--bg2) 98%,transparent);border-top:1px solid var(--hair);box-shadow:0 -18px 50px #0007;animation:su .28s var(--ease)}
 .sheet::before{width:44px;height:5px;background:color-mix(in srgb,var(--tx3) 55%,transparent)}
 .sheet .opt{border-radius:14px}
 #toast{background:color-mix(in srgb,var(--card) 88%,transparent);backdrop-filter:blur(16px);border-color:var(--hair);border-radius:16px;box-shadow:var(--shadow)}
@@ -1225,7 +1243,7 @@ input:focus,textarea:focus,select:focus{border-color:color-mix(in srgb,var(--acc
 #btnSend.stop svg{margin:0}
 #typingBar{font-weight:600}
 #vChat .under button[data-cont]{background:var(--grad)!important;color:#fff;border-color:transparent}
-#vChat .m.me .bub{background:linear-gradient(135deg,color-mix(in srgb,var(--acc) 48%,transparent),color-mix(in srgb,var(--acc2) 48%,transparent)),color-mix(in srgb,var(--me) 65%,transparent);backdrop-filter:blur(12px)}
+#vChat .m.me .bub{background:linear-gradient(135deg,color-mix(in srgb,var(--acc) 48%,transparent),color-mix(in srgb,var(--acc2) 48%,transparent)),color-mix(in srgb,var(--me) 86%,transparent)}
 [data-theme=light] #vChat .m.me .bub{background:linear-gradient(135deg,color-mix(in srgb,var(--acc) 20%,#fffe),color-mix(in srgb,var(--acc2) 18%,#fffe))}
 @media (prefers-reduced-motion:reduce){.card img,button,.btn{transition:none}}
 
@@ -1715,6 +1733,9 @@ input:focus,textarea:focus,select:focus{border-color:color-mix(in srgb,var(--acc
       <div class="seg" id="stPro"><button data-v="off">Nu</button><button data-v="on">Da</button></div>
       <label>Citire cu voce a mesajelor scrise (la 🔊 sau automat)</label>
       <div class="seg" id="stVoice"><button data-v="off">Oprit</button><button data-v="tap">La 🔊</button><button data-v="auto">Automat</button></div>
+      <label>🗣️ În apelul video, fața vorbește (buze, clipit, mișcarea capului)</label>
+      <div class="seg" id="stCallFace"><button data-v="on">Pornit</button><button data-v="off">Oprit</button></div>
+      <p class="hint">Totul se face în telefon, din poza din apel: gura se mișcă pe silabe, ochii clipesc, capul se mișcă ușor. Nu costă nimic.</p>
       <label>Mesaje vocale de la personaj</label>
       <div class="seg" id="stVmsg"><button data-v="off">Niciodată</button><button data-v="rar">Rar</button><button data-v="des">Des</button></div>
       <label>Vocea personajelor</label>

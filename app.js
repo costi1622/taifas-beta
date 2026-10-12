@@ -1,5 +1,5 @@
 window.__taifas = true;   // 8.20.1: semn pentru index.html că app.js s-a încărcat
-const APP_VER = '9.3';
+const APP_VER = '9.5';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -39,7 +39,7 @@ const DEF = {
   imgProv:'none', gemKey:'', gemModel:'gemini-2.5-flash-image',
   wkBase:'', wkTok:'', wkModel:'eco', wkSize:'768x1024',
   sugg:'off', pro:'on', feed:'text', fx:'on', regen3:'on', voice:'tap', tts:'tel', cfPlan:'free', cfCap:'free', elKey:'', elModel:'eleven_v3', theme:'dark', vmsg:'rar', jrn:'on', aux:'on', ctxN:'30',
-  vault:'off', vaultHas:null, faceFix:'on', bodyFix:'off', bestOf:'3', autoModel:'chat', imgCheck:'on', story:'on', sky:'on', social:'on', userBday:'', lock:'off', pushOn:false, bkEvery:'week', bkLast:0, userPhoto:'', userPhys:'', userBox:null, wkChat:'ancorat', wkRef:'auto', falKey:'', falModel:'fal-ai/flux-pulid', falSize:'576x768', spont:'rar', imgAlt:'fal', sv:34, imgCost:'', pIn:'', pOut:''
+  vault:'off', vaultHas:null, faceFix:'on', bodyFix:'off', bestOf:'3', autoModel:'chat', callFace:'on', imgCheck:'on', story:'on', sky:'on', social:'on', userBday:'', lock:'off', pushOn:false, bkEvery:'week', bkLast:0, userPhoto:'', userPhys:'', userBox:null, wkChat:'ancorat', wkRef:'auto', falKey:'', falModel:'fal-ai/flux-pulid', falSize:'576x768', spont:'rar', imgAlt:'fal', sv:34, imgCost:'', pIn:'', pOut:''
 };
 let S = {...DEF};
 let chars = [];            // [{id,name,tag,photo,aspect,look,stil,persona,speech,greet,created,lastAt,last}]
@@ -103,6 +103,7 @@ async function hydrate(root = document){
   for(const el of root.querySelectorAll('img[data-k]')){
     const u = await imgUrl(el.dataset.k);
     if(el.classList.contains('dev')){ el.onload = () => el.classList.add('go'); }
+    el.decoding = 'async';   // 9.4: decodarea pozei nu mai blochează animațiile
     if(u) el.src = u; el.removeAttribute('data-k');
   }
   for(const el of root.querySelectorAll('[data-bgk]')){
@@ -1187,6 +1188,7 @@ async function openChat(id, push = true, tid, dir){
   applyLook(cur);
   renderScene();
   updateComposer();
+  resetMsgWin();
   show('vChat', push, dir);
   if(cur.unread){ cur.unread = 0; saveChars(); }
   renderMsgs(true);
@@ -2897,6 +2899,19 @@ function statusLine(){
 }
 // buton „jos" + contor de mesaje noi
 let jumpCount = 0;
+// 9.4: câte mesaje sunt în pagină. Înainte se construia tot istoricul (sute de bule, fiecare cu blur) la fiecare schimbare.
+const MSG_WIN = 60, MSG_MORE = 60;
+let msgStart = 0, msgFor = null, moreObs = null, moreBusy = false;
+function resetMsgWin(){ msgFor = chat; msgStart = Math.max(0, (chat ? chat.msgs.length : 0) - MSG_WIN); }
+function loadEarlier(){
+  if(moreBusy || !chat || msgStart <= 0) return;
+  moreBusy = true;
+  const box = $('#msgs'), h0 = box.scrollHeight, t0 = box.scrollTop;
+  msgStart = Math.max(0, msgStart - MSG_MORE);
+  renderMsgs(false, true);
+  box.scrollTop = t0 + (box.scrollHeight - h0);   // rămâi la același mesaj
+  setTimeout(() => { moreBusy = false; }, 120);
+}
 function updateJump(){
   const box = $('#msgs'), far = box.scrollHeight - box.scrollTop - box.clientHeight > 320;
   if(!far) jumpCount = 0;
@@ -3148,20 +3163,23 @@ function heroHTML(){
   if(clear) return `<div class="hero clear">${ov}</div>`;
   return `<div class="hero">${cur.photo ? `<img data-k="${esc(cur.photo)}" alt="">` : `<div class="ph" style="background:${colorFor(cur)}">${esc((cur.name || '?')[0])}</div>`}${ov}</div>`;
 }
-function renderMsgs(toBottom){
+function renderMsgs(toBottom, keep){
   const box = $('#msgs');
+  if(msgFor !== chat || msgStart > chat.msgs.length) resetMsgWin();   // altă conversație (fir nou, conversație nouă): fereastra ei
   const near = box.scrollHeight - box.scrollTop - box.clientHeight < 120;
   let lastAi = -1; chat.msgs.forEach((m, i) => { if(m.role === 'ai') lastAi = i; });
   if(lastAi >= 0 && chat.msgs.slice(lastAi + 1).some(m => m.role === 'user')) lastAi = -1;
   let seen = seenMap.get(chat);
   if(!seen){ seen = new Set(chat.msgs.map(m => m.id)); seenMap.set(chat, seen); }
-  let html = heroHTML(), prevDay = '';
+  const st0 = Math.min(msgStart, chat.msgs.length);
+  let html = st0 > 0 ? `<div id="msgMore">↑ mesaje mai vechi (${st0})</div>` : heroHTML(), prevDay = st0 > 0 ? new Date(chat.msgs[st0 - 1].ts || 0).toDateString() : '';
   // 8.9: mesaje grupate (același autor, la mai puțin de 3 minute): colțuri lipite, ora și avatarul doar la ultimul
   const vis = chat.msgs.map((m, i) => !(m.pending && (!m.text || m.hold)) ? i : -1).filter(i => i >= 0);
   const solo = m => m.img || m.pendingImg || m.err || m.sticker || m.gift || m.voice;
   const same = (a, b) => a && b && a.role === b.role && !solo(a) && !solo(b) && !b.reply && Math.abs((b.ts || 0) - (a.ts || 0)) < 3 * 60e3 && dayKey(a.ts || 0) === dayKey(b.ts || 0);
   const grp = {}; vis.forEach((i, k) => { const a = chat.msgs[vis[k - 1]], m = chat.msgs[i], b = chat.msgs[vis[k + 1]]; grp[i] = (same(a, m) ? ' gp' : '') + (same(m, b) ? ' gn' : ''); });
   chat.msgs.forEach((m, i) => {
+    if(i < st0){ if(!(m.pending && (!m.text || m.hold))) seen.add(m.id); return; }
     const d = new Date(m.ts || Date.now()).toDateString();
     if(d !== prevDay && !(m.pending && (!m.text || m.hold))){ html += `<div class="day"><span>${dayLabel(m.ts || Date.now())}</span></div>`; prevDay = d; }
     const show = !(m.pending && (!m.text || m.hold));
@@ -3172,7 +3190,9 @@ function renderMsgs(toBottom){
   });
   box.innerHTML = html + typingHTML();
   hydrate(box);
-  if(toBottom || near) box.scrollTop = box.scrollHeight;
+  if((toBottom || near) && !keep) box.scrollTop = box.scrollHeight;
+  const mo = $('#msgMore');
+  if(mo){ if(!moreObs) moreObs = new IntersectionObserver(es => { if(es.some(e => e.isIntersecting)) loadEarlier(); }, {root:box, rootMargin:'400px 0px 0px 0px'}); moreObs.disconnect(); moreObs.observe(mo); }
   updateHead(); updateJump();
   if(cur && !(busy && live && live.ch === chat)) $('#chTag').innerHTML = statusLine();
 }
@@ -4023,6 +4043,7 @@ async function jumpTo(cid, tid, mid){
   const same = cur && cur.id === cid && chat && (chat.tid || 'main') === tid && !$('#vChat').hidden;
   if(!same) await openChat(cid, $('#vChat').hidden, tid);
   const i = chat.msgs.findIndex(m => m.id === mid); if(i < 0) return;
+  if(msgFor === chat && i < msgStart){ msgStart = Math.max(0, i - 10); renderMsgs(false, true); }
   const el = $(`#msgs .mw[data-i="${i}"]`); if(!el) return;
   el.scrollIntoView({block:'center'});
   el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash');
@@ -4664,7 +4685,7 @@ function startCall(opts = {}){
       <button id="clSee" class="vonly${call.see ? ' off' : ''}" aria-label="Te vede">${ICO.eye}<span>Te vede</span></button>
       <button id="clBarge" class="${call.barge ? 'off' : ''}" aria-label="Întreruperi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 11V6a2 2 0 0 0-4 0v5M14 10V4a2 2 0 0 0-4 0v6M10 10.5V6a2 2 0 0 0-4 0v8a8 8 0 0 0 16 0v-3a2 2 0 0 0-4 0"/></svg><span>Întrerup</span></button>
       <button id="clEnd" class="end" aria-label="Închide">${ICO.end}<span>Închide</span></button></div>`;
-  document.body.appendChild(v); hydrate(v);
+  document.body.appendChild(v); hydrate(v); call.tImgs = performance.now();
   history.pushState({v:'vChat', call:1}, '');
   const c = call, sv = v.querySelector('.cself');
   $('#clEnd').onclick = () => { endCall(); history.back(); };
@@ -4706,15 +4727,17 @@ function startCall(opts = {}){
   $('#clLook').onclick = () => { poke(); callLook(c); };
   // 8.16: expresiile ei (generate o dată pentru imaginea de bază)
   c.expr0 = pics[0]; if(exprSetOf(c.c, c.expr0)) exprInject(c);
+  if(pics.length) vfStart(c);   // 9.5: fața care vorbește
   const eb = $('#clExpr'); if(eb) eb.onclick = () => { if(eb.disabled) return; eb.disabled = true; eb.innerHTML = '<span class="spin"></span>'; toast(`🎭 Generez 5 expresii pentru ${c.c.name} (5 poze, o singură dată pentru imaginea asta). Apelul continuă.`, 4500); exprGen(c.c, c.expr0).then(ok => { if(ok){ toast('🎭 Expresiile sunt gata: fața ei reacționează acum'); if(call === c) exprInject(c); } else if(eb.isConnected){ eb.disabled = false; eb.textContent = '🎭'; } }); };
   c.watchT = setInterval(() => callWatch(c), 2000);
   // „vorbește”: imaginea tresare pe cuvinte, iar subtitrarea se aprinde cuvânt cu cuvânt
   window.__talk = (e, off = 0) => {
-    const cv = v.querySelector('.cvid'); if(cv){ cv.classList.add('w'); clearTimeout(window.__talkT); window.__talkT = setTimeout(() => cv.classList.remove('w'), 110); }
+    if(c.vf && c.vf.ready) vfWord(c, e);   // 9.5: gura se mișcă pe silabe
+    else { const cv = v.querySelector('.cvid'); if(cv){ cv.classList.add('w'); clearTimeout(window.__talkT); window.__talkT = setTimeout(() => cv.classList.remove('w'), 110); } }
     if(e && typeof e.charIndex === 'number'){ const at = off + e.charIndex; v.querySelectorAll('#clCap .kw').forEach(w => w.classList.toggle('lit', +w.dataset.i <= at)); }
   };
   // „camera” ei trece încet între pozele din același loc
-  if(pics.length > 1) c.picT = setInterval(() => { if(call !== c || c.state === 'speak') return; if(c.exprReady) return; const ims = v.querySelectorAll('.cvid img:not(.ex)'); ims[c.pi].classList.remove('on'); c.pi = (c.pi + 1) % ims.length; ims[c.pi].classList.add('on'); }, 22000);
+  if(pics.length > 1) c.picT = setInterval(() => { if(call !== c || c.state === 'speak') return; if(c.exprReady) return; const ims = v.querySelectorAll('.cvid img:not(.ex)'); ims[c.pi].classList.remove('on'); c.pi = (c.pi + 1) % ims.length; ims[c.pi].classList.add('on'); if(c.vf) vfSwitch(c, ims[c.pi]); }, 22000);
   if(video) camOn();
   // sună întâi, apoi răspunde (la un apel primit ești deja conectat)
   c.state = 'ring'; callState(c.incoming ? 'conectare…' : 'se apelează…', 'ring'); if(!c.incoming) ringback(true);
@@ -4734,7 +4757,7 @@ function callState(t, cls){ const el = $('#clState'); if(el){ el.textContent = t
 function endCall(){
   if(!call) return;
   const c = call;
-  call = null; c.alive = false; clearInterval(c.tick); clearInterval(c.picT); window.__talk = null; ringback(false); callWake(c, false);
+  call = null; c.alive = false; clearInterval(c.tick); clearInterval(c.picT); window.__talk = null; ringback(false); callWake(c, false); vfStop(c);
   try{ c.bargeRec && c.bargeRec.abort(); }catch(e){} clearInterval(c.pollT); clearInterval(c.watchT); clearTimeout(c.exT);
   if(c.cam){ try{ c.cam.getTracks().forEach(t => t.stop()); }catch(e){} }
   try{ c.rec && c.rec.abort(); }catch(e){}
@@ -4796,7 +4819,8 @@ async function callReply(opts){
     const off = capAppend(c, rest);
     q.push(callSay(c, rest, off));
   };
-  const exOf = () => { const x = m && (m.face ? [0, m.face] : m.text && m.text.match(/\[fa[țt][ăa]:\s*([^\]\n]{1,20})\]/i)); if(x && !m._ex){ m._ex = 1; exprShow(c, x[1].trim()); } };
+  const exOf = () => { const x = m && (m.face ? [0, m.face] : m.text && m.text.match(/\[fa[țt][ăa]:\s*([^\]\n]{1,20})\]/i)); if(x && !m._ex){ m._ex = 1; exprShow(c, x[1].trim()); }
+    else if(m && m.text && !m._ex && !m._exT){ const k = exprFromText(m.text); if(k){ m._exT = 1; exprShow(c, k); } } };   // 9.5: și după ce spune
   c.pollT = setInterval(() => { if(call !== c) return clearInterval(c.pollT); if(m && m.text && !m.err){ exOf(); speakNew(false); } }, 120);
   try{ await run; } catch(e){}
   clearInterval(c.pollT); done = true;
@@ -4855,6 +4879,16 @@ function callBarge(c){
 /* ───────── 👀 8.16: ce vede ea pe camera ta + expresiile ei ───────── */
 const EXPR = {zambet:['😊', 'a big warm genuine smile, eyes smiling'], ras:['😂', 'laughing out loud, eyes squinting with joy, head slightly tilted back'], surpriza:['😮', 'surprised and amazed, eyebrows raised, mouth slightly open'], ganditoare:['🤔', 'thoughtful, a slight smile, eyes looking a little to the side'], trista:['🥺', 'a little sad and touched, soft eyes, gentle pout']};
 const EXPR_ALIAS = {zambet:'zambet', 'zâmbet':'zambet', ras:'ras', 'râs':'ras', surpriza:'surpriza', 'surpriză':'surpriza', ganditoare:'ganditoare', 'gânditoare':'ganditoare', 'gânditor':'ganditoare', ganditor:'ganditoare', trista:'trista', 'tristă':'trista', trist:'trista', neutra:'', 'neutră':'', neutru:''};
+// 9.5: expresia și după ce spune (când nu a pus tagul [față: …])
+function exprFromText(t){
+  t = String(t || '').toLowerCase();
+  if(/\b(ha(ha)+|hi(hi)+|he(he)+)\b|😂|🤣|😆/.test(t)) return 'ras';
+  if(/\b(wow|uau|serios\?|nu pot să cred|pe bune\?)|😮|😲|😱/.test(t)) return 'surpriza';
+  if(/😢|😭|🥺|\bîmi pare (atât de )?rău\b|\b(trist|tristă|mi-e dor)\b/.test(t)) return 'trista';
+  if(/\bhm+\b|🤔|stai să mă gândesc|nu știu ce să zic/.test(t)) return 'ganditoare';
+  if(/😊|☺️|🥰|😍|😘|\b(ce drăguț|ce frumos|mă bucur)\b/.test(t)) return 'zambet';
+  return '';
+}
 const exprSetOf = (c, k) => c && c.expr && c.expr[k] && Object.keys(c.expr[k]).length >= 3 ? c.expr[k] : null;
 function lumaThumb(sv){
   const cv = lumaThumb.cv || (lumaThumb.cv = document.createElement('canvas')); cv.width = 32; cv.height = 24;
@@ -4902,18 +4936,25 @@ async function exprGen(c, baseK){
   if(S.imgProv === 'none'){ toast('Pornește pozele din Setări.'); return false; }
   const base = await DB.get(baseK); if(!base) return false;
   c.expr = c.expr || {}; const set = c.expr[baseK] = c.expr[baseK] || {};
-  let n = 0;
-  for(const [k, [, en]] of Object.entries(EXPR)){
-    if(set[k]) continue;
-    if(capLeft() < (neurPerPhoto() || 5000)){ toast('Limita zilnică de poze a fost atinsă; continui mâine.', 3500); break; }
-    try{
-      let b = await genImage(`Edit this exact photo: the same person, the same face and identity, the same clothes, the same pose, background, framing and light. Change ONLY the facial expression to: ${en}. Photorealistic, natural, no other changes.`, base, null, null, {force:{two:false, px:768}});
-      try{ if(b.type === 'image/png') b = await toJpeg(b, 1536, .9); }catch(e){}
-      set[k] = await saveImg(b); n++; addUsage(c.id, imgPrice(), 'img', null, 'apel'); await saveChars();
-      if(call && call.c === c) exprInject(call);
-    }catch(e){ toast('Expresiile s-au oprit: ' + e.message, 3500); break; }
-  }
-  return n > 0;
+  // 9.5: pe modelul ales la „Fidelitatea feței” (9B ține fața), toate deodată, fiecare verificată în telefon că e aceeași față
+  const model = S.imgProv === 'worker' && S.wkChat === 'ancorat' ? 'ancorat' : undefined, per = neurPerPhoto(model) || 5000;
+  let todo = Object.entries(EXPR).filter(([k]) => !set[k]);
+  if(S.imgProv === 'worker'){ const fit = Math.floor(capLeft() / per); if(fit < todo.length){ todo = todo.slice(0, Math.max(0, fit)); if(!todo.length){ toast('Limita zilnică de poze a fost atinsă; continui mâine.', 3500); return false; } } }
+  let ref = null; try{ const f = (await faceDescs(base)).sort((a, b) => b.a - a.a)[0]; if(f) ref = f.d; }catch(e){}
+  const same = async b => { if(!ref) return 0; try{ const fs = await faceDescs(b); return fs.length ? Math.min(...fs.map(f => fdist(f.d, ref))) : 1; }catch(e){ return 0; } };
+  const one = async ([k, [, en]]) => {
+    const p = `Edit this exact photo: the same person, the same face and identity, the same clothes, the same pose, background, framing and light. Change ONLY the facial expression to: ${en}. Keep the real skin texture. Photorealistic, natural, no other changes.`;
+    let b = await genImage(p, base, null, null, {force:{two:false, px:768}, model, quiet:true}), d = await same(b); addUsage(c.id, imgPrice(), 'img', null, 'apel');
+    if(d > .45 && (S.imgProv !== 'worker' || capLeft() >= per)){   // fața a alunecat: încă o încercare, rămâne cea mai apropiată
+      try{ const b2 = await genImage(p, base, null, null, {force:{two:false, px:768}, model, quiet:true}), d2 = await same(b2); addUsage(c.id, imgPrice(), 'img', null, 'apel'); if(d2 < d){ b = b2; d = d2; } }catch(e){}
+    }
+    try{ if(b.type === 'image/png') b = await toJpeg(b, 1536, .9); }catch(e){}
+    set[k] = await saveImg(b); await saveChars();
+    if(call && call.c === c) exprInject(call);
+  };
+  const rs = await Promise.allSettled(todo.map(one));
+  const bad = rs.find(r => r.status === 'rejected'); if(bad) toast('Unele expresii n-au ieșit: ' + bad.reason.message, 3500);
+  return rs.some(r => r.status === 'fulfilled');
 }
 function exprInject(c){   // adaugă în apel imaginile cu expresii deja gata
   const set = c.expr0 && exprSetOf(c.c, c.expr0); const cv = $('.callv .cvid'); if(!set || !cv) return;
@@ -4927,8 +4968,188 @@ function exprShow(c, k){
   const target = k && cv.querySelector(`img[data-ex="${k}"]`) || cv.querySelector('img:not(.ex)');
   if(!target || target.classList.contains('on')) return;
   cv.querySelectorAll('img').forEach(i => i.classList.toggle('on', i === target));
+  if(c.vf) vfSwitch(c, target);   // 9.5: și fața cu expresie vorbește
   clearTimeout(c.exT); if(k) c.exT = setTimeout(() => { if(call === c && c.state !== 'speak') exprShow(c, ''); }, 9000);
 }
+/* ═════════ 🗣️ 9.5: fața care vorbește, în telefon (fără alt serviciu, fără cost) ═════════
+   Pe imaginea din apel, face-api găsește 68 de puncte ale feței. Peste imagine se desenează (WebGL) o rețea de triunghiuri
+   prinsă de ele; mișcând punctele, se mișcă doar fața: gura se deschide pe silabe (cu interiorul gurii desenat separat),
+   ochii clipesc, capul se mișcă ușor, sprâncenele se ridică la întrebări. Restul pozei rămâne neatins. */
+function vfDelaunay(P){   // Bowyer–Watson; P = [[x,y],…] → triunghiuri [i,j,k]
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for(const [x, y] of P){ x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }
+  const d = Math.max(x1 - x0, y1 - y0) * 20, mx = (x0 + x1) / 2, my = (y0 + y1) / 2, n = P.length;
+  const Q = P.concat([[mx - d, my - d], [mx, my + d], [mx + d, my - d]]);
+  const circ = (a, b, c) => { const [ax, ay] = Q[a], [bx, by] = Q[b], [cx, cy] = Q[c], D = 2 * (ax * (by - cy) + bx * (cy - ay) + cx * (ay - by));
+    if(Math.abs(D) < 1e-9) return {x:0, y:0, r:Infinity};
+    const ux = ((ax * ax + ay * ay) * (by - cy) + (bx * bx + by * by) * (cy - ay) + (cx * cx + cy * cy) * (ay - by)) / D;
+    const uy = ((ax * ax + ay * ay) * (cx - bx) + (bx * bx + by * by) * (ax - cx) + (cx * cx + cy * cy) * (bx - ax)) / D;
+    return {x:ux, y:uy, r:(ax - ux) ** 2 + (ay - uy) ** 2}; };
+  let T = [{v:[n, n + 1, n + 2], c:circ(n, n + 1, n + 2)}];
+  for(let i = 0; i < n; i++){
+    const [px, py] = Q[i], bad = [], good = [];
+    for(const t of T) ((px - t.c.x) ** 2 + (py - t.c.y) ** 2 < t.c.r ? bad : good).push(t);
+    const E = new Map();
+    for(const t of bad) for(let k = 0; k < 3; k++){ const a = t.v[k], b = t.v[(k + 1) % 3], key = a < b ? a + ',' + b : b + ',' + a; E.set(key, E.has(key) ? null : [a, b]); }
+    T = good;
+    for(const e of E.values()) if(e) T.push({v:[e[0], e[1], i], c:circ(e[0], e[1], i)});
+  }
+  return T.filter(t => t.v.every(k => k < n)).map(t => t.v);
+}
+const VF_VS = 'attribute vec2 p;attribute vec2 t;uniform vec2 s;varying vec2 v;void main(){v=t;gl_Position=vec4(p.x/s.x*2.0-1.0,1.0-p.y/s.y*2.0,0.0,1.0);}';
+const VF_FS = 'precision mediump float;varying vec2 v;uniform sampler2D x;uniform vec4 col;uniform float m;void main(){gl_FragColor=m>0.5?col:texture2D(x,v);}';
+function vfGL(cv){
+  const gl = cv.getContext('webgl', {premultipliedAlpha:false, antialias:true, preserveDrawingBuffer:false}); if(!gl) return null;
+  const sh = (t, src) => { const s = gl.createShader(t); gl.shaderSource(s, src); gl.compileShader(s); if(!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; };
+  const pr = gl.createProgram(); gl.attachShader(pr, sh(gl.VERTEX_SHADER, VF_VS)); gl.attachShader(pr, sh(gl.FRAGMENT_SHADER, VF_FS)); gl.linkProgram(pr);
+  if(!gl.getProgramParameter(pr, gl.LINK_STATUS)) throw new Error('webgl link');
+  gl.useProgram(pr);
+  return {gl, pr, aP:gl.getAttribLocation(pr, 'p'), aT:gl.getAttribLocation(pr, 't'), uS:gl.getUniformLocation(pr, 's'), uC:gl.getUniformLocation(pr, 'col'), uM:gl.getUniformLocation(pr, 'm'),
+    bP:gl.createBuffer(), bT:gl.createBuffer(), tex:gl.createTexture()};
+}
+// punctele feței pe o imagine (o dată per imagine; ținute în memorie pentru apel)
+const vfCache = new Map();
+async function vfLandmarks(img){
+  const key = img.currentSrc || img.src; if(vfCache.has(key)) return vfCache.get(key);
+  const f = await faceApi();
+  const r = (await f.detectAllFaces(img, new f.TinyFaceDetectorOptions({inputSize:608, scoreThreshold:.4})).withFaceLandmarks()).sort((a, b) => b.detection.box.area - a.detection.box.area)[0];
+  const out = r ? r.landmarks.positions.map(p => [p.x, p.y]) : null;
+  vfCache.set(key, out); return out;
+}
+// silabele unui cuvânt (grupuri de vocale) → câte deschideri de gură
+const vfSyl = w => Math.max(1, (String(w).toLowerCase().match(/[aeiouăâîyàáèéìíòóùúöü]+/g) || []).length);
+const vfVow = w => { const v = (String(w).toLowerCase().match(/[aeiouăâîyàáèéìíòóùúöü]/g) || []); return v.length ? v : ['a']; };
+function vfWord(c, e){
+  const V = c.vf; if(!V || !V.ready) return;
+  const u = e && e.utterance, txt = u ? u.text : '', i = e && typeof e.charIndex === 'number' ? e.charIndex : -1;
+  let w = ''; if(txt && i >= 0){ const m = txt.slice(i).match(/^[\p{L}\p{N}'’-]+/u); w = m ? m[0] : ''; }
+  if(!w) return;
+  V.lastWord = performance.now();
+  const rate = (u && u.rate) || 1, n = vfSyl(w), dur = Math.min(900, Math.max(140, n * 165 / rate)), vs = vfVow(w), t0 = performance.now();
+  for(let k = 0; k < n; k++){
+    const ch = vs[Math.min(k, vs.length - 1)], amp = /[aăâ]/.test(ch) ? .95 : /[oóöu]/.test(ch) ? .62 : .48;
+    V.q.push({at:t0 + k * dur / n, len:dur / n, a:amp * (.8 + Math.random() * .3)});
+  }
+  if(/\?\s*$/.test(txt.slice(0, i + w.length + 2)) || /^(ce|cum|unde|când|cine|de ce|serios)$/i.test(w)) V.brow = performance.now();
+}
+async function vfSwitch(c, img){
+  const V = c.vf; if(!V || !img) return;
+  V.ready = false; V.cv.classList.remove('on');
+  const tok = V.tok = (V.tok || 0) + 1;
+  try{
+    if(!img.complete || !img.naturalWidth) await new Promise((res, rej) => { img.addEventListener('load', res, {once:true}); img.addEventListener('error', rej, {once:true}); });
+    const L = await vfLandmarks(img); if(tok !== V.tok || call !== c) return;
+    const W0 = img.naturalWidth, H0 = img.naturalHeight;
+    if(!L || (L[16][0] - L[0][0]) < W0 * .06){ return; }   // fără față sau prea mică: rămâne imaginea simplă
+    const k = Math.min(1, 1024 / Math.max(W0, H0)), W = Math.round(W0 * k), H = Math.round(H0 * k);
+    V.cv.width = W; V.cv.height = H;
+    const pts = L.map(([x, y]) => [x * k, y * k]);
+    // puncte în plus: frunte (deasupra sprâncenelor), un inel în jurul feței (se mișcă pe jumătate), marginile pozei (fixe)
+    const cx = (pts[0][0] + pts[16][0]) / 2, cy = (pts[19][1] + pts[8][1]) / 2, fw = pts[16][0] - pts[0][0], fh = pts[8][1] - Math.min(pts[19][1], pts[24][1]);
+    const brow = [17, 19, 21, 22, 24, 26].map(i => [pts[i][0], pts[i][1] - fh * .38]);
+    const ring = []; for(let a = 0; a < 16; a++){ const t = a / 16 * Math.PI * 2; ring.push([cx + Math.cos(t) * fw * .95, cy + Math.sin(t) * fh * 1.05]); }
+    const edge = []; for(let a = 0; a <= 4; a++){ edge.push([W * a / 4, 0], [W * a / 4, H]); if(a && a < 4){ edge.push([0, H * a / 4], [W, H * a / 4]); } }
+    const all = pts.concat(brow, ring.map(([x, y]) => [Math.min(W, Math.max(0, x)), Math.min(H, Math.max(0, y))]), edge);
+    const nF = pts.length + brow.length, nR = ring.length;
+    // interiorul gurii rămâne cel din poză (dinții, dacă se văd); cavitatea se desenează peste el doar cât gura se deschide în plus
+    const tris = vfDelaunay(all);
+    const g = V.g, gl = g.gl;
+    gl.bindTexture(gl.TEXTURE_2D, g.tex);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
+    Object.assign(V, {W, H, base:all, nF, nR, tris, idx:new Uint16Array(tris.flat()), uv:new Float32Array(all.flatMap(([x, y]) => [x / W, y / H])), fw, fh, cx, cy,
+      piv:[pts[8][0], pts[8][1] + fh * .35], img, ready:true, q:[], open:0, blinkAt:performance.now() + 1500 + Math.random() * 2500});
+    gl.viewport(0, 0, W, H);
+    gl.bindBuffer(gl.ARRAY_BUFFER, g.bT); gl.bufferData(gl.ARRAY_BUFFER, V.uv, gl.STATIC_DRAW);
+    V.ib = V.ib || gl.createBuffer(); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, V.ib); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, V.idx, gl.STATIC_DRAW);
+    vfDraw(c, performance.now());
+    V.cv.classList.add('on');
+  }catch(e){ console.warn('fața care vorbește', e.message); }
+}
+function vfDraw(c, now){
+  const V = c.vf; if(!V || !V.ready) return;
+  const g = V.g, gl = g.gl, B = V.base, P = B.map(p => p.slice()), s = c.state === 'speak';
+  // gura: țintele programate pe silabe; dacă vocea nu trimite cuvinte, un „vorbit” generic cât timp vorbește
+  let tgt = 0;
+  V.q = V.q.filter(x => now < x.at + x.len + 60);
+  for(const x of V.q) if(now >= x.at && now < x.at + x.len){ const ph = (now - x.at) / x.len; tgt = Math.max(tgt, x.a * Math.sin(Math.PI * Math.min(1, ph * 1.15))); }
+  if(s && !V.q.length && now - (V.lastWord || 0) > 450){ const t = now / 1000; tgt = Math.max(0, .55 * Math.sin(t * 11.3) * Math.sin(t * 3.1 + 1) + .15 * Math.sin(t * 23)); }
+  if(!s) tgt = 0;
+  V.open += (tgt - V.open) * (tgt > V.open ? .55 : .35);
+  const o = Math.max(0, V.open), fh = V.fh, fw = V.fw;
+  const mv = (i, dx, dy) => { P[i][0] += dx; P[i][1] += dy; };
+  const L0 = [60, 67, 66, 65, 64].map(i => B[i].slice());   // buza de jos (interior) înainte să coboare maxilarul
+  if(o > .01){
+    const jaw = o * fh * .085;
+    [[55, .8], [56, .95], [57, 1], [58, .95], [59, .8], [64, .55], [65, .95], [66, 1], [67, .95], [60, .55]].forEach(([i, f]) => mv(i, 0, jaw * f));
+    [[6, .5], [7, .78], [8, .9], [9, .78], [10, .5], [5, .25], [11, .25]].forEach(([i, f]) => mv(i, 0, jaw * f * .9));
+    [61, 62, 63].forEach(i => mv(i, 0, -jaw * .12));
+    mv(48, fw * .006 * o, jaw * .25); mv(54, -fw * .006 * o, jaw * .25);
+  }
+  // clipit (~140 ms, la 2,5–6 s)
+  if(now > V.blinkAt){ V.blinkT = now; V.blinkAt = now + 2500 + Math.random() * 3500; }
+  const bp = V.blinkT ? (now - V.blinkT) / 150 : 2, bl = bp < 1 ? Math.sin(Math.PI * bp) : 0;
+  if(bl > 0) [[37, 41], [38, 40], [43, 47], [44, 46]].forEach(([u, d]) => { mv(u, (B[d][0] - B[u][0]) * bl * .95, (B[d][1] - B[u][1]) * bl * 1.02); });
+  // sprâncenele la întrebări
+  const br = V.brow ? Math.max(0, 1 - Math.abs((now - V.brow) / 500 - .6)) : 0;
+  if(br > 0) for(let i = 17; i <= 26; i++) mv(i, 0, -fh * .045 * br);
+  // capul se mișcă ușor (fața întreagă și fruntea; inelul pe jumătate; marginile pozei rămân)
+  const t = now / 1000, ang = (Math.sin(t * .7) * .9 + Math.sin(t * 1.9 + 2) * .35 + (s ? Math.sin(t * 3.3) * .4 : 0)) * Math.PI / 180;
+  const dx = Math.sin(t * .5 + 1) * fw * .008, dy = Math.sin(t * .83) * fh * .006 + (s ? -o * fh * .01 : 0);
+  const rot = (i, f) => { const [px, py] = V.piv, x = P[i][0] - px, y = P[i][1] - py, ca = Math.cos(ang * f), sa = Math.sin(ang * f); P[i][0] = px + x * ca - y * sa + dx * f; P[i][1] = py + x * sa + y * ca + dy * f; };
+  for(let i = 0; i < V.nF; i++) rot(i, 1);
+  { const [px, py] = V.piv, ca = Math.cos(ang), sa = Math.sin(ang); for(const q of L0){ const x = q[0] - px, y = q[1] - py; q[0] = px + x * ca - y * sa + dx; q[1] = py + x * sa + y * ca + dy; } }
+  for(let i = V.nF; i < V.nF + V.nR; i++) rot(i, .45);
+  // desen: imaginea deformată
+  gl.useProgram(g.pr); gl.uniform2f(g.uS, V.W, V.H); gl.uniform1f(g.uM, 0);
+  gl.bindBuffer(gl.ARRAY_BUFFER, g.bP); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(P.flat()), gl.DYNAMIC_DRAW);
+  gl.enableVertexAttribArray(g.aP); gl.vertexAttribPointer(g.aP, 2, gl.FLOAT, false, 0, 0);
+  gl.bindBuffer(gl.ARRAY_BUFFER, g.bT); gl.enableVertexAttribArray(g.aT); gl.vertexAttribPointer(g.aT, 2, gl.FLOAT, false, 0, 0);
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, V.ib);
+  gl.disable(gl.BLEND); gl.drawElements(gl.TRIANGLES, V.idx.length, gl.UNSIGNED_SHORT, 0);
+  // interiorul gurii: cavitatea închisă la culoare + o urmă de dinți sus, doar cât e deschisă în plus față de poză
+  if(o > .06){
+    // golul nou: între buza de jos de dinainte (L0) și buza de jos coborâtă; dinții și buza de sus rămân cei din poză
+    const low = [60, 67, 66, 65, 64].map(i => P[i]), gap = P[66][1] - L0[2][1];
+    if(gap > 1.5){
+      const fan = [];
+      for(let k = 0; k < 4; k++){ const a = L0[k], b = L0[k + 1], c2 = low[k], d2 = low[k + 1]; fan.push(a[0], a[1], b[0], b[1], d2[0], d2[1], a[0], a[1], d2[0], d2[1], c2[0], c2[1]); }
+      // gura era închisă în poză: o urmă de dinți sus, ca să nu pară un gol negru
+      const closed = (B[66][1] - B[62][1]) < fh * .02, th = Math.min(gap * .32, fh * .03), teeth = [];
+      if(closed) for(let k = 1; k < 3; k++){ const a = L0[k], b = L0[k + 1]; teeth.push(a[0], a[1], b[0], b[1], b[0], b[1] + th, a[0], a[1], b[0], b[1] + th, a[0], a[1] + th); }
+      gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); gl.uniform1f(g.uM, 1); gl.disableVertexAttribArray(g.aT);
+      const al = Math.min(1, (o - .06) * 3);
+      gl.bindBuffer(gl.ARRAY_BUFFER, g.bP);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(fan), gl.DYNAMIC_DRAW); gl.vertexAttribPointer(g.aP, 2, gl.FLOAT, false, 0, 0);
+      gl.uniform4f(g.uC, .26, .08, .09, .93 * al); gl.drawArrays(gl.TRIANGLES, 0, fan.length / 2);
+      if(teeth.length){ gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(teeth), gl.DYNAMIC_DRAW); gl.vertexAttribPointer(g.aP, 2, gl.FLOAT, false, 0, 0); gl.uniform4f(g.uC, .9, .87, .83, .6 * al); gl.drawArrays(gl.TRIANGLES, 0, teeth.length / 2); }
+      gl.enableVertexAttribArray(g.aT);
+    }
+  }
+}
+function vfStart(c){
+  if(S.callFace === 'off' || c.vf) return;
+  const cvd = $('.callv .cvid'); if(!cvd) return;
+  const cv = document.createElement('canvas'); cv.className = 'cface';
+  cv.style.animationDelay = -((performance.now() - (c.tImgs || performance.now())) / 1000) + 's';   // în pas cu pozele de dedesubt
+  let g; try{ g = vfGL(cv); }catch(e){ g = null; }
+  if(!g) return;   // fără WebGL: rămâne imaginea simplă
+  cvd.insertBefore(cv, cvd.querySelector('.cgrain')); cvd.classList.add('vf');
+  c.vf = {cv, g, q:[], open:0, ready:false};
+  cv.addEventListener('webglcontextlost', e => { e.preventDefault(); if(c.vf) c.vf.ready = false; });
+  let last = 0;
+  const loop = now => {
+    if(call !== c || !c.vf){ return; }
+    c.vf.raf = requestAnimationFrame(loop);
+    if(!c.video || document.hidden || now - last < 30) return;   // ~30 de cadre pe secundă, doar când se vede
+    last = now; vfDraw(c, now);
+  };
+  c.vf.raf = requestAnimationFrame(loop);
+  vfSwitch(c, cvd.querySelector('img.on'));
+}
+function vfStop(c){ if(!c || !c.vf) return; cancelAnimationFrame(c.vf.raf); try{ const x = c.vf.g.gl.getExtension('WEBGL_lose_context'); if(x) x.loseContext(); }catch(e){} c.vf = null; }
 function callFrame(c, px = 512, force = false){   // un cadru mic din camera ta, doar pentru replica asta (nu se salvează nicăieri)
   try{
     const sv = $('.callv .cself'); if(!c.video || !(c.see || force) || !c.cam || !sv || !sv.videoWidth) return null;
@@ -5419,7 +5640,7 @@ const aiReady = () => S.prov === 'anthropic' ? hasKey('anthropic') : !!(S.oaBase
 const FIELDS = {stKey:'key', stModel:'model', stOaBase:'oaBase', stOaKey:'oaKey', stOaModel:'oaModel', stUser:'userName', stAbout:'userAbout', stBday:'userBday',
   stGemKey:'gemKey', stGemModel:'gemModel', stWkBase:'wkBase', stWkTok:'wkTok', stWkModel:'wkModel', stWkSize:'wkSize',
   stFalKey:'falKey', stFalModel:'falModel', stFalSize:'falSize', stImgCost:'imgCost', stPin:'pIn', stPout:'pOut', stElKey:'elKey', stTtsFalKey:'falKey', stChatFalKey:'falKey', stVkBase:'wkBase', stVkTok:'wkTok'};
-const SEGS = {stRegen:'regen3', stFx:'fx', stFeed:'feed', stStory:'story', stSky:'sky', stSocial:'social', stCfCap:'cfCap', stCfPlan:'cfPlan', stTts:'tts', stElModel:'elModel', stAux:'aux', stCtx:'ctxN', stVmsg:'vmsg', stJrn:'jrn', stTheme:'theme', stProv:'prov', stLen:'len', stFont:'font', stImg:'imgProv', stImgAlt:'imgProv', stSugg:'sugg', stPro:'pro', stVoice:'voice', stSpont:'spont', stImgCheck:'imgCheck', stWkChat:'wkChat', stBkEvery:'bkEvery', stVault:'vault', stFaceFix:'faceFix', stBodyFix:'bodyFix', stBestOf:'bestOf', stAutoModel:'autoModel'};
+const SEGS = {stRegen:'regen3', stFx:'fx', stFeed:'feed', stStory:'story', stSky:'sky', stSocial:'social', stCfCap:'cfCap', stCfPlan:'cfPlan', stTts:'tts', stElModel:'elModel', stAux:'aux', stCtx:'ctxN', stVmsg:'vmsg', stJrn:'jrn', stTheme:'theme', stProv:'prov', stLen:'len', stFont:'font', stImg:'imgProv', stImgAlt:'imgProv', stSugg:'sugg', stPro:'pro', stVoice:'voice', stSpont:'spont', stImgCheck:'imgCheck', stWkChat:'wkChat', stBkEvery:'bkEvery', stVault:'vault', stFaceFix:'faceFix', stBodyFix:'bodyFix', stBestOf:'bestOf', stAutoModel:'autoModel', stCallFace:'callFace'};
 let setPanel = null, setPanelPushed = false;
 /* 8.7: actualizare din aplicație. Codul vine oricum din rețea la pornire;
    asta prinde versiunile apărute cât aplicația a stat deschisă și forțează reîncărcarea curată. */
