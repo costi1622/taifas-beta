@@ -1,5 +1,5 @@
 window.__taifas = true;   // 8.20.1: semn pentru index.html că app.js s-a încărcat
-const APP_VER = '9.8.1';
+const APP_VER = '9.10';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -425,29 +425,38 @@ function todEn(){
   return day + ', ' + String(h).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0') + ' (' + (h < 5 ? 'late night, dark outside, only lamps on' : h < 8 ? 'early morning, soft dawn light' : h < 11 ? 'morning daylight' : h < 14 ? 'midday daylight' : h < 18 ? 'afternoon daylight' : h < 21 ? 'evening, warm sunset or lamps' : 'night, dark outside, warm lamps on') + ')';
 }
 // trăsăturile fizice + poziția feței, citite o singură dată per poză de profil (c.faceBox: {k, x,y,w,h | none, phys})
+// 9.10: citirea detaliată a pozei de profil (ca în 8.21–8.23, cu formulări neutre pentru corp)
+const ID_DETAILED = `1. Find the main person's face (forehead to chin, ear to ear) as fractions 0-1 of the image width/height, top-left origin.
+2. "physique": ONLY the permanent traits of the face, in English, comma-separated, max 60 words: apparent age, skin tone, face shape, eye color and shape, eyebrows, nose, lips, jaw and chin, visible skin details (freckles, moles, dimples).
+3. "hair": the hair exactly, max 40 words: exact color (with highlights or roots if any), length, texture (straight, wavy, curly), volume, parting, fringe, how it is styled.
+4. "body": the body exactly as it looks in the photo, in neutral factual English, comma-separated, max 50 words: apparent height (petite / average / tall), build (slim, slender, athletic, average, curvy, full-figured, plus-size, muscular), shoulders, bust, waist, hips and legs proportions, overall body shape, skin tone on the body. Describe only what is visible; if the body is not visible, write "not visible".
+5. "marks": every permanent distinctive mark you can see (moles, freckle patterns, scars, birthmarks, tattoos with design and exact place, piercings with exact place), one short item each with the exact place, side given as the person's left or right. Empty list if none.
+6. "glasses": "" if no glasses; otherwise the frame shape, color and material in max 10 words.
+NO clothing, NO jewelry except piercings, NO background, NO pose, NO expression.
+JSON: {"x":0.0,"y":0.0,"w":0.0,"h":0.0,"physique":"...","hair":"...","body":"...","marks":["..."],"glasses":""} (if no face is visible, x,y,w,h = 0)`;
 async function identityOf(c, force){
   if(!c.photo) return null;
-  if(!force && c.faceBox && c.faceBox.k === c.photo && c.faceBox.phys !== undefined && ((c.faceBox.v === 2 && (c.faceBox.ok === 1 || (c.faceBox.ok === -1 && Date.now() - (c.faceBox.at || 0) < 6 * 36e5))) || !aiReady()) && (c.faceBox.phys || !aiReady() || Date.now() - (c.faceBox.at || 0) < 864e5)) return c.faceBox;
+  if(!force && c.faceBox && c.faceBox.k === c.photo && c.faceBox.phys !== undefined && ((c.faceBox.mode === 'full') && (c.faceBox.v === 2 && (c.faceBox.ok === 1 || (c.faceBox.ok === -1 && Date.now() - (c.faceBox.at || 0) < 6 * 36e5)) || !aiReady())) && (c.faceBox.phys || !aiReady() || Date.now() - (c.faceBox.at || 0) < 864e5)) return c.faceBox;
   const full = await DB.get(c.photo); if(!full) return null;
-  let b = null, phys = '', ok = 0;
+  let b = null, phys = '', ok = 0, marks = [], glasses = '';
+  // 9.10: citirea detaliată (fața, părul, corpul, semnele, ochelarii), cu modelul principal, ca în versiunile care dădeau textul complet
   // 9.8.1: răspunsul nu mai poate fi tăiat pe jumătate (limita era 600 de tokeni, iar JSON-ul trunchiat se „repara” și se salva
   //        cu descrierea neterminată și fără corp); dacă vine tăiat, se cere încă o dată
   for(let tryN = 0; tryN < 2 && aiReady() && !ok; tryN++){
     try{
       const meta = {};
-      const out = await stream('You analyse reference photos for an image generator. Answer with the JSON object only, starting with {, no other text.', [{role:'user', image:await blobToB64(await toJpeg(full, 1024, .85)), text:
-`1. Find the main person's face (forehead to chin, ear to ear) as fractions 0-1 of the image width/height, top-left origin.
-2. "physique": ONLY the permanent traits of the face and head, in English, comma-separated, max 50 words: apparent age, ethnicity-neutral skin tone, face shape, eye color and shape, eyebrows, nose, lips, hair (exact color, length, texture, parting, style), glasses if worn, distinctive marks (moles, freckles, tattoos, piercings).
-3. "body": the body exactly as it looks in the photo, in neutral factual English, comma-separated, max 45 words: apparent height (petite / average / tall), build (slim, slender, athletic, average, curvy, full-figured, plus-size, muscular), shoulders, waist, hips and legs proportions, overall body shape, skin tone on the body. If the body is not visible, write "not visible".
-NO clothing, NO jewelry except glasses/piercings, NO background, NO pose, NO expression.
-JSON: {"x":0.0,"y":0.0,"w":0.0,"h":0.0,"physique":"...","body":"..."} (if no face is visible, x,y,w,h = 0)`}], {max:1500, aux:true, meta});
+      const out = await stream('You analyse reference photos for an image generator. Answer with the JSON object only, starting with {, no other text.', [{role:'user', image:await blobToB64(await toJpeg(full, 1280, .88)), text:ID_DETAILED}], {max:1500, meta});
       if(meta.stop && meta.stop !== 'end_turn') continue;   // tăiat: mai încercăm o dată
       const j = parseJSON(out), n = k => Math.min(1, Math.max(0, +j[k] || 0));
       if(!String(j.physique || '').trim()) continue;
       ok = 1;
+      phys = String(j.physique || '').trim().slice(0, 600);
+      const hr = String(j.hair || '').trim(); if(hr) phys += '; hair: ' + hr.slice(0, 350);
+      const bd = String(j.body || '').trim(); if(bd && !/not visible/i.test(bd)) phys += '; body: ' + bd.slice(0, 450);
+      glasses = String(j.glasses || '').trim().slice(0, 100); if(glasses) phys += '; glasses: ' + glasses;
+      marks = (Array.isArray(j.marks) ? j.marks : []).map(x => String(x || '').trim().slice(0, 140)).filter(x => x.length > 3).slice(0, 12);
+      if(marks.length) phys += '; permanent marks: ' + marks.join(', ');
       if(n('w') > .02 && n('h') > .02) b = {x:n('x'), y:n('y'), w:n('w'), h:n('h'), by:'ai'};
-      phys = String(j.physique || '').trim().slice(0, 500);
-      const bd = String(j.body || '').trim(); if(bd && !/not visible/i.test(bd)) phys += (phys ? '; body: ' : 'body: ') + bd.slice(0, 400);
     }catch(e){}
   }
   if(!ok){ ok = -1; if(c.faceBox && c.faceBox.k === c.photo && c.faceBox.phys && !phys) phys = c.faceBox.phys; }   // eșuat de două ori: păstrăm ce era și reîncercăm peste 6 ore   // o citire eșuată nu șterge descrierea veche
@@ -457,7 +466,8 @@ JSON: {"x":0.0,"y":0.0,"w":0.0,"h":0.0,"physique":"...","body":"..."} (if no fac
       if(f){ const r = f.boundingBox; b = {x:r.x / im.naturalWidth, y:r.y / im.naturalHeight, w:r.width / im.naturalWidth, h:r.height / im.naturalHeight, by:'tel'}; } }catch(e){}
     finally{ URL.revokeObjectURL(u); }
   }
-  c.faceBox = b ? {k:c.photo, ...b, phys, at:Date.now(), v:2, ok} : {k:c.photo, none:true, phys, at:Date.now(), v:2, ok};
+  const mode = 'full';
+  c.faceBox = b ? {k:c.photo, ...b, phys, marks, glasses, at:Date.now(), v:2, ok, mode} : {k:c.photo, none:true, phys, marks, glasses, at:Date.now(), v:2, ok, mode};
   await saveChars();
   return c.faceBox;
 }
@@ -2255,7 +2265,7 @@ function drawHome(c, box){
 // 8.9.2: ce scrii tu despre cum arată (corp, înălțime, piele, păr) are prioritate la fiecare poză
 function drawBodyNote(c, box){
   const fbx = c.faceBox && c.faceBox.k === c.photo ? c.faceBox : null, auto = fbx && fbx.phys ? fbx.phys : '';
-  const mk = fbx ? [...(fbx.glasses ? ['👓 ' + fbx.glasses] : []), ...(fbx.marks || [])] : [];
+  const mk = fbx && fbx.mode !== 'full' ? [...(fbx.glasses ? ['👓 ' + fbx.glasses] : []), ...(fbx.marks || [])] : [];   // în modul detaliat sunt deja în text
   box.insertAdjacentHTML('beforeend', `<div class="refbox bodyn"><b>🧍 Cum arată, pentru poze</b>
     <small>${auto ? 'Citit automat din poza de profil: <i>' + esc(auto) + '</i>' : 'Se citește automat din poza de profil la prima poză.'}</small>
     ${mk.length ? `<small style="margin-top:6px">Semne care rămân mereu la locul lor: <i>${mk.map(esc).join(' · ')}</i></small>` : ''}
@@ -5018,18 +5028,38 @@ async function vfLandmarks(img){
 // silabele unui cuvânt (grupuri de vocale) → câte deschideri de gură
 const vfSyl = w => Math.max(1, (String(w).toLowerCase().match(/[aeiouăâîyàáèéìíòóùúöü]+/g) || []).length);
 const vfVow = w => { const v = (String(w).toLowerCase().match(/[aeiouăâîyàáèéìíòóùúöü]/g) || []); return v.length ? v : ['a']; };
+// 9.9: formele buzelor după litere (româna se scrie cum se pronunță): deschidere, lățime, buze lipite
+const VF_VIS = (ch, nx) => {
+  if('a'.includes(ch)) return {o:.95, w:1.03, v:1};
+  if('ăâî'.includes(ch)) return {o:.45, w:1, v:1};
+  if('e'.includes(ch)) return {o:.5, w:1.09, v:1};
+  if('iy'.includes(ch)) return {o:.28, w:1.14, v:1};
+  if('oó'.includes(ch)) return {o:.62, w:.84, v:1};
+  if('uú'.includes(ch)) return {o:.34, w:.78, v:1};
+  if('mbp'.includes(ch)) return {o:0, w:.98, p:1};
+  if('fv'.includes(ch)) return {o:.1, w:1.02, f:1};
+  if('sșzțj'.includes(ch) || (ch === 'c' || ch === 'g') && /[ei]/.test(nx || '')) return {o:.16, w:1.08};
+  if('lntdr'.includes(ch)) return {o:.3, w:1};
+  return {o:.24, w:1};
+};
+const VF_WARM = /\b(drag|dragă|iubire|iubitule|iubito|frumos|frumoasă|mulțumesc|bine|super|minunat|haha|hihi|pupic|pup|te iubesc|dor|bucur|perfect)\b|❤|😊|🥰|😍|😘|☺/i;
 function vfWord(c, e){
   const V = c.vf; if(!V || !V.ready) return;
   const u = e && e.utterance, txt = u ? u.text : '', i = e && typeof e.charIndex === 'number' ? e.charIndex : -1;
   let w = ''; if(txt && i >= 0){ const m = txt.slice(i).match(/^[\p{L}\p{N}'’-]+/u); w = m ? m[0] : ''; }
   if(!w) return;
-  V.lastWord = performance.now();
-  const rate = (u && u.rate) || 1, n = vfSyl(w), dur = Math.min(900, Math.max(140, n * 165 / rate)), vs = vfVow(w), t0 = performance.now();
-  for(let k = 0; k < n; k++){
-    const ch = vs[Math.min(k, vs.length - 1)], amp = /[aăâ]/.test(ch) ? .95 : /[oóöu]/.test(ch) ? .62 : .48;
-    V.q.push({at:t0 + k * dur / n, len:dur / n, a:amp * (.8 + Math.random() * .3)});
-  }
-  if(/\?\s*$/.test(txt.slice(0, i + w.length + 2)) || /^(ce|cum|unde|când|cine|de ce|serios)$/i.test(w)) V.brow = performance.now();
+  const now = performance.now(); V.lastWord = now;
+  const rate = (u && u.rate) || 1, n = vfSyl(w), dur = Math.min(950, Math.max(150, n * 170 / rate));
+  // litere → cadre-cheie, vocalele țin mai mult decât consoanele
+  const L = [...w.toLowerCase()].filter(ch => /\p{L}/u.test(ch)), wt = L.map(ch => /[aeiouăâîyóú]/.test(ch) ? 1 : .55), tot = wt.reduce((a, b) => a + b, 0) || 1;
+  let t = now;
+  L.forEach((ch, k) => { const d = dur * wt[k] / tot, v = VF_VIS(ch, L[k + 1]); V.kf.push({t:t + d * .5, ...v, a:.8 + Math.random() * .3}); t += d; });
+  V.kf.push({t:t + 70, o:0, w:1, rest:1});
+  const after = txt.slice(i + w.length, i + w.length + 3);
+  if(/^[.!…]/.test(after)) V.nods.push({t:t + 40, a:1});                                     // încuviințează la final de propoziție
+  else if(w.length >= 7 && Math.random() < .35) V.nods.push({t:now + dur * .4, a:.5});         // și pe cuvinte apăsate, din când în când
+  if(/^\?/.test(after) || /\?/.test(txt.slice(i, i + w.length + 2))){ V.brow = now; V.tiltT = now; }
+  if(VF_WARM.test(w)) V.smileT = now;
 }
 async function vfSwitch(c, img){
   const V = c.vf; if(!V || !img) return;
@@ -5043,14 +5073,17 @@ async function vfSwitch(c, img){
     const k = Math.min(1, 1024 / Math.max(W0, H0)), W = Math.round(W0 * k), H = Math.round(H0 * k);
     V.cv.width = W; V.cv.height = H;
     const pts = L.map(([x, y]) => [x * k, y * k]);
-    // puncte în plus: frunte (deasupra sprâncenelor), un inel în jurul feței (se mișcă pe jumătate), marginile pozei (fixe)
+    const avg = ids => [ids.reduce((a, i) => a + pts[i][0], 0) / ids.length, ids.reduce((a, i) => a + pts[i][1], 0) / ids.length];
     const cx = (pts[0][0] + pts[16][0]) / 2, cy = (pts[19][1] + pts[8][1]) / 2, fw = pts[16][0] - pts[0][0], fh = pts[8][1] - Math.min(pts[19][1], pts[24][1]);
+    const clamp = ([x, y]) => [Math.min(W, Math.max(0, x)), Math.min(H, Math.max(0, y))];
+    // centrul ochilor (pupilele se mută prin textura de aici), frunte, inel în jurul feței, umeri și piept (respirația), marginile pozei
+    const eyes = [avg([36, 37, 38, 39, 40, 41]), avg([42, 43, 44, 45, 46, 47])];
     const brow = [17, 19, 21, 22, 24, 26].map(i => [pts[i][0], pts[i][1] - fh * .38]);
-    const ring = []; for(let a = 0; a < 16; a++){ const t = a / 16 * Math.PI * 2; ring.push([cx + Math.cos(t) * fw * .95, cy + Math.sin(t) * fh * 1.05]); }
+    const ring = []; for(let a = 0; a < 16; a++){ const t = a / 16 * Math.PI * 2; ring.push(clamp([cx + Math.cos(t) * fw * .95, cy + Math.sin(t) * fh * 1.05])); }
+    const torso = []; for(const [dy, sp] of [[.95, .62], [1.65, .55]]) for(let q = -2; q <= 2; q++){ const y = pts[8][1] + fh * dy; if(y < H - 4) torso.push(clamp([cx + q * fw * sp, y])); }
     const edge = []; for(let a = 0; a <= 4; a++){ edge.push([W * a / 4, 0], [W * a / 4, H]); if(a && a < 4){ edge.push([0, H * a / 4], [W, H * a / 4]); } }
-    const all = pts.concat(brow, ring.map(([x, y]) => [Math.min(W, Math.max(0, x)), Math.min(H, Math.max(0, y))]), edge);
-    const nF = pts.length + brow.length, nR = ring.length;
-    // interiorul gurii rămâne cel din poză (dinții, dacă se văd); cavitatea se desenează peste el doar cât gura se deschide în plus
+    const all = pts.concat(eyes, brow, ring, torso, edge);
+    const nE = 68, nF = 68 + 2 + brow.length, nR = ring.length, nT = torso.length;
     const tris = vfDelaunay(all);
     const g = V.g, gl = g.gl;
     gl.bindTexture(gl.TEXTURE_2D, g.tex);
@@ -5058,10 +5091,13 @@ async function vfSwitch(c, img){
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
-    Object.assign(V, {W, H, base:all, nF, nR, tris, idx:new Uint16Array(tris.flat()), uv:new Float32Array(all.flatMap(([x, y]) => [x / W, y / H])), fw, fh, cx, cy,
-      piv:[pts[8][0], pts[8][1] + fh * .35], img, ready:true, q:[], open:0, blinkAt:performance.now() + 1500 + Math.random() * 2500});
+    const ew = Math.hypot(pts[39][0] - pts[36][0], pts[39][1] - pts[36][1]);
+    Object.assign(V, {W, H, base:all, nE, nF, nR, nT, tris, idx:new Uint16Array(tris.flat()), uv0:new Float32Array(all.flatMap(([x, y]) => [x / W, y / H])), fw, fh, cx, cy, ew,
+      mc:[(pts[48][0] + pts[54][0]) / 2, (pts[48][1] + pts[54][1]) / 2], gap0:Math.max(0, pts[66][1] - pts[62][1]),
+      piv:[pts[8][0], pts[8][1] + fh * .35], img, ready:true, kf:[], nods:[], open:0, wid:1, press:0, smile:0, gx:0, gy:0, gtx:0, gty:0, sacAt:0,
+      blinkAt:performance.now() + 1500 + Math.random() * 2500});
+    V.uv = new Float32Array(V.uv0);
     gl.viewport(0, 0, W, H);
-    gl.bindBuffer(gl.ARRAY_BUFFER, g.bT); gl.bufferData(gl.ARRAY_BUFFER, V.uv, gl.STATIC_DRAW);
     V.ib = V.ib || gl.createBuffer(); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, V.ib); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, V.idx, gl.STATIC_DRAW);
     vfDraw(c, performance.now());
     V.cv.classList.add('on');
@@ -5069,61 +5105,97 @@ async function vfSwitch(c, img){
 }
 function vfDraw(c, now){
   const V = c.vf; if(!V || !V.ready) return;
-  const g = V.g, gl = g.gl, B = V.base, P = B.map(p => p.slice()), s = c.state === 'speak';
-  // gura: țintele programate pe silabe; dacă vocea nu trimite cuvinte, un „vorbit” generic cât timp vorbește
-  let tgt = 0;
-  V.q = V.q.filter(x => now < x.at + x.len + 60);
-  for(const x of V.q) if(now >= x.at && now < x.at + x.len){ const ph = (now - x.at) / x.len; tgt = Math.max(tgt, x.a * Math.sin(Math.PI * Math.min(1, ph * 1.15))); }
-  if(s && !V.q.length && now - (V.lastWord || 0) > 450){ const t = now / 1000; tgt = Math.max(0, .55 * Math.sin(t * 11.3) * Math.sin(t * 3.1 + 1) + .15 * Math.sin(t * 23)); }
-  if(!s) tgt = 0;
-  V.open += (tgt - V.open) * (tgt > V.open ? .55 : .35);
-  const o = Math.max(0, V.open), fh = V.fh, fw = V.fw;
-  const mv = (i, dx, dy) => { P[i][0] += dx; P[i][1] += dy; };
+  const g = V.g, gl = g.gl, B = V.base, P = B.map(p => p.slice()), st = c.state, s = st === 'speak', fh = V.fh, fw = V.fw;
+  const ease = (cur, tgt, up, dn) => cur + (tgt - cur) * (tgt > cur ? up : dn);
+  // ── gura: cadrele-cheie ale literelor; fără cuvinte de la voce, un vorbit generic cât vorbește
+  V.kf = V.kf.filter(x => now < x.t + 400);
+  let tO = 0, tW = 1, tP = 0;
+  const prev = [...V.kf].reverse().find(x => x.t <= now), next = V.kf.find(x => x.t > now);
+  if(prev && next && next.t - prev.t < 400){ const f = (now - prev.t) / (next.t - prev.t), m = f * f * (3 - 2 * f);
+    tO = (prev.o * (prev.a || 1)) * (1 - m) + (next.o * (next.a || 1)) * m; tW = prev.w * (1 - m) + next.w * m; tP = (prev.p ? 1 - m : 0) + (next.p ? m : 0); }
+  else if(next && next.t - now < 120){ tO = next.o * (next.a || 1) * (1 - (next.t - now) / 120); tW = 1 + (next.w - 1) * (1 - (next.t - now) / 120); tP = next.p ? 1 - (next.t - now) / 120 : 0; }
+  if(s && !V.kf.length && now - (V.lastWord || 0) > 450){ const t = now / 1000; tO = Math.max(0, .55 * Math.sin(t * 11.3) * Math.sin(t * 3.1 + 1) + .15 * Math.sin(t * 23)); tW = 1 + .06 * Math.sin(t * 4.7); }
+  if(!s){ tO = 0; tW = 1; tP = 0; }
+  V.open = ease(V.open, tO, .6, .42); V.wid = ease(V.wid, tW, .45, .35); V.press = ease(V.press, tP, .6, .4);
+  // ── zâmbetul: la cuvinte calde, și ușor cât te ascultă
+  const heard = c.heardAt && now - c.heardAt < 900;
+  const smT = Math.max(V.smileT ? Math.max(0, 1 - (now - V.smileT) / 2200) : 0, st === 'listen' ? (heard ? .45 : .25) : 0);
+  V.smile = ease(V.smile, smT, .08, .04);
+  const o = Math.max(0, V.open), mv = (i, dx, dy) => { P[i][0] += dx; P[i][1] += dy; };
   const L0 = [60, 67, 66, 65, 64].map(i => B[i].slice());   // buza de jos (interior) înainte să coboare maxilarul
+  // lățimea buzelor (rotunjit / întins) în jurul centrului gurii
+  if(Math.abs(V.wid - 1) > .005) for(let i = 48; i <= 67; i++) P[i][0] = V.mc[0] + (P[i][0] - V.mc[0]) * V.wid;
+  // buze lipite (m, b, p): golul din poză se închide
+  if(V.press > .02 && V.gap0 > 1){ const h = V.gap0 * .5 * V.press; [61, 62, 63].forEach(i => mv(i, 0, h)); [65, 66, 67].forEach(i => mv(i, 0, -h)); mv(51, 0, h * .4); mv(57, 0, -h * .4); }
   if(o > .01){
     const jaw = o * fh * .085;
     [[55, .8], [56, .95], [57, 1], [58, .95], [59, .8], [64, .55], [65, .95], [66, 1], [67, .95], [60, .55]].forEach(([i, f]) => mv(i, 0, jaw * f));
     [[6, .5], [7, .78], [8, .9], [9, .78], [10, .5], [5, .25], [11, .25]].forEach(([i, f]) => mv(i, 0, jaw * f * .9));
-    [61, 62, 63].forEach(i => mv(i, 0, -jaw * .12));
+    const lift = V.gap0 < fh * .02 ? .32 : .12; [[61, .8], [62, 1], [63, .8]].forEach(([i, f]) => mv(i, 0, -jaw * lift * f)); [[50, .5], [51, .6], [52, .5]].forEach(([i, f]) => mv(i, 0, -jaw * (lift - .08) * f));
     mv(48, fw * .006 * o, jaw * .25); mv(54, -fw * .006 * o, jaw * .25);
   }
-  // clipit (~140 ms, la 2,5–6 s)
-  if(now > V.blinkAt){ V.blinkT = now; V.blinkAt = now + 2500 + Math.random() * 3500; }
+  if(V.smile > .01){ const sm = V.smile; mv(48, -fw * .012 * sm, -fh * .02 * sm); mv(54, fw * .012 * sm, -fh * .02 * sm); [49, 59].forEach(i => mv(i, -fw * .005 * sm, -fh * .01 * sm)); [53, 55].forEach(i => mv(i, fw * .005 * sm, -fh * .01 * sm)); [41, 40, 46, 47].forEach(i => mv(i, 0, -fh * .006 * sm)); }
+  // ── clipit (uneori de două ori)
+  if(now > V.blinkAt){ V.blinkT = now; V.blinkAt = now + (Math.random() < .15 ? 260 : 2400 + Math.random() * 3600); }
   const bp = V.blinkT ? (now - V.blinkT) / 150 : 2, bl = bp < 1 ? Math.sin(Math.PI * bp) : 0;
   if(bl > 0) [[37, 41], [38, 40], [43, 47], [44, 46]].forEach(([u, d]) => { mv(u, (B[d][0] - B[u][0]) * bl * .95, (B[d][1] - B[u][1]) * bl * 1.02); });
-  // sprâncenele la întrebări
-  const br = V.brow ? Math.max(0, 1 - Math.abs((now - V.brow) / 500 - .6)) : 0;
+  // ── sprâncenele: la întrebări și când se gândește
+  const br = Math.max(V.brow ? Math.max(0, 1 - Math.abs((now - V.brow) / 500 - .6)) : 0, st === 'think' ? .45 : 0);
   if(br > 0) for(let i = 17; i <= 26; i++) mv(i, 0, -fh * .045 * br);
-  // capul se mișcă ușor (fața întreagă și fruntea; inelul pe jumătate; marginile pozei rămân)
-  const t = now / 1000, ang = (Math.sin(t * .7) * .9 + Math.sin(t * 1.9 + 2) * .35 + (s ? Math.sin(t * 3.3) * .4 : 0)) * Math.PI / 180;
-  const dx = Math.sin(t * .5 + 1) * fw * .008, dy = Math.sin(t * .83) * fh * .006 + (s ? -o * fh * .01 : 0);
+  // ── privirea: salturi mici și fixări; la cameră când vorbește, sus-lateral când se gândește, spre tine când asculți
+  if(now > V.sacAt){
+    const r = (a) => (Math.random() * 2 - 1) * a;
+    if(st === 'think'){ V.gtx = V.thinkSide = V.thinkSide || (Math.random() < .5 ? -.7 : .7); V.gty = -.55 + r(.1); V.sacAt = now + 700 + Math.random() * 900; }
+    else { V.thinkSide = 0; V.gtx = r(s ? .18 : .35); V.gty = r(s ? .12 : .2); V.sacAt = now + (s ? 900 : 1300) + Math.random() * (s ? 1400 : 2600); }
+  }
+  V.gx = ease(V.gx, V.gtx, .5, .5); V.gy = ease(V.gy, V.gty, .5, .5);
+  // ── capul: legănat ușor, încuviințări pe fraze, înclinat la întrebări, mici încuviințări cât asculți
+  if(st === 'listen' && heard && (!V.lnod || now - V.lnod > 2600 + Math.random() * 1500)){ V.lnod = now; V.nods.push({t:now, a:.55}); }
+  V.nods = V.nods.filter(x => now < x.t + 450);
+  let nod = 0; for(const x of V.nods){ const ph = (now - x.t) / 420; if(ph > 0 && ph < 1) nod = Math.max(nod, x.a * Math.sin(Math.PI * ph)); }
+  const tilt = V.tiltT ? Math.max(0, 1 - Math.abs((now - V.tiltT) / 900 - .5) * 2) : 0;
+  const t = now / 1000, breath = Math.sin(t * Math.PI * 2 / 4.2);
+  const ang = (Math.sin(t * .7) * .9 + Math.sin(t * 1.9 + 2) * .35 + (s ? Math.sin(t * 3.3) * .4 : 0) + tilt * 2.4 * (V.tiltDir || (V.tiltDir = Math.random() < .5 ? -1 : 1))) * Math.PI / 180;
+  const dx = Math.sin(t * .5 + 1) * fw * .008, dy = Math.sin(t * .83) * fh * .006 + (s ? -o * fh * .01 : 0) + nod * fh * .022 + breath * fh * .003;
   const rot = (i, f) => { const [px, py] = V.piv, x = P[i][0] - px, y = P[i][1] - py, ca = Math.cos(ang * f), sa = Math.sin(ang * f); P[i][0] = px + x * ca - y * sa + dx * f; P[i][1] = py + x * sa + y * ca + dy * f; };
   for(let i = 0; i < V.nF; i++) rot(i, 1);
-  { const [px, py] = V.piv, ca = Math.cos(ang), sa = Math.sin(ang); for(const q of L0){ const x = q[0] - px, y = q[1] - py; q[0] = px + x * ca - y * sa + dx; q[1] = py + x * sa + y * ca + dy; } }
   for(let i = V.nF; i < V.nF + V.nR; i++) rot(i, .45);
-  // desen: imaginea deformată
+  { const [px, py] = V.piv, ca = Math.cos(ang), sa = Math.sin(ang); for(const q of L0){ const x = q[0] - px, y = q[1] - py; q[0] = px + x * ca - y * sa + dx; q[1] = py + x * sa + y * ca + dy; } }
+  // respirația: umerii și pieptul urcă ușor
+  for(let i = V.nF + V.nR, k = 0; k < V.nT; i++, k++) P[i][1] -= breath * fh * (k < 5 ? .007 : .011);
+  // pupilele: textura din centrul ochiului se mută puțin (conturul ochiului rămâne)
+  const ux = V.gx * V.ew * .14 / V.W, uy = V.gy * V.ew * .07 / V.H;
+  for(const e of [68, 69]){ V.uv[e * 2] = V.uv0[e * 2] - ux; V.uv[e * 2 + 1] = V.uv0[e * 2 + 1] - uy; }
+  // ── desen: imaginea deformată
   gl.useProgram(g.pr); gl.uniform2f(g.uS, V.W, V.H); gl.uniform1f(g.uM, 0);
   gl.bindBuffer(gl.ARRAY_BUFFER, g.bP); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(P.flat()), gl.DYNAMIC_DRAW);
   gl.enableVertexAttribArray(g.aP); gl.vertexAttribPointer(g.aP, 2, gl.FLOAT, false, 0, 0);
-  gl.bindBuffer(gl.ARRAY_BUFFER, g.bT); gl.enableVertexAttribArray(g.aT); gl.vertexAttribPointer(g.aT, 2, gl.FLOAT, false, 0, 0);
+  gl.bindBuffer(gl.ARRAY_BUFFER, g.bT); gl.bufferData(gl.ARRAY_BUFFER, V.uv, gl.DYNAMIC_DRAW); gl.enableVertexAttribArray(g.aT); gl.vertexAttribPointer(g.aT, 2, gl.FLOAT, false, 0, 0);
   gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, V.ib);
   gl.disable(gl.BLEND); gl.drawElements(gl.TRIANGLES, V.idx.length, gl.UNSIGNED_SHORT, 0);
-  // interiorul gurii: cavitatea închisă la culoare + o urmă de dinți sus, doar cât e deschisă în plus față de poză
+  // interiorul gurii: doar golul nou (între buza de jos de dinainte și cea coborâtă); dinții de sus rămân cei din poză
   if(o > .06){
-    // golul nou: între buza de jos de dinainte (L0) și buza de jos coborâtă; dinții și buza de sus rămân cei din poză
-    const low = [60, 67, 66, 65, 64].map(i => P[i]), gap = P[66][1] - L0[2][1];
+    const low = [60, 67, 66, 65, 64].map(i => P[i]);
+    if(V.gap0 < fh * .02) [60, 61, 62, 63, 64].forEach((i, k) => { L0[k] = P[i].slice(); });
+    const gap = P[66][1] - L0[2][1];
     if(gap > 1.5){
       const fan = [];
       for(let k = 0; k < 4; k++){ const a = L0[k], b = L0[k + 1], c2 = low[k], d2 = low[k + 1]; fan.push(a[0], a[1], b[0], b[1], d2[0], d2[1], a[0], a[1], d2[0], d2[1], c2[0], c2[1]); }
-      // gura era închisă în poză: o urmă de dinți sus, ca să nu pară un gol negru
-      const closed = (B[66][1] - B[62][1]) < fh * .02, th = Math.min(gap * .32, fh * .03), teeth = [];
-      if(closed) for(let k = 1; k < 3; k++){ const a = L0[k], b = L0[k + 1]; teeth.push(a[0], a[1], b[0], b[1], b[0], b[1] + th, a[0], a[1], b[0], b[1] + th, a[0], a[1] + th); }
+      // cavitatea în două straturi: marginea mai deschisă (se topește în buze), interiorul mai închis
+      const mid = L0.map((q, k) => [(q[0] + low[k][0]) / 2, (q[1] + low[k][1]) / 2]), inset = [];
+      for(let k = 0; k < 4; k++){ const sh = (p, m2, f) => [m2[0] + (p[0] - m2[0]) * f, m2[1] + (p[1] - m2[1]) * f];
+        const a = sh(L0[k], mid[k], .55), b = sh(L0[k + 1], mid[k + 1], .55), c2 = sh(low[k], mid[k], .55), d2 = sh(low[k + 1], mid[k + 1], .55);
+        inset.push(a[0], a[1], b[0], b[1], d2[0], d2[1], a[0], a[1], d2[0], d2[1], c2[0], c2[1]); }
+      // gura era închisă în poză: o urmă de dinți sus, subțiată spre colțuri și discretă
+      const closed = V.gap0 < fh * .02, th = Math.min(gap * .28, fh * .026), teeth = [];
+      if(closed){ const T = [L0[1], L0[2], L0[3]], hs = [th * .45, th, th * .45];
+        for(let k = 0; k < 2; k++){ const a = T[k], b = T[k + 1]; teeth.push(a[0], a[1], b[0], b[1], b[0], b[1] + hs[k + 1], a[0], a[1], b[0], b[1] + hs[k + 1], a[0], a[1] + hs[k]); } }
       gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); gl.uniform1f(g.uM, 1); gl.disableVertexAttribArray(g.aT);
-      const al = Math.min(1, (o - .06) * 3);
+      const al = Math.min(1, (o - .06) * 3), draw = (arr, r, gg, bb, aa) => { gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(arr), gl.DYNAMIC_DRAW); gl.vertexAttribPointer(g.aP, 2, gl.FLOAT, false, 0, 0); gl.uniform4f(g.uC, r, gg, bb, aa); gl.drawArrays(gl.TRIANGLES, 0, arr.length / 2); };
       gl.bindBuffer(gl.ARRAY_BUFFER, g.bP);
-      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(fan), gl.DYNAMIC_DRAW); gl.vertexAttribPointer(g.aP, 2, gl.FLOAT, false, 0, 0);
-      gl.uniform4f(g.uC, .26, .08, .09, .93 * al); gl.drawArrays(gl.TRIANGLES, 0, fan.length / 2);
-      if(teeth.length){ gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(teeth), gl.DYNAMIC_DRAW); gl.vertexAttribPointer(g.aP, 2, gl.FLOAT, false, 0, 0); gl.uniform4f(g.uC, .9, .87, .83, .6 * al); gl.drawArrays(gl.TRIANGLES, 0, teeth.length / 2); }
+      draw(fan, .34, .12, .12, .78 * al);
+      if(inset.length) draw(inset, .17, .05, .06, .7 * al);
+      if(teeth.length) draw(teeth, .86, .82, .77, .3 * al);
       gl.enableVertexAttribArray(g.aT);
     }
   }
@@ -5176,7 +5248,7 @@ function callListen(quiet){
   let final = '', interim = '', lastT = 0;
   c.rec = r; c.state = 'listen'; c.interrupted = false; callState('te ascultă…', 'listen');
   if(!quiet && S.callTick !== 'off') callTick();
-  r.onresult = e => { let t = ''; for(let i = 0; i < e.results.length; i++){ t += e.results[i][0].transcript; if(e.results[i].isFinal) final = t; } interim = t.trim(); c.interim = interim; lastT = Date.now(); $('#clCap').innerHTML = `<span class="cme">${esc(interim)}</span>`; };
+  r.onresult = e => { let t = ''; for(let i = 0; i < e.results.length; i++){ t += e.results[i][0].transcript; if(e.results[i].isFinal) final = t; } interim = t.trim(); c.interim = interim; lastT = Date.now(); c.heardAt = performance.now(); $('#clCap').innerHTML = `<span class="cme">${esc(interim)}</span>`; };
   // 8.14: nu mai așteptăm pauza lungă a telefonului: după ~0,85 s de liniște încheiem noi
   const watch = setInterval(() => { if(c.rec !== r){ clearInterval(watch); return; } if(interim && lastT && Date.now() - lastT > 850){ clearInterval(watch); try{ r.stop(); }catch(e){} } }, 150);
   r.onerror = e => { if(e.error === 'not-allowed' || e.error === 'service-not-allowed'){ toast('Permite accesul la microfon pentru Taifas.', 3500); endCall(); history.back(); } };
