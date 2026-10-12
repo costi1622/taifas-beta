@@ -1,5 +1,5 @@
 window.__taifas = true;   // 8.20.1: semn pentru index.html că app.js s-a încărcat
-const APP_VER = '9.13.1';
+const APP_VER = '9.14';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -5091,14 +5091,14 @@ function vfDelaunay(P){   // Bowyer–Watson; P = [[x,y],…] → triunghiuri [i
   return T.filter(t => t.v.every(k => k < n)).map(t => t.v);
 }
 const VF_VS = 'attribute vec2 p;attribute vec2 t;uniform vec2 s;varying vec2 v;void main(){v=t;gl_Position=vec4(p.x/s.x*2.0-1.0,1.0-p.y/s.y*2.0,0.0,1.0);}';
-const VF_FS = 'precision mediump float;varying vec2 v;uniform sampler2D x;uniform vec4 col;uniform float m;void main(){gl_FragColor=m>0.5?col:texture2D(x,v);}';
+const VF_FS = 'precision mediump float;varying vec2 v;uniform sampler2D x;uniform vec4 col;uniform float m;uniform float ex;void main(){vec4 c=texture2D(x,v);gl_FragColor=m>0.5?col:vec4(c.rgb*ex,c.a);}';
 function vfGL(cv){
   const gl = cv.getContext('webgl', {premultipliedAlpha:false, antialias:true, preserveDrawingBuffer:false}); if(!gl) return null;
   const sh = (t, src) => { const s = gl.createShader(t); gl.shaderSource(s, src); gl.compileShader(s); if(!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; };
   const pr = gl.createProgram(); gl.attachShader(pr, sh(gl.VERTEX_SHADER, VF_VS)); gl.attachShader(pr, sh(gl.FRAGMENT_SHADER, VF_FS)); gl.linkProgram(pr);
   if(!gl.getProgramParameter(pr, gl.LINK_STATUS)) throw new Error('webgl link');
   gl.useProgram(pr);
-  return {gl, pr, aP:gl.getAttribLocation(pr, 'p'), aT:gl.getAttribLocation(pr, 't'), uS:gl.getUniformLocation(pr, 's'), uC:gl.getUniformLocation(pr, 'col'), uM:gl.getUniformLocation(pr, 'm'),
+  return {gl, pr, aP:gl.getAttribLocation(pr, 'p'), aT:gl.getAttribLocation(pr, 't'), uS:gl.getUniformLocation(pr, 's'), uC:gl.getUniformLocation(pr, 'col'), uM:gl.getUniformLocation(pr, 'm'), uE:gl.getUniformLocation(pr, 'ex'),
     bP:gl.createBuffer(), bT:gl.createBuffer(), tex:gl.createTexture()};
 }
 // punctele feței pe o imagine (o dată per imagine; ținute în memorie pentru apel)
@@ -5109,6 +5109,20 @@ async function vfLandmarks(img){
   const r = (await f.detectAllFaces(img, new f.TinyFaceDetectorOptions({inputSize:608, scoreThreshold:.4})).withFaceLandmarks()).sort((a, b) => b.detection.box.area - a.detection.box.area)[0];
   const out = r ? r.landmarks.positions.map(p => [p.x, p.y]) : null;
   vfCache.set(key, out); return out;
+}
+// 9.14: poziția corpului (MoveNet Lightning, în telefon): umeri, coate, încheieturi, șolduri — o dată per imagine
+let poseP = null; const poseCache = new Map();
+function poseModel(){ if(!poseP){ poseP = faceApi().then(f => f.tf.loadGraphModel('vendor/pose/movenet-lightning.json').then(m => ({tf:f.tf, m}))); poseP.catch(() => { poseP = null; }); } return poseP; }
+async function vfPose(img){
+  const key = img.currentSrc || img.src; if(poseCache.has(key)) return poseCache.get(key);
+  let out = null;
+  try{
+    const {tf, m} = await poseModel(), W = img.naturalWidth, H = img.naturalHeight;
+    const kp = tf.tidy(() => m.execute(tf.image.resizeBilinear(tf.browser.fromPixels(img), [192, 192]).toInt().expandDims(0)));
+    const a = (await kp.array())[0][0]; kp.dispose();
+    out = a.map(([y, x, sc]) => [x * W, y * H, sc]);
+  }catch(e){ out = null; }
+  poseCache.set(key, out); return out;
 }
 // silabele unui cuvânt (grupuri de vocale) → câte deschideri de gură
 const vfSyl = w => Math.max(1, (String(w).toLowerCase().match(/[aeiouăâîyàáèéìíòóùúöü]+/g) || []).length);
@@ -5165,7 +5179,23 @@ async function vfSwitch(c, img){
     const eyes = [avg([36, 37, 38, 39, 40, 41]), avg([42, 43, 44, 45, 46, 47])];
     const brow = [17, 19, 21, 22, 24, 26].map(i => [pts[i][0], pts[i][1] - fh * .38]);
     const ring = []; for(let a = 0; a < 16; a++){ const t = a / 16 * Math.PI * 2; ring.push(clamp([cx + Math.cos(t) * fw * .95, cy + Math.sin(t) * fh * 1.05])); }
-    const torso = []; for(const [dy, sp] of [[.95, .62], [1.65, .55]]) for(let q = -2; q <= 2; q++){ const y = pts[8][1] + fh * dy; if(y < H - 4) torso.push(clamp([cx + q * fw * sp, y])); }
+    // 9.14: corpul: umeri, gât, piept, brațe, coate, încheieturi, șolduri (din poziție, doar ce se vede sigur); altfel estimat după față
+    const torso = [], role = [];
+    const near = q => [...pts, ...torso].some(o => Math.hypot(o[0] - q[0], o[1] - q[1]) < 8);
+    const add = (q, r) => { if(!q || q[1] > H - 3 || q[1] < 0 || q[0] < 0 || q[0] > W) return; const c2 = clamp(q); if(near(c2)) return; torso.push(c2); role.push(r); };
+    let kp = null; try{ kp = await vfPose(img); }catch(e){} if(tok !== V.tok || call !== c) return;
+    const K = i => kp && kp[i] && kp[i][2] >= .3 ? [kp[i][0] * k, kp[i][1] * k] : null;
+    const shL = K(5) || [cx + fw * .95, pts[8][1] + fh * .75], shR = K(6) || [cx - fw * .95, pts[8][1] + fh * .75];
+    add([(shL[0] + shR[0]) / 2, Math.min(shL[1], shR[1]) - fh * .12], 'neck');
+    add(shL, 'sh'); add(shR, 'sh');
+    add([(shL[0] + shR[0]) / 2, (shL[1] + shR[1]) / 2 + fh * .6], 'chest');
+    add([(shL[0] + shR[0]) / 2, (shL[1] + shR[1]) / 2 + fh * 1.25], 'chest');
+    for(const [s0, e0, w0] of [[shL, K(7), K(9)], [shR, K(8), K(10)]]){
+      if(e0){ add([(s0[0] + e0[0]) / 2, (s0[1] + e0[1]) / 2], 'arm'); add(e0, 'elb'); } else add([s0[0] + (s0 === shL ? 1 : -1) * fw * .1, s0[1] + fh * .85], 'arm');
+      if(w0) add(w0, 'wri');
+    }
+    const hL = K(11), hR = K(12); if(hL) add(hL, 'hip'); if(hR) add(hR, 'hip');
+    const hipC = hL && hR ? [(hL[0] + hR[0]) / 2, (hL[1] + hR[1]) / 2] : [(shL[0] + shR[0]) / 2, Math.min(H * 1.15, (shL[1] + shR[1]) / 2 + fh * 3)];
     const edge = []; for(let a = 0; a <= 4; a++){ edge.push([W * a / 4, 0], [W * a / 4, H]); if(a && a < 4){ edge.push([0, H * a / 4], [W, H * a / 4]); } }
     const all = pts.concat(eyes, brow, ring, torso, edge);
     const nE = 68, nF = 68 + 2 + brow.length, nR = ring.length, nT = torso.length;
@@ -5179,7 +5209,7 @@ async function vfSwitch(c, img){
     const ew = Math.hypot(pts[39][0] - pts[36][0], pts[39][1] - pts[36][1]);
     Object.assign(V, {W, H, base:all, nE, nF, nR, nT, tris, idx:new Uint16Array(tris.flat()), uv0:new Float32Array(all.flatMap(([x, y]) => [x / W, y / H])), fw, fh, cx, cy, ew,
       mc:[(pts[48][0] + pts[54][0]) / 2, (pts[48][1] + pts[54][1]) / 2], gap0:Math.max(0, pts[66][1] - pts[62][1]),
-      piv:[pts[8][0], pts[8][1] + fh * .35], img, ready:true, kf:[], nods:[], open:0, wid:1, press:0, smile:0, gx:0, gy:0, gtx:0, gty:0, sacAt:0,
+      piv:[pts[8][0], pts[8][1] + fh * .35], role, hipC, img, ready:true, lean:0, shrug:0, ex:1, exT:1, exAt:0, gw:0, kf:[], nods:[], open:0, wid:1, press:0, smile:0, gx:0, gy:0, gtx:0, gty:0, sacAt:0,
       blinkAt:performance.now() + 1500 + Math.random() * 2500});
     V.uv = new Float32Array(V.uv0);
     gl.viewport(0, 0, W, H);
@@ -5246,13 +5276,36 @@ function vfDraw(c, now){
   for(let i = 0; i < V.nF; i++) rot(i, 1);
   for(let i = V.nF; i < V.nF + V.nR; i++) rot(i, .45);
   { const [px, py] = V.piv, ca = Math.cos(ang), sa = Math.sin(ang); for(const q of L0){ const x = q[0] - px, y = q[1] - py; q[0] = px + x * ca - y * sa + dx; q[1] = py + x * sa + y * ca + dy; } }
-  // respirația: umerii și pieptul urcă ușor
-  for(let i = V.nF + V.nR, k = 0; k < V.nT; i++, k++) P[i][1] -= breath * fh * (k < 5 ? .007 : .011);
+  // ── 9.14: corpul. Se apleacă spre cameră când te ascultă, se lasă pe spate când râde sau se gândește, ridică din umeri la întrebări,
+  //    respiră în umeri și piept, mâinile vizibile se mișcă puțin cât vorbește; capul rămâne pe umeri (se mișcă odată cu trunchiul)
+  const laugh = V.smile > .45 || (V.img && V.img.dataset && V.img.dataset.ex === 'ras');
+  const leanT = st === 'listen' ? (heard ? .85 : .4) : st === 'think' ? -.35 : laugh ? -.6 : s ? .2 + .15 * Math.sin(t * .9) : 0;
+  V.lean = ease(V.lean, leanT, .025, .025);
+  if((V.tiltT && now - V.tiltT < 40) || (st === 'think' && V.lastSt !== 'think')) V.shrugT = now;
+  V.lastSt = st;
+  const shg = V.shrugT ? Math.max(0, Math.sin(Math.PI * Math.min(1, (now - V.shrugT) / 650))) * (now - V.shrugT < 650 ? 1 : 0) : 0;
+  V.gw = ease(V.gw, s ? o : 0, .2, .08);
+  const bAng = ang * .3 + Math.sin(t * .37 + 2) * .004, sc = 1 + V.lean * .022, [hx, hy] = V.hipC;
+  const body = (q, f) => { const x = q[0] - hx, y = q[1] - hy, ca = Math.cos(bAng * f), sa = Math.sin(bAng * f), z = 1 + (sc - 1) * f;
+    q[0] = hx + (x * ca - y * sa) * z; q[1] = hy + (x * sa + y * ca) * z + V.lean * fh * .03 * f; };
+  for(let i = 0; i < V.nF; i++) body(P[i], 1);
+  for(let i = V.nF; i < V.nF + V.nR; i++) body(P[i], .7);
+  for(const q of L0) body(q, 1);
+  for(let i = V.nF + V.nR, k = 0; k < V.nT; i++, k++){
+    const r = V.role[k], f = r === 'hip' ? .15 : 1; body(P[i], f);
+    const up = r === 'sh' ? 1 : r === 'neck' ? .6 : r === 'arm' ? .8 : r === 'elb' ? .6 : r === 'wri' ? .45 : 0;
+    P[i][1] -= shg * fh * .04 * up;                                                    // ridică din umeri
+    P[i][1] -= breath * fh * (r === 'chest' ? .011 : r === 'sh' || r === 'neck' ? .007 : r === 'arm' ? .005 : 0);   // respirația
+    if(r === 'wri' || r === 'elb'){ const m2 = r === 'wri' ? 1 : .5; P[i][0] += Math.sin(t * 2.3 + k) * fh * .012 * V.gw * m2; P[i][1] += Math.sin(t * 3.1 + k * 2) * fh * .01 * V.gw * m2; }   // mâinile, cât vorbește
+  }
+  // expunerea automată a camerei: mici ajustări lente (și puțin mai luminos când se apleacă spre cameră)
+  if(now > V.exAt){ V.exT = .975 + Math.random() * .05; V.exAt = now + 2200 + Math.random() * 2600; }
+  V.ex = ease(V.ex, V.exT + V.lean * .012, .02, .02);
   // pupilele: textura din centrul ochiului se mută puțin (conturul ochiului rămâne)
   const ux = V.gx * V.ew * .14 / V.W, uy = V.gy * V.ew * .07 / V.H;
   for(const e of [68, 69]){ V.uv[e * 2] = V.uv0[e * 2] - ux; V.uv[e * 2 + 1] = V.uv0[e * 2 + 1] - uy; }
   // ── desen: imaginea deformată
-  gl.useProgram(g.pr); gl.uniform2f(g.uS, V.W, V.H); gl.uniform1f(g.uM, 0);
+  gl.useProgram(g.pr); gl.uniform2f(g.uS, V.W, V.H); gl.uniform1f(g.uM, 0); gl.uniform1f(g.uE, V.ex || 1);
   gl.bindBuffer(gl.ARRAY_BUFFER, g.bP); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(P.flat()), gl.DYNAMIC_DRAW);
   gl.enableVertexAttribArray(g.aP); gl.vertexAttribPointer(g.aP, 2, gl.FLOAT, false, 0, 0);
   gl.bindBuffer(gl.ARRAY_BUFFER, g.bT); gl.bufferData(gl.ARRAY_BUFFER, V.uv, gl.DYNAMIC_DRAW); gl.enableVertexAttribArray(g.aT); gl.vertexAttribPointer(g.aT, 2, gl.FLOAT, false, 0, 0);
