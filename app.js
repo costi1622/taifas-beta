@@ -1,5 +1,5 @@
 window.__taifas = true;   // 8.20.1: semn pentru index.html că app.js s-a încărcat
-const APP_VER = '9.16';
+const APP_VER = '9.17';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -3974,7 +3974,8 @@ async function allChats(c){
 /* consum */
 function priceFor(model){
   const m = String(model || '').toLowerCase();
-  let p = m.includes('opus') ? [4, 20] : m.includes('haiku') ? [1, 5] : [2, 10];
+  // 9.17: Haiku 5.5 costă $0,10 / $0,50 (era socotit ca Haiku 4.5, $1 / $5: de 10× prea mult); Fable / Mythos: $10 / $50
+  let p = /fable|mythos/.test(m) ? [10, 50] : m.includes('opus') ? [4, 20] : /haiku-5-5/.test(m) ? [.1, .5] : m.includes('haiku') ? [1, 5] : [2, 10];
   if(S.prov !== 'anthropic') p = [0, 0];
   const pin = parseFloat(String(S.pIn).replace(',', '.')), pout = parseFloat(String(S.pOut).replace(',', '.'));
   const main = S.prov !== 'anthropic' || !m.includes('haiku') || String(S.model || '').toLowerCase().includes('haiku');
@@ -3996,6 +3997,25 @@ function noteRewrite(why){
     M.rw = M.rw || {}; M.rw[why] = (M.rw[why] || 0) + 1;
     await DB.set('usage', u);
   }).catch(() => {});
+}
+// 9.17: sumele deja înregistrate pentru sarcinile pe Haiku 5.5 (fundal, plan și verificare poze) erau de 10× prea mari: le corectăm o dată
+async function fixHaikuUsage(){
+  if((S.hfix || 0) >= 1) return;
+  const aux = String(S.auxModel || AUX_DEF).toLowerCase();
+  if(S.prov === 'anthropic' && S.aux !== 'off' && /haiku-5-5/.test(aux) && !/haiku/.test(String(S.model || '').toLowerCase())){
+    usageQ = usageQ.then(async () => {
+      const u = await DB.get('usage'); if(!u || !u.months) return;
+      for(const M of Object.values(u.months)){
+        if(!M.by || M.hfix) continue;
+        let cut = 0;
+        for(const k of ['fundal', 'pozeai']) if(M.by[k] > 0){ const d = M.by[k] * .9; M.by[k] -= d; cut += d; }
+        M.txt = Math.max(0, (M.txt || 0) - cut); M.hfix = 1;
+      }
+      await DB.set('usage', u);
+    }).catch(() => {});
+    await usageQ;
+  }
+  S.hfix = 1; saveSettings();
 }
 function addUsage(cid, usd, kind, tok, tag){
   tag = tag || (kind === 'img' ? 'poze' : kind === 'voc' ? 'voce' : 'chat');
@@ -6527,6 +6547,7 @@ async function init(){
   }
   if((S.sv || 0) < 30){ chars.forEach(c => { if(!c.bg || c.bg === 'poza') c.bg = 'clar'; }); await saveChars(); S.sv = 34; saveSettings(); }
   await loadFeed();
+  await fixHaikuUsage();
   syncSegs();
   bind();
   const go = new URLSearchParams(location.search).get('go'), justUpd = /[?&]upd=/.test(location.search);   // 8.6: scurtăturile de pe iconiță
