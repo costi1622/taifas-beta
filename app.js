@@ -1,5 +1,5 @@
 window.__taifas = true;   // 8.20.1: semn pentru index.html că app.js s-a încărcat
-const APP_VER = '9.15';
+const APP_VER = '9.16';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -710,7 +710,7 @@ JSON, keys in exactly this order, nothing else:
 {"camera":"selfie | mirror selfie | phone propped up with timer | close-up selfie",${S.userPhoto ? '\n "together":false,' : ''}
  "shot":"ONE English description for the image generator, 50-80 words: camera and framing, the place with concrete details (reuse the room description), body position and hands, outfit, expression, light",
  "where":{"place":"home / office / café / street …","room":"bedroom | living room | kitchen | bathroom | hallway | balcony | office | other","position":"exact body position and what it rests on","outfit":"what is worn now","activity":"what is being done","light":"light now"},
- "home":{"<room>":"English description, max 45 words; only rooms that are new or changed"}}`}], {max:1500, signal, cid:c.id, aux:true, meta});
+ "home":{"<room>":"English description, max 45 words; only rooms that are new or changed"}}`}], {max:1500, signal, cid:c.id, aux:true, meta, tag:'pozeai'});
   // 7.1: refuzul filtrului lui Claude se spune ca atare (nu se ocolește); un răspuns tăiat sau fără JSON nu mai oprește poza
   if(meta.stop === 'refusal' && !promised) throw new Error('Claude a refuzat să descrie poza asta (filtrul lui de siguranță). Încearcă altă scenă.');
   let j = {}; try{ j = parseJSON(out); }catch(e){}
@@ -938,7 +938,7 @@ Score strictly from 0 to 10:
 - "scene": does the generated photo match the requested place, activity, clothing and pose?
 - "framing": does the camera framing match the requested selfie / mirror / full-body / close-up view?
 "fix": if face is below 8 or scene below 6 or framing below 5, give ONE short concrete English correction prioritizing identity first, then scene; otherwise "".
-JSON: {"face":0,"scene":0,"framing":0,"fix":""}`}], {max:220, signal, cid:c.id, aux:true});
+JSON: {"face":0,"scene":0,"framing":0,"fix":""}`}], {max:220, signal, cid:c.id, aux:true, tag:'pozeai'});
   const j = parseJSON(out), n = k => Math.max(0, Math.min(10, Math.round(+j[k] || 0)));
   return {face:n('face'), scene:n('scene'), framing:n('framing'), fix:String(j.fix || '').slice(0, 300)};
 }
@@ -2811,7 +2811,7 @@ function reactPicker(i){
   pk.style.left = Math.max(8, Math.min(innerWidth - w - 8, (m.role === 'user' ? r.right - w : r.left))) + 'px';
   pk.onclick = async e => {
     const b = e.target.closest('[data-e]'); if(!b) return;
-    m.react = m.react === b.dataset.e ? '' : b.dataset.e;
+    m.react = m.react === b.dataset.e ? '' : b.dataset.e; m.reactAt = Date.now();
     if(!m.react) delete m.react;
     closeReactPicker(); await saveChat(); renderMsgs();
     if(['❤️', '🥰', '🔥'].includes(m.react)) fxBurst(m.react, 10);
@@ -3456,19 +3456,20 @@ function contextUpTo(idx, chx){
   if(from >= idx) from = Math.max(0, idx - span);
   chat._from = from;   // 8.17: când fereastra se mută, se reface și promptul înghețat (`sysFor`)
   const sum = chat.summary ? [{role:'user', text:`(Rezumatul conversației de până acum, ca să-ți amintești: ${chat.summary})`}, {role:'assistant', text:'*dă din cap*'}] : [];
-  let react = '', prevTs = 0;
+  let react = '', reactAt = 0, prevTs = 0;
   const out = [];
   for(const m of chat.msgs.slice(from, idx).filter(m => !m.err && !m.pending && (m.text || m.img || m.gift || m.sticker))){
     const gap = prevTs && m.ts ? m.ts - prevTs : 0; prevTs = m.ts || prevTs;
     if(m.role === 'user'){
       let pre = '';
       if(gap > 3 * 36e5) pre += `(au trecut ${gapText(gap)} de la mesajul anterior) `;
-      if(react){ pre += `(am reacționat cu ${react} la mesajul tău) `; react = ''; }
+      // 9.16: o reacție pusă mai târziu pe un mesaj vechi nu mai schimbă istoricul (rescris în cache la 2×); o află dintr-o notă, o dată
+      if(react && (!reactAt || reactAt <= (m.ts || 0))) pre += `(am reacționat cu ${react} la mesajul tău) `; react = ''; reactAt = 0;
       if(m.reply) pre += `(răspund la: „${m.reply.text}”${m.reply.ctx ? ' ' + m.reply.ctx : ''}) `;
       out.push({role:'user', text: pre + (m.sticker ? `[ți-am trimis un sticker cu tine: ${m.sticker.l}]` : m.gift ? `[îți trimit un cadou: ${m.gift.n}]` + (m.text ? ' ' + m.text : '') : m.img ? '[ți-am trimis o poză]' + (m.text ? ' ' + m.text : '') : m.text), _img: m.img || null});
     } else {
       out.push({role:'assistant', text: m.sticker ? `*îți trimite un sticker: ${m.sticker.l}*` : (m.text || '*îți trimite o poză*')});
-      if(m.react) react = m.react;
+      if(m.react){ react = m.react; reactAt = m.reactAt || 0; }
     }
   }
   return sum.concat(out);
@@ -3667,7 +3668,7 @@ function nowNote(){
 // ultimele 2 poze trimise de utilizator merg ca imagini (personajul le vede); cele mai vechi rămân doar menționate
 async function attachUserImages(ctx){
   let n = 0;
-  for(let i = ctx.length - 1; i >= 0 && n < 2; i--){
+  for(let i = ctx.length - 1; i >= 0 && n < 4; i--){   // 9.16: 4 (era 2): mai rar o poză veche devine text și rescrie istoricul
     const x = ctx[i]; if(!x._img) continue;
     const b = await DB.get(x._img); if(!b) continue;
     try{ x.image = await blobToB64(b.type === 'image/jpeg' ? b : await toJpeg(b, 1280)); n++; }catch(e){}
@@ -3735,10 +3736,15 @@ async function reply(target, opts = {}){
       if(!opts.cont){ const w = await weatherOf(c).catch(() => null); if(w) extra += ` (vremea reală la tine în ${w.city} acum: ${wxLine(w)}; ține cont de ea firesc, doar dacă se potrivește, fără să o tot pomenești)`; }
       const acts = (lastU.text.match(/\*[^*\n]{2,200}\*/g) || []).map(a => a.slice(1, -1).trim());
       if(acts.length) extra += ` (acțiunile mele de acum, care s-au întâmplat deja exact așa: ${acts.map(a => '„' + a + '”').join(', ')}; pornește de la starea de după ele, nu le contrazice și nu le rescrie, apoi reacționează în felul tău)`;
+      { const late = ch.msgs.filter((x, i) => x.role === 'ai' && x.react && x.reactAt && x.reactAt > (ch._callAt || 0) && ch.msgs.slice(i + 1).some(y => y.role === 'user' && (y.ts || 0) < x.reactAt)).slice(-3);
+        if(late.length) extra += ` (între timp am reacționat ${late.map(x => `cu ${x.react} la ce ai zis: „${plain(stripMood(stripReact(x.text || ''))).slice(0, 70)}”`).join('; ')})`; }   // 9.16
       const md = extra + (ch.mood && ch.mood.t ? ` (starea ta la ultimul mesaj: ${ch.mood.t}${Date.now() - ch.mood.ts > 3 * 36e5 ? ', acum ' + gapText(Date.now() - ch.mood.ts) : ''})` : '');
       if(opts.liveImg && !lastU.image && !lastU.images) lastU.image = opts.liveImg;   // 8.13: apel video: ce vede acum prin camera ta
       lastU.text = nowNote() + md + ' ' + lastU.text + (ar ? '\n\n' + ar : '') + (opts.fix ? `\n\n(Notă pentru răspunsul ăsta, nu o menționa: ${opts.fix}.)` : '');
     }
+    // 9.16: semnătura istoricului trimis (pentru a afla, la o rescriere neașteptată, ce mesaj vechi s-a schimbat)
+    const fnv = t => { let h = 2166136261; for(let q = 0; q < t.length; q++){ h ^= t.charCodeAt(q); h = Math.imul(h, 16777619); } return (h >>> 0).toString(36); };
+    const sig = ctx.map(x => ({r:x.role, h:fnv(String(x.text || '')), i:!!(x.image || x.images), rt:/\(am reacționat/.test(String(x.text || ''))})), sigN = lastU ? ctx.lastIndexOf(lastU) : ctx.length;
     let meta = {}, full;
     const lastCall = ch._callAt || ([...ch.msgs.slice(0, idx)].reverse().find(x => x.role === 'ai' && !x.err && x.ts) || {}).ts || 0;
     const cold = Date.now() - lastCall > 58 * 60e3;   // 8.19: cache-ul conversației a expirat: scriem ieftin (5 min), nu la 2×
@@ -3772,10 +3778,13 @@ async function reply(target, opts = {}){
     ch._callAt = Date.now();
     // 9.3: de ce s-a rescris tot istoricul în cache (dacă s-a rescris): pentru Consum
     if(meta.u && !solo && meta.u.cw > 1500 && meta.u.cr < meta.u.cw){
-      const why = cold ? 'pauza' : (why0.from !== undefined && why0.from !== ch._from) ? 'fereastra' : (ch._lastSum !== undefined && why0.sum !== (ch.summary || '')) ? 'rezumat' : (why0.sys && ch._sys && why0.sys !== ch._sys.text) ? 'prompt' : 'altele';
+      let why = cold ? 'pauza' : (why0.from !== undefined && why0.from !== ch._from) ? 'fereastra' : (ch._lastSum !== undefined && why0.sum !== (ch.summary || '')) ? 'rezumat' : (why0.sys && ch._sys && why0.sys !== ch._sys.text) ? 'prompt' : 'altele';
+      if(why === 'altele' && Array.isArray(ch._sig)){ const old = ch._sig, lim = Math.min(ch._sigN || old.length, sig.length);
+        let k = 0; while(k < lim && old[k].h === sig[k].h && old[k].i === sig[k].i) k++;
+        if(k < lim) why = old[k].i !== sig[k].i ? 'altele:poza' : (old[k].rt || sig[k].rt) ? 'altele:reactie' : 'altele:mesaj'; }
       noteRewrite(why);
     }
-    ch._lastFrom = ch._from; ch._lastSum = ch.summary || '';
+    ch._lastFrom = ch._from; ch._lastSum = ch.summary || ''; ch._sig = sig; ch._sigN = sigN;
     m.text = faraLiniute(full.trim());
     { const sk = [...full.matchAll(STK_RE)].pop(); if(sk){ const x = (c.stickers || []).find(z => z.l.toLowerCase() === sk[1].trim().toLowerCase()); if(x) m._stk = x; } }
     delete m.corr; delete m.face; delete m.tr; delete m.trOn;   // o variantă nouă nu păstrează corecturile/traducerea celei vechi
@@ -4030,7 +4039,7 @@ async function renderCost(){
       const tk = M.tk || {}, kf = n => n >= 1000 ? (n / 1000).toFixed(n >= 1e4 ? 0 : 1).replace('.', ',') + 'k' : String(Math.round(n));
       const cp = k => { const T = tk[k]; if(!T || !T.n) return ''; const all = T.inp + T.cw + T.cr;
         const rw = k === 'chat' && M.rw ? Object.entries(M.rw).sort((a, b) => b[1] - a[1]) : [];
-        const RW = {pauza:'pauză de peste o oră', fereastra:'fereastra s-a mutat', rezumat:'rezumat nou', prompt:'s-a refăcut fișa personajului', altele:'altceva (mesaj editat, reacție, poză)'};
+        const RW = {pauza:'pauză de peste o oră', fereastra:'fereastra s-a mutat', rezumat:'rezumat nou', prompt:'s-a refăcut fișa personajului', altele:'altceva (până la 9.16)', 'altele:poza':'o poză de-a ta mai veche a ieșit din vedere', 'altele:reactie':'reacție pusă pe un mesaj vechi', 'altele:mesaj':'un mesaj vechi s-a schimbat (editat, altă variantă)'};
         const rwl = rw.length ? `<br>Rescrieri complete ale istoricului: ${rw.map(([w, n]) => n + ' × ' + (RW[w] || w)).join(' · ')}` : '';
         return `<div style="font-size:12px;color:var(--tx3);margin:-4px 0 8px 26px">${T.n} apeluri (din 9.0)${all ? ` · cache ${Math.round(T.cr / all * 100)}% · ~${kf(all / T.n)} intrare (${kf(T.cw / T.n)} scris în cache) · ~${kf(T.out / T.n)} ieșire pe apel` : ''}${rwl}</div>`; };
       return `<div class="cbreak"><div class="cbh">Unde se duc banii luna asta</div>${by.map(([k, v]) => `<div class="cbr"><span>${(L[k] || ['•', k])[0]} ${esc((L[k] || ['', k])[1])}</span><div class="cbb"><i style="width:${Math.max(3, v / mx * 100)}%"></i></div><b>${usd(v)}</b></div>${cp(k)}`).join('')}</div>`; })()}
