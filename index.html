@@ -4,12 +4,12 @@
 <meta charset="utf-8">
 <script>
 /* 8.20: politica de securitate (CSP), pusă înainte de orice alt script. Pagina poate încărca scripturi doar de pe site
-   și poate trimite date doar spre serviciile de mai jos + adresele tale (Worker, furnizor compatibil OpenAI). */
+   și poate trimite date doar spre serviciile de mai jos + adresa Worker-ului tău. */
 (function(){
   var x = []; try{ x = JSON.parse(localStorage.getItem('taifas-csp') || '[]'); }catch(e){}
   x = (Array.isArray(x) ? x : []).filter(function(o){ return /^https:\/\/[a-z0-9.-]+(:\d{1,5})?$/i.test(o); });
-  var c = "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' data: blob: https://storage.googleapis.com; font-src 'self'; "
-    + "connect-src 'self' data: blob: https://api.anthropic.com https://generativelanguage.googleapis.com https://fal.run https://fal.media https://*.fal.media https://api.elevenlabs.io https://geocoding-api.open-meteo.com https://api.open-meteo.com " + x.join(' ') + "; "
+  var c = "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' data: blob:; font-src 'self'; "
+    + "connect-src 'self' data: blob: https://api.anthropic.com https://api.runware.ai https://geocoding-api.open-meteo.com https://api.open-meteo.com " + x.join(' ') + "; "
     + "worker-src 'self'; manifest-src 'self'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'";
   document.write('<meta http-equiv="Content-Security-Policy" content="' + c + '">');
   /* 8.20.1: dacă app.js lipsește sau pornirea dă eroare, spunem ce s-a întâmplat (în loc de ecranul de pornire blocat) */
@@ -1615,20 +1615,11 @@ input:focus,textarea:focus,select:focus{border-color:color-mix(in srgb,var(--acc
         <label for="stKey">Cheie Anthropic</label>
         <input id="stKey" type="password" placeholder="sk-ant-…" autocomplete="off">
       </div>
-      <div id="stOa" hidden>
-        <label for="stOaBase">Adresă (compatibil OpenAI)</label>
-        <input id="stOaBase" type="url" placeholder="https://openrouter.ai/api/v1">
-        <label for="stOaKey">Cheie</label>
-        <input id="stOaKey" type="password" autocomplete="off">
-        <label for="stOaModel">Model</label>
-        <input id="stOaModel" placeholder="ex. google/gemini-2.5-flash">
-        <div class="hint">Pentru descrierea din poză, modelul trebuie să accepte imagini.</div>
-      </div>
       <h3 style="margin-top:6px">🔐 Unde stau cheile</h3>
       <div class="seg" id="stVault"><button data-v="off">În telefon</button><button data-v="on">În Worker (seif)</button></div>
       <div id="stVaultBox" hidden>
-        <p class="hint">Cheile (Anthropic, fal.ai, ElevenLabs, Google) stau ca secrete în Worker-ul tău v8. Telefonul ține doar adresa și parola; orice cerere trece prin Worker, care adaugă cheia.</p>
-        <label for="stVkBase">Adresa Worker-ului (v8)</label>
+        <p class="hint">Cheile (Anthropic, Runware) stau ca secrete în Worker-ul tău (v9). Telefonul ține doar adresa și parola; orice cerere trece prin Worker, care adaugă cheia.</p>
+        <label for="stVkBase">Adresa Worker-ului (v9)</label>
         <input id="stVkBase" type="url" placeholder="https://taifas-imagini.….workers.dev/v1">
         <label for="stVkTok">Parolă (secretul TOKEN din Worker, minimum 24 de caractere)</label>
         <input id="stVkTok" type="password" autocomplete="off">
@@ -1641,8 +1632,7 @@ input:focus,textarea:focus,select:focus{border-color:color-mix(in srgb,var(--acc
       <label>Model mic pentru sarcini de fundal (sugestii, memorie, rezumat, jurnal, scene foto)</label>
       <div class="seg" id="stAux"><button data-v="on">Haiku (ieftin)</button><button data-v="off">Modelul principal</button></div>
       <div class="hint">Personajul răspunde mereu cu modelul principal; doar sarcinile din spate folosesc modelul mic.</div>
-      <h3 style="margin-top:20px">Model AI</h3>
-      <div class="seg" id="stProv"><button data-v="anthropic">Claude</button><button data-v="openai">Alt furnizor</button></div>
+      <h3 style="margin-top:20px">Model Claude</h3>
       <div id="stAntAdv">
         <label for="stModel">Model Claude</label>
         <input id="stModel" list="dlModels" placeholder="claude-sonnet-5-5">
@@ -1664,7 +1654,7 @@ input:focus,textarea:focus,select:focus{border-color:color-mix(in srgb,var(--acc
     </div>
 
     <div class="panel sec" data-panel="img" data-title="Poze" hidden>
-      <div class="seg" id="stImg"><button data-v="none">Oprite</button><button data-v="worker">Worker-ul meu</button><button data-v="alt">Altă sursă…</button></div>
+      <div class="seg" id="stImg"><button data-v="none">Oprite</button><button data-v="worker">Worker-ul meu (Cloudflare)</button></div>
       <div id="stWk" hidden>
         <label for="stWkBase">Adresa Worker-ului (se termină în /v1)</label>
         <input id="stWkBase" type="url" placeholder="https://taifas-imagini.….workers.dev/v1">
@@ -1688,9 +1678,22 @@ input:focus,textarea:focus,select:focus{border-color:color-mix(in srgb,var(--acc
       </div>
       <div id="stChatWrap">
         <label style="margin-top:14px">Fidelitatea feței în pozele din chat</label>
-        <div class="seg" id="stWkChat"><button data-v="">Eco · klein 4B</button><button data-v="ancorat">Fidel · klein 9B</button><button data-v="fal">Față identică · fal.ai</button></div>
+        <div class="seg" id="stWkChat"><button data-v="">Eco · klein 4B</button><button data-v="ancorat">Fidel · klein 9B</button></div>
         <p class="hint" id="stWkChatHint"></p>
-        <div id="stChatFal" hidden><label for="stChatFalKey">Cheie fal.ai (fal.ai → Dashboard → Keys)</label><input id="stChatFalKey" type="password" placeholder="xxxxxxxx-xxxx-…:…" autocomplete="off"></div>
+        <div id="stRwWrap">
+          <label style="margin-top:14px">Motorul pentru „Fidel · 9B”</label>
+          <div class="seg" id="stRw"><button data-v="off">Cloudflare</button><button data-v="on">⚡ Runware</button></div>
+          <p class="hint" id="stRwHint"></p>
+          <div id="stRwBox" hidden>
+            <label for="stRwKey">Cheie Runware în telefon (opțional)</label>
+            <input id="stRwKey" type="password" placeholder="goală = cheia din Worker (RUNWARE_KEY)" autocomplete="off">
+            <label style="margin-top:10px">Plafon zilnic Runware</label>
+            <div class="seg" id="stRwCap"><button data-v="0.25">$0,25</button><button data-v="0.5">$0,50</button><button data-v="1">$1</button><button data-v="none">Fără</button></div>
+            <div class="neur" id="stRwDay" style="margin-top:8px"></div>
+            <div class="btns"><button type="button" class="btn sm" id="stRwTest">⚡ Testează Runware</button></div>
+            <div class="status" id="stRwRes"></div>
+          </div>
+        </div>
         <div class="btns"><button type="button" class="btn sm" id="stRefTest">🔬 Compară pe personajul meu</button></div>
         <div id="stRefRes"></div>
       </div>
@@ -1699,33 +1702,9 @@ input:focus,textarea:focus,select:focus{border-color:color-mix(in srgb,var(--acc
       <p class="hint">Pornită: după fiecare poză, Claude Haiku compară identitatea cu poza de profil și verifică scena. Dacă fața diferă sau scena nu corespunde, o reface o dată și păstrează varianta mai bună. Identitatea și proporțiile corpului rămân fixe; locul, hainele, poziția și camera se adaptează conversației. Verificarea folosește modelul AI configurat.</p>
       <div class="btns" id="stImgTestWrap"><button type="button" class="btn sm" id="stImgTest">🧪 Testează pozele</button></div>
       <div class="status" id="stImgRes"></div>
-      <div id="stAltWrap" hidden>
-        <div class="seg" id="stImgAlt" style="margin-top:12px"><button data-v="fal">fal.ai</button><button data-v="gemini">Gemini</button></div>
-        <div id="stFal" hidden>
-          <label for="stFalKey">Cheie fal.ai</label>
-          <input id="stFalKey" type="password" placeholder="xxxxxxxx-xxxx-…:…" autocomplete="off">
-          <label for="stFalModel">Model</label>
-          <input id="stFalModel" list="dlFal" placeholder="fal-ai/flux-pulid">
-          <datalist id="dlFal"><option value="fal-ai/flux-pulid">PuLID FLUX: ține fața din poza de profil</option><option value="fal-ai/flux-2-pro/edit">FLUX.2 pro edit</option><option value="fal-ai/flux-2/edit">FLUX.2 dev edit</option></datalist>
-          <label for="stFalSize">Mărime</label>
-          <select id="stFalSize"><option>576x768</option><option>768x1024</option><option>896x1152</option></select>
-          <div class="hint">Cheia: fal.ai → Dashboard → Keys. Plătit, câțiva cenți pe poză.</div>
-        </div>
-        <div id="stGem" hidden>
-          <label for="stGemKey">Cheie Google AI Studio</label>
-          <input id="stGemKey" type="password" placeholder="AIza…" autocomplete="off">
-          <div class="lblrow"><label for="stGemModel">Model</label><button type="button" class="btn sm" id="stGemList">🔎 Caută modelele</button></div>
-          <input id="stGemModel" list="dlGem" placeholder="gemini-2.5-flash-image">
-          <datalist id="dlGem"></datalist>
-          <div class="status" id="stGemRes"></div>
-          <div class="hint">Cere facturare activă la Google.</div>
-        </div>
-      </div>
       <h3 style="margin-top:20px">Automat</h3>
       <label>Poze spontane (doar personajele cu portret generat cu 🎨)</label>
       <div class="seg" id="stSpont"><button data-v="off">Niciodată</button><button data-v="rar">Rar</button><button data-v="des">Des</button></div>
-      <label for="stImgCost">Cost estimat pe poză ($)</label>
-      <input id="stImgCost" inputmode="decimal" placeholder="automat">
     </div>
 
     <div class="panel sec" data-panel="chat" data-title="Răspunsuri și voce" hidden>
@@ -1747,18 +1726,7 @@ input:focus,textarea:focus,select:focus{border-color:color-mix(in srgb,var(--acc
       <label>Mesaje vocale de la personaj</label>
       <div class="seg" id="stVmsg"><button data-v="off">Niciodată</button><button data-v="rar">Rar</button><button data-v="des">Des</button></div>
       <label>Vocea personajelor</label>
-      <div class="seg" id="stTts"><button data-v="tel">Telefon · gratuit</button><button data-v="el">ElevenLabs</button><button data-v="fal">fal.ai</button></div>
-      <div id="ttsEl" hidden>
-        <label>Cheie ElevenLabs (elevenlabs.io → Developers → API Keys)</label>
-        <input id="stElKey" type="password" autocomplete="off" placeholder="sk_…">
-        <label>Model</label>
-        <div class="seg" id="stElModel"><button data-v="eleven_v3">v3 · cea mai umană</button><button data-v="eleven_v4_turbo">v4 Turbo · mai ieftin</button></div>
-      </div>
-      <div id="ttsFal" hidden>
-        <label>Cheie fal.ai (aceeași ca la poze)</label>
-        <input id="stTtsFalKey" type="password" autocomplete="off" placeholder="cheia fal">
-      </div>
-      <p class="hint" id="ttsHint"></p>
+      <p class="hint" id="ttsHint">Vocea telefonului, gratuită. Tonul (mai grav / mai subțire) se alege din profilul fiecărui personaj → 🎙️ Vocea.</p>
       <div class="btns"><button class="btn sm" id="stTtsTest">🔊 Ascultă un test</button></div>
       <label>📱 Statusuri în Noutăți (personajele postează ce fac)</label>
       <div class="seg" id="stFeed"><button data-v="off">Oprite</button><button data-v="text">Doar text</button><button data-v="poze">Cu poze</button></div>

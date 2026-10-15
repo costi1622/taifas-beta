@@ -1,5 +1,5 @@
 window.__taifas = true;   // 8.20.1: semn pentru index.html că app.js s-a încărcat
-const APP_VER = '9.17';
+const APP_VER = '9.19';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -34,12 +34,11 @@ const DB = {
 /* ───────── stare ───────── */
 const DEF = {
   prov:'anthropic', key:'', model:'claude-sonnet-5-5',
-  oaBase:'https://openrouter.ai/api/v1', oaKey:'', oaModel:'',
   userName:'', userAbout:'', len:'mediu', font:16,
-  imgProv:'none', gemKey:'', gemModel:'gemini-2.5-flash-image',
+  imgProv:'none',
   wkBase:'', wkTok:'', wkModel:'eco', wkSize:'768x1024',
-  sugg:'off', pro:'on', feed:'text', fx:'on', regen3:'on', voice:'tap', tts:'tel', cfPlan:'free', cfCap:'free', elKey:'', elModel:'eleven_v3', theme:'dark', vmsg:'rar', jrn:'on', aux:'on', ctxN:'30',
-  vault:'off', vaultHas:null, faceFix:'on', bodyFix:'off', bestOf:'3', autoModel:'chat', callFace:'on', imgCheck:'on', story:'on', sky:'on', social:'on', userBday:'', lock:'off', pushOn:false, bkEvery:'week', bkLast:0, userPhoto:'', userPhys:'', userBox:null, wkChat:'ancorat', wkRef:'auto', falKey:'', falModel:'fal-ai/flux-pulid', falSize:'576x768', spont:'rar', imgAlt:'fal', sv:34, imgCost:'', pIn:'', pOut:''
+  sugg:'off', pro:'on', feed:'text', fx:'on', regen3:'on', voice:'tap', tts:'tel', cfPlan:'free', cfCap:'free', theme:'dark', vmsg:'rar', jrn:'on', aux:'on', ctxN:'30',
+  vault:'off', vaultHas:null, faceFix:'on', bodyFix:'off', bestOf:'3', autoModel:'chat', callFace:'on', imgCheck:'on', story:'on', sky:'on', social:'on', userBday:'', lock:'off', pushOn:false, bkEvery:'week', bkLast:0, userPhoto:'', userPhys:'', userBox:null, wkChat:'ancorat', wkRef:'auto', rw:'off', rwKey:'', rwCap:'0.5', rwAvg:0, spont:'rar', sv:34, imgCost:'', pIn:'', pOut:''
 };
 let S = {...DEF};
 let chars = [];            // [{id,name,tag,photo,aspect,look,stil,persona,speech,greet,created,lastAt,last}]
@@ -266,11 +265,9 @@ function provMsgs(msgs, ttl){
   // punct de cache pe istoric: tot ce e până la mesajul marcat se citește din cache la ~10% din preț la răspunsul următor
   const cc = m => m._cache ? {cache_control:ttl === '1h' ? {type:'ephemeral', ttl:'1h'} : {type:'ephemeral'}} : {};
   const imgsOf = m => m.images || (m.image ? [m.image] : null);
-  if(S.prov === 'anthropic') return out.map(m => ({role:m.role, content: imgsOf(m)
+  return out.map(m => ({role:m.role, content: imgsOf(m)
     ? [...imgsOf(m).map(d => ({type:'image', source:{type:'base64', media_type:'image/jpeg', data:d}})), {type:'text', text:m.text, ...cc(m)}]
     : (m._cache ? [{type:'text', text:m.text, ...cc(m)}] : m.text)}));
-  return out.map(m => ({role:m.role, content: imgsOf(m)
-    ? [...imgsOf(m).map(d => ({type:'image_url', image_url:{url:'data:image/jpeg;base64,' + d}})), {type:'text', text:m.text}] : m.text}));
 }
 async function errText(r){
   let t = r.statusText;
@@ -284,55 +281,43 @@ async function errText(r){
 const AUX_DEF = 'claude-haiku-5-5';
 let auxBroken = false;
 function modelFor(aux){
-  if(S.prov !== 'anthropic') return S.oaModel;
   if(aux && S.aux !== 'off' && !auxBroken) return (S.auxModel || AUX_DEF).trim();
   return S.model || DEF.model;
 }
 /* ───────── 🔐 8.20: seiful de chei ─────────
-   „Cheile în Worker”: aplicația nu mai trimite nicio cheie; vorbește doar cu Worker-ul v8 (cu parola TOKEN),
+   „Cheile în Worker”: aplicația nu mai trimite nicio cheie; vorbește doar cu Worker-ul (cu parola TOKEN),
    iar Worker-ul adaugă cheia din secretele Cloudflare. „Cheile în telefon”: ca înainte. */
-const API_HOST = {anthropic:'https://api.anthropic.com', fal:'https://fal.run', eleven:'https://api.elevenlabs.io', gemini:'https://generativelanguage.googleapis.com'};
+const API_HOST = {anthropic:'https://api.anthropic.com'};   // 9.19: furnizorii sunt doar Anthropic (text), Cloudflare și Runware (poze)
 const vaultOn = () => S.vault === 'on' && !!String(S.wkBase || '').trim() && !!String(S.wkTok || '').trim();
 function apiUrl(svc, path){ return vaultOn() ? wkUrl() + '/proxy/' + svc + path : API_HOST[svc] + path; }
 function apiHeaders(svc, extra = {}){
   if(vaultOn()) return {...extra, authorization:'Bearer ' + S.wkTok.trim()};
-  const k = svc === 'anthropic' ? {'x-api-key':S.key.trim(), 'anthropic-dangerous-direct-browser-access':'true'}
-    : svc === 'fal' ? {authorization:'Key ' + S.falKey.trim()}
-    : svc === 'eleven' ? {'xi-api-key':S.elKey.trim()}
-    : {'x-goog-api-key':S.gemKey.trim()};
-  return {...extra, ...k};
+  return {...extra, 'x-api-key':S.key.trim(), 'anthropic-dangerous-direct-browser-access':'true'};
 }
 // seif: ce chei are Worker-ul (aflat la „Verifică seiful”); necunoscut = presupunem că există și lăsăm Worker-ul să spună
-const hasKey = svc => vaultOn() ? !(S.vaultHas && S.vaultHas[svc] === false) : !!String({anthropic:S.key, fal:S.falKey, eleven:S.elKey, gemini:S.gemKey}[svc] || '').trim();
+const hasKey = svc => vaultOn() ? !(S.vaultHas && S.vaultHas[svc] === false) : !!String({anthropic:S.key}[svc] || '').trim();
 // adresele întoarse de Anthropic (results_url) trec și ele prin seif
 function anthUrl(u){ try{ const x = new URL(u); if(x.host !== 'api.anthropic.com') throw 0; return apiUrl('anthropic', x.pathname); }catch(e){ throw new Error('Adresă neașteptată de la Anthropic.'); } }
 async function stream(sys, msgs, opts = {}){
   try{ return await streamOnce(sys, msgs, opts); }
   catch(e){
     // dacă modelul mic nu e disponibil pe cont, revenim o dată la modelul principal
-    if(opts.aux && S.prov === 'anthropic' && !auxBroken && /model|not_found|404/i.test(e.message || '')){ auxBroken = true; return await streamOnce(sys, msgs, {...opts, aux:false}); }
+    if(opts.aux && !auxBroken && /model|not_found|404/i.test(e.message || '')){ auxBroken = true; return await streamOnce(sys, msgs, {...opts, aux:false}); }
     throw e;
   }
 }
 async function streamOnce(sys, msgs, {max = 700, signal, onText, cid, aux, meta, tag, cold, conv} = {}){
-  const A = S.prov === 'anthropic';
   const model = modelFor(aux);
   // 8.17: conversația rămâne în cache 1 oră (nu 5 minute): la pauze mai lungi istoricul se recitește la 5-10% din preț
   // 8.19: primul mesaj după o pauză (cache-ul a expirat oricum) scrie la 1,25× (5 min); de la al doilea trece pe 1 oră
   // 9.0: cache doar pentru conversații (conv); pașaportul, jurnalul, planificarea pozelor etc. se trimit o singură dată,
   //      iar scrierea în cache (2× pe 1 h, 1,25× pe 5 min) ar fi fost plătită degeaba
   const ttl = conv && !aux && !cold && S.cacheTtl !== '5m' ? '1h' : '';
-  if(A && !hasKey('anthropic')) throw new Error(vaultOn() ? 'Seiful (Worker-ul) nu are cheia Anthropic.' : 'Lipsește cheia Anthropic. Deschide Setări.');
-  if(!A && !(S.oaBase && S.oaModel)) throw new Error('Completează adresa și modelul în Setări.');
-  const res = A
-    ? await fetch(apiUrl('anthropic', '/v1/messages'), {method:'POST', signal, headers:apiHeaders('anthropic', {
+  if(!hasKey('anthropic')) throw new Error(vaultOn() ? 'Seiful (Worker-ul) nu are cheia Anthropic.' : 'Lipsește cheia Anthropic. Deschide Setări.');
+  const res = await fetch(apiUrl('anthropic', '/v1/messages'), {method:'POST', signal, headers:apiHeaders('anthropic', {
         'content-type':'application/json', 'anthropic-version':'2023-06-01'}),
         body: JSON.stringify({model, max_tokens:max, stream:true,
-          system:[{type:'text', text:sys, ...(conv ? {cache_control:ttl ? {type:'ephemeral', ttl:'1h'} : {type:'ephemeral'}} : {})}], messages:provMsgs(conv ? msgs : msgs.map(x => x._cache ? {...x, _cache:false} : x), ttl)})})
-    : await fetch(S.oaBase.replace(/\/+$/, '') + '/chat/completions', {method:'POST', signal, headers:{
-        'content-type':'application/json', ...(S.oaKey ? {authorization:'Bearer ' + S.oaKey.trim()} : {})},
-        body: JSON.stringify({model:S.oaModel, stream:true, max_tokens:max, ...(/openai|openrouter|groq|deepseek|together|mistral/i.test(S.oaBase) ? {stream_options:{include_usage:true}} : {}),
-          messages:[{role:'system', content:sys}, ...provMsgs(msgs)]})});
+          system:[{type:'text', text:sys, ...(conv ? {cache_control:ttl ? {type:'ephemeral', ttl:'1h'} : {type:'ephemeral'}} : {})}], messages:provMsgs(conv ? msgs : msgs.map(x => x._cache ? {...x, _cache:false} : x), ttl)})});
   if(!res.ok) throw new Error(await errText(res));
   const rd = res.body.getReader(), dec = new TextDecoder();
   let buf = '', full = '', usage = null, stop = null, ended = false;
@@ -349,13 +334,11 @@ async function streamOnce(sys, msgs, {max = 700, signal, onText, cid, aux, meta,
       const d = line.slice(5).trim(); if(!d || d === '[DONE]') continue;
       let j; try{ j = JSON.parse(d); }catch(e){ continue; }
       let piece = '';
-      if(A){
-        if(j.type === 'content_block_delta' && j.delta?.text) piece = j.delta.text;
-        else if(j.type === 'message_start' && j.message?.usage) usage = {...j.message.usage};
-        else if(j.type === 'message_delta'){ if(j.usage) usage = Object.assign(usage || {}, j.usage); if(j.delta?.stop_reason) stop = j.delta.stop_reason; }
-        else if(j.type === 'message_stop') ended = true;
-        else if(j.type === 'error') throw new Error(j.error?.message || 'eroare de la furnizor');
-      } else { piece = j.choices?.[0]?.delta?.content || ''; if(j.usage) usage = j.usage; const fr = j.choices?.[0]?.finish_reason; if(fr){ stop = fr === 'length' ? 'max_tokens' : fr === 'content_filter' ? 'refusal' : fr; ended = true; } }
+      if(j.type === 'content_block_delta' && j.delta?.text) piece = j.delta.text;
+      else if(j.type === 'message_start' && j.message?.usage) usage = {...j.message.usage};
+      else if(j.type === 'message_delta'){ if(j.usage) usage = Object.assign(usage || {}, j.usage); if(j.delta?.stop_reason) stop = j.delta.stop_reason; }
+      else if(j.type === 'message_stop') ended = true;
+      else if(j.type === 'error') throw new Error(j.error?.message || 'eroare de la furnizor');
       if(piece){ full += piece; onText && onText(full); }
     }
   }
@@ -630,8 +613,8 @@ const isAuto = opt => !!opt && (opt.tag === 'stories' || opt.tag === 'statusuri'
 // 9.6: cu o limită zilnică („Doar gratuit” / „Max $0,10”), 9B merge cât încape o poză întreagă plus o rezervă pentru Eco;
 //      apoi pozele trec singure pe Eco (cu retușul feței și variante) până la resetare, în loc să se oprească sau să coste
 const ECO_RESERVE = 600;
-const nineFits = () => !Number.isFinite(capLeft()) || capLeft() >= (neurPerPhoto('ancorat') || 1455) + ECO_RESERVE;
-const sceneModel = (opt = {}) => { const m = isAuto(opt) && S.autoModel === 'eco' ? 'eco' : (S.wkChat && S.wkChat !== 'fal' ? S.wkChat : 'eco'); return m === 'ancorat' && S.imgProv === 'worker' && !nineFits() ? 'eco' : m; };
+const nineFits = () => rwFor('ancorat') || !Number.isFinite(capLeft()) || capLeft() >= (neurPerPhoto('ancorat') || 1455) + ECO_RESERVE;
+const sceneModel = (opt = {}) => { const m = isAuto(opt) && S.autoModel === 'eco' ? 'eco' : (S.wkChat || 'eco'); return m === 'ancorat' && S.imgProv === 'worker' && !nineFits() ? 'eco' : m; };
 function nineDegradedNote(opt){
   if(S.wkChat !== 'ancorat' || S.imgProv !== 'worker' || nineFits() || (isAuto(opt) && S.autoModel === 'eco')) return;
   const d = new Date().toISOString().slice(0, 10); if(S.degDay === d) return;
@@ -752,28 +735,18 @@ async function scenePhoto(c, shot, signal, fix, opt = {}){
     const tail = `Keep both identities exactly as in the references: the same faces, facial features, skin tones, hair and body types. This is ONE single natural photo of the two of them together: not a collage, not a split screen, no border, no gray background; the location, clothing, poses and light come only from the scene description. ${stil}`;
     const pPair = `${head} The reference image shows the two of them side by side: on the LEFT is ${c.name}${physFull(c, id) ? ' (' + physFull(c, id) + ')' : ''}; on the RIGHT is ${u}${S.userPhys ? ' (' + S.userPhys + ')' : ''}. ${tail}`;
     const pTwo = `${head} Image 1 is a close-up of ${c.name}'s face${physFull(c, id) ? ' (' + physFull(c, id) + ')' : ''}; image 2 is a close-up of ${u}'s face${S.userPhys ? ' (' + S.userPhys + ')' : ''}. ${tail}`;
-    const model = S.imgProv === 'worker' ? (S.wkChat && S.wkChat !== 'fal' ? S.wkChat : S.wkModel) : undefined;
+    const model = S.imgProv === 'worker' ? (S.wkChat || S.wkModel) : undefined;
     if(S.imgProv === 'worker') return {prompt:pTwo, blob: await genImage(pTwo, await cropFace(full, cb), signal, await cropFace(me, ub), {model, p1:pPair, one:ref})};
     return {prompt:pPair, blob: await genImage(pPair, ref, signal, null, {model})};
   }
   const phys = physFull(c, id) ? ` Her/his permanent physical traits (exactly as in the reference): ${physFull(c, id)}.` : '';
   const fixLine = fix ? ` Important corrections from the previous attempt: ${fix}.` : '';
-  // 8.3: pozele din chat prin fal.ai PuLID (model făcut să păstreze fața), restul aplicației rămâne pe Worker
-  if(full && S.imgProv === 'worker' && S.wkChat === 'fal' && S.falKey){
-    const face = await cropFace(full, id && !id.none ? id : null);
-    const prompt = `${fr.p}. ${shot}.${fix ? ` Important corrections from the previous attempt: ${fix}.` : ''} Use the supplied face reference as a strict identity anchor, not as inspiration: this must be the same individual, with the same facial geometry, eye shape and spacing, nose, lips, jaw, skin tone and texture, hairline, hair color and texture. Do not generate a similar-looking substitute. Keep the character's natural body build and proportions consistent with the permanent traits below; do not reshape the body. ${physFull(c, id) ? 'Permanent face and body traits: ' + physFull(c, id) + '.' : ''} Only the location, clothing, pose, expression, camera angle and lighting may change, following this scene description. ${stil}`;
-    return {prompt, blob: await genImage(prompt, face, signal, null, {prov:'fal'})};
-  }
   if(full && S.imgProv === 'worker'){
     const R = await idRefs(c);
     const prompt = idPrompt(c, shot, fr, R, fix, true);
-    return {prompt, blob: await genImage(prompt, R.face, signal, R.body, {model: S.wkChat && S.wkChat !== 'fal' ? S.wkChat : (S.wkModel === 'eco' ? 'ancorat' : S.wkModel), p1: idPrompt(c, shot, fr, R, fix, false), extra: R.extra})};
+    return {prompt, blob: await genImage(prompt, R.face, signal, R.body, {model: S.wkChat || (S.wkModel === 'eco' ? 'ancorat' : S.wkModel), p1: idPrompt(c, shot, fr, R, fix, false), extra: R.extra})};
   }
-  if(full && S.imgProv === 'fal'){
-    const prompt = `${fr.p}. ${shot}.${fixLine} Same person as in the reference image (same face, skin tone, hair, body type).${phys} New location, outfit, pose and light exactly as described, not those of the reference. ${stil}`;
-    return {prompt, blob: await genImage(prompt, full, signal)};
-  }
-  if(S.imgProv === 'worker' || S.imgProv === 'fal'){
+  if(S.imgProv === 'worker'){
     const prompt = [c.look || '', fr.p, shot + fixLine, stil].filter(Boolean).join('. ');
     return {prompt, blob: await genImage(prompt, null, signal)};
   }
@@ -953,11 +926,12 @@ function bestN(c, opt = {}){
   if(S.imgProv !== 'worker' || !c.photo || opt.together) return 1;
   const mdl = sceneModel(opt), per = neurPerPhoto(mdl) || 5000;
   let n = Math.max(1, Math.min(3, +(mdl === 'eco' ? S.bestOf : S.bestOf9 || '1') || 1));
-  while(n > 1 && capLeft() < per * n) n--;
+  if(rwFor(mdl)) while(n > 1 && rwCapLeft() < rwPer() * n) n--;   // 9.18: pe Runware limita e plafonul zilnic în $, nu neuronii
+  else while(n > 1 && capLeft() < per * n) n--;
   return n;
 }
 async function bestScene(c, shot, signal, corr, opt = {}){
-  const n = S.wkChat === 'fal' && !(isAuto(opt) && S.autoModel === 'eco') ? 1 : bestN(c, opt);
+  const n = bestN(c, opt);
   if(n < 2) return await scenePhoto(c, shot, signal, corr, opt);
   const rs = await Promise.allSettled(Array.from({length:n}, (_, k) => scenePhoto(c, shot, signal, corr, k ? {...opt, why:'variante'} : opt)));
   const ab = rs.find(r => r.status === 'rejected' && r.reason && r.reason.name === 'AbortError'); if(ab) throw ab.reason;
@@ -977,7 +951,7 @@ async function makeScenePhoto(c, shot, signal, opt = {}){
   if(S.imgCheck === 'off' || !aiReady()) return a;
   try{ a.check = await checkPhoto(c, a.blob, shot, signal, opt.together); }catch(e){ if(e.name === 'AbortError') throw e; return a; }
   const bad = x => x && (x.face < 8 || x.scene < 6 || x.framing < 5);
-  if(!bad(a.check) || (S.wkChat !== 'fal' && capLeft() < (neurPerPhoto(S.wkChat || S.wkModel) || 5000))) return a;
+  if(!bad(a.check) || (!rwFor(S.wkChat || S.wkModel) && capLeft() < (neurPerPhoto(S.wkChat || S.wkModel) || 5000))) return a;
   let b;
   try{ b = await scenePhoto(c, shot, signal, a.check.fix || 'follow the scene and keep the face of the reference', opt); addUsage(c.id, imgPrice(), 'img', null, opt.tag || 'poze'); }
   catch(e){ if(e.name === 'AbortError') throw e; return a; }
@@ -996,24 +970,14 @@ async function genImage(prompt, ref, signal, ref2, opt = {}){
     pstage(signal, live && live.stage && live.stage.p >= 95 ? '🔁 Nu-i place, mai face una' : '📸 Face poza', 92);
   }
   const prov = opt.prov || S.imgProv; lastImgProv = prov;
-  if(prov === 'gemini'){
-    if(!hasKey('gemini')) throw new Error('Lipsește cheia Google în Setări → Poze.');
-    const parts = [{text: ref ? 'Keep the exact same person from the reference image (same face, identity, hair). New photo: ' + prompt : prompt}];
-    if(ref) parts.push({inline_data:{mime_type:ref.type || 'image/jpeg', data:await blobToB64(ref)}});
-    const model = (S.gemModel || DEF.gemModel).trim();
-    const r = await fetch(apiUrl('gemini', `/v1beta/models/${encodeURIComponent(model)}:generateContent`), {
-      method:'POST', signal, headers:apiHeaders('gemini', {'content-type':'application/json'}),
-      body: JSON.stringify({contents:[{parts}], generationConfig:{responseModalities:['IMAGE'], imageConfig:{aspectRatio:'3:4'}}})});
-    if(!r.ok) throw new Error(await errText(r));
-    const d = await r.json();
-    const cand = d.candidates?.[0] || {};
-    const im = (cand.content?.parts || []).map(x => x.inlineData || x.inline_data).find(Boolean);
-    if(!im?.data) throw new Error('Gemini n-a dat imagine' + (cand.finishReason || d.promptFeedback?.blockReason ? ' (' + (cand.finishReason || d.promptFeedback.blockReason) + ')' : '') + '.');
-    return b64ToBlob(im.data, im.mimeType || im.mime_type || 'image/png');
-  }
   if(prov === 'worker'){
-    if(!S.wkBase) throw new Error('Lipsește adresa Worker-ului în Setări → Poze.');
     const model = opt.model || S.wkModel || 'eco';
+    // 9.18: „Fidel · 9B” prin Runware (același model, aceleași repere, același prompt); la eroare sau plafon, cade pe Cloudflare
+    if(!opt.cf && (opt.rw ? rwReady() : rwFor(model))){
+      try{ return await rwImage(prompt, ref, ref2, opt, signal, model); }
+      catch(e){ if(e.name === 'AbortError' || opt.rw) throw e; rwFailed(e); }
+    }
+    if(!S.wkBase) throw new Error('Lipsește adresa Worker-ului în Setări → Poze.');
     await checkCap(model, opt.size);
     // 7.2: la o eroare de server Cloudflare (5xx, de ex. 3043) reîncearcă singur, tot mai simplu:
     //   1) poza de profil 768 px + fața (2 repere)  2) doar poza de profil 512 px  3) + prompt scurtat
@@ -1039,15 +1003,17 @@ async function genImage(prompt, ref, signal, ref2, opt = {}){
       if(st.two && ref){ fd.append('image', await toJpeg(ref, opt.px1 || 512, .92), 'ref.jpg'); if(ref2) fd.append('image_1', await toJpeg(ref2, 512, .92), 'face.jpg');
         for(const [i, x] of (opt.extra || []).slice(0, 2).entries()) fd.append('image_' + (i + 2), await toJpeg(x, 512, .92), 'ref' + (i + 2) + '.jpg'); }
       else if(one) fd.append('image', await toJpeg(one, st.px || 512, .92), 'ref.jpg');
-      const r = await fetch(wkUrl() + '/images/generations', {method:'POST', signal, body:fd,
+      const r = await fetch(wkUrl() + '/images/generations?bin=1', {method:'POST', signal, body:fd,
         headers: S.wkTok ? {authorization:'Bearer ' + S.wkTok.trim()} : {}});
       if(r.ok){
-        const d = await r.json();
-        const b = d.data?.[0]?.b64_json; if(!b) throw new Error('Worker-ul n-a întors imagine.');
+        // 9.18: Worker-ul v9 poate întoarce poza direct (fără base64), dacă modelul o dă așa; v8 întoarce JSON
+        const bin = /^image\//.test(r.headers.get('content-type') || '') ? await r.blob() : null;
+        const d = bin ? null : await r.json();
+        const b = bin ? 'bin' : d.data?.[0]?.b64_json; if(!b) throw new Error('Worker-ul n-a întors imagine.');
         if(!opt.force && i > 0 && steps[0].two && !wkSimple){ wkSimple = true; console.warn('Worker: 2 repere au dat eroare, folosesc doar poza de profil'); }
         lastImgModel = model;
         neurAdd(neurPerPhoto(model, opt.size) || 5000, opt.why);
-        return b64ToBlob(b, 'image/png');
+        return bin || b64ToBlob(b, 'image/png');
       }
       lastErr = await errText(r);
       if(opt.force || r.status < 500 || i === steps.length - 1) break;   // 4xx (cheie, limită, filtru): nu are rost să reîncercăm
@@ -1056,26 +1022,97 @@ async function genImage(prompt, ref, signal, ref2, opt = {}){
     if(/\b30(43|40)\b|internal server error|out of capacity/i.test(lastErr || '')) throw new Error('Cloudflare a avut o eroare internă (' + ((lastErr.match(/\b30\d\d\b/) || ['5xx'])[0]) + '), chiar după 3 încercări. De obicei trece în câteva minute; apasă Reîncearcă.');
     throw new Error(lastErr);
   }
-  if(prov === 'fal'){
-    if(!hasKey('fal')) throw new Error('Lipsește cheia fal.ai în Setări → Poze.');
-    const model = (S.falModel || DEF.falModel).trim().replace(/^\/+|\/+$/g, '');
-    const [w, h] = (S.falSize || '576x768').split('x').map(Number);
-    const body = {prompt, image_size:{width:w, height:h}, num_images:1, sync_mode:true};
-    if(ref){ const uri = 'data:' + (ref.type || 'image/jpeg') + ';base64,' + await blobToB64(ref); body.reference_image_url = uri; body.image_url = uri; body.image_urls = [uri]; }
-    let r;
-    try{ r = await fetch(apiUrl('fal', '/' + model), {method:'POST', signal, headers:apiHeaders('fal', {'content-type':'application/json'}), body:JSON.stringify(body)}); }
-    catch(e){ if(e.name === 'AbortError') throw e; throw new Error('fal.ai nu răspunde din browser (rețea sau CORS). Spune-mi și îl trecem prin Worker-ul tău.'); }
-    if(!r.ok){
-      let t = r.statusText; try{ const j = await r.json(); t = typeof j.detail === 'string' ? j.detail : JSON.stringify(j.detail || j); }catch(e){}
-      throw new Error('fal.ai ' + r.status + ': ' + t);
-    }
-    const d = await r.json();
-    const u = d.images?.[0]?.url || d.image?.url;
-    if(!u) throw new Error('fal.ai n-a întors imagine.');
-    if(u.startsWith('data:')){ const k = u.indexOf(','); return b64ToBlob(u.slice(k + 1), u.slice(5, u.indexOf(';')) || 'image/jpeg'); }
-    return await (await fetch(u, {signal})).blob();
-  }
   throw new Error('Pozele sunt oprite. Pornește-le din Setări.');
+}
+
+/* ═════════ ⚡ 9.18 Runware: „Fidel · 9B” la alt furnizor ═════════
+   Același model (FLUX.2 klein 9B, runware:400@2), aceleași repere (fața + poza de profil + până la 2 unghiuri), același prompt,
+   aceeași mărime și PNG ca pe Cloudflare, fără accelerare (acceleration:none). Cost real per poză citit din răspuns (includeCost).
+   Cheia: în Worker (secretul RUNWARE_KEY, ruta /v1/proxy/runware) sau, opțional, în telefon. Plafon zilnic în $; la eroare
+   sau plafon atins, poza merge pe Cloudflare ca înainte. */
+const RW_MODEL = 'runware:400@2', RW_URL = 'https://api.runware.ai/v1';
+const usd4 = v => '$' + (+v || 0).toFixed(4);   // costurile Runware sunt fracțiuni de cent
+const RW_CAP = {'0.25':.25, '0.5':.5, '1':1, none:Infinity};
+let rwFails = 0, rwFailT = 0, rwToastT = 0;
+const rwDirect = () => !vaultOn() && !!String(S.rwKey || '').trim();
+const rwReady = () => rwDirect() || (!!String(S.wkBase || '').trim() && !!String(S.wkTok || '').trim() && !(S.vaultHas && S.vaultHas.runware === false));
+function rwDay(){ const d = new Date().toISOString().slice(0, 10); if(!S.rwBy || S.rwBy.d !== d) S.rwBy = {d, usd:0, n:0}; return S.rwBy; }
+const rwPer = () => S.rwAvg > 0 ? S.rwAvg : .004;                       // estimare până la primele poze reale
+const rwCapLeft = () => (RW_CAP[S.rwCap] ?? .5) - rwDay().usd;
+const rwPaused = () => rwFails >= 3 && Date.now() - rwFailT < 10 * 60e3;   // 3 erori la rând: 10 minute pe Cloudflare, apoi încearcă iar
+const rwFor = model => S.rw === 'on' && S.imgProv === 'worker' && model === 'ancorat' && rwReady() && !rwPaused() && rwCapLeft() >= rwPer();
+function rwFailed(e){
+  rwFails++; rwFailT = Date.now();
+  if(Date.now() - rwToastT > 5 * 60e3){ rwToastT = Date.now(); toast('⚡ ' + String(e.message).slice(0, 140) + ' Poza merge pe Cloudflare.', 6000); }
+}
+function rwSize(size){ return String(size || S.wkSize || '768x1024').split('x').map(v => Math.min(2048, Math.max(128, Math.round((parseInt(v, 10) || 1024) / 16) * 16))); }
+async function rwImage(prompt, ref, ref2, opt, signal, model){
+  // aceleași repere ca pe Worker: 2 repere = fața (image) + poza de profil (image_1) + unghiurile; reper unic = poza de profil
+  const two = opt.force ? !!opt.force.two && !!ref : !!(ref && ref2), refs = [];
+  if(two){ refs.push(await toJpeg(ref, opt.px1 || 512, .92)); if(ref2) refs.push(await toJpeg(ref2, 512, .92)); for(const x of (opt.extra || []).slice(0, 2)) refs.push(await toJpeg(x, 512, .92)); }
+  else { const one = opt.one || (ref2 || ref); if(one) refs.push(await toJpeg(one, (opt.force && opt.force.px) || 1024, .92)); }
+  const p = two ? prompt : (opt.p1 || prompt.replace(/,? ?image 2 is a close-up of the same face\. ?/i, ' '));
+  const [w, h] = rwSize(opt.size);
+  const blob = await rwRun(p, refs, w, h, signal);
+  lastImgProv = 'runware'; lastImgModel = model;
+  return blob;
+}
+async function rwRun(prompt, refs, w, h, signal){
+  const task = {taskType:'imageInference', taskUUID:crypto.randomUUID(), model:RW_MODEL, positivePrompt:String(prompt).slice(0, 10000),
+    width:w, height:h, numberResults:1, outputType:'base64Data', outputFormat:'PNG', includeCost:true, acceleration:'none',
+    seed:Math.floor(Math.random() * 4294967295)};
+  if(refs.length) task.inputs = {referenceImages: await Promise.all(refs.slice(0, 4).map(async b => 'data:image/jpeg;base64,' + await blobToB64(b)))};
+  const direct = rwDirect(), url = direct ? RW_URL : wkUrl() + '/proxy/runware/v1';
+  const t0 = performance.now();
+  let r;
+  try{ r = await fetch(url, {method:'POST', signal, headers:{'content-type':'application/json', authorization:'Bearer ' + (direct ? S.rwKey : S.wkTok).trim()}, body:JSON.stringify([task])}); }
+  catch(e){ if(e.name === 'AbortError') throw e; throw new Error('Runware nu răspunde' + (direct ? ' din browser. Pune cheia în Worker (secretul RUNWARE_KEY) și golește câmpul din telefon.' : ' (rețea).')); }
+  let d = null; try{ d = await r.json(); }catch(e){}
+  const errs = d && (d.errors || (d.error ? [d.error] : null));
+  if(!r.ok || errs || !d || !Array.isArray(d.data)){
+    if(!direct && r.status === 404) throw new Error('Worker-ul nu știe încă de Runware: pune codul nou (v9) din cloudflare-worker-simplu.js.');
+    if(!direct && r.status === 501){ S.vaultHas = {...(S.vaultHas || {}), runware:false}; saveSettings(); throw new Error('Worker-ul n-are cheia Runware: adaugă secretul RUNWARE_KEY.'); }
+    const e0 = errs && errs[0], m = typeof e0 === 'string' ? e0 : (e0 && (e0.message || e0.code)) || ('HTTP ' + r.status);
+    throw new Error('Runware: ' + String(m).slice(0, 200) + (/credit|balance|insufficient/i.test(m) ? ' (reîncarcă creditul în contul Runware).' : '.'));
+  }
+  const it = d.data.find(x => x && (x.imageBase64Data || x.imageDataURI));
+  if(!it) throw new Error('Runware n-a întors imagine.');
+  const cost = +it.cost;
+  if(cost >= 0 && cost < 1){
+    const day = rwDay(); day.usd = Math.round((day.usd + cost) * 1e6) / 1e6; day.n++;
+    S.rwAvg = S.rwAvg > 0 ? S.rwAvg * .8 + cost * .2 : cost;   // media ultimelor poze (pentru estimări și Consum)
+    S.rwLast = {usd:cost, ms:Math.round(performance.now() - t0), w, h, refs:refs.length}; saveSettings();
+  }
+  rwFails = 0;
+  const b64 = it.imageBase64Data || String(it.imageDataURI).split(',')[1];
+  return b64ToBlob(b64, 'image/png');
+}
+function drawRw(){
+  const w = $('#stRwWrap'); if(!w) return;
+  w.hidden = S.imgProv !== 'worker';
+  $('#stRwBox').hidden = S.rw !== 'on';
+  const h = $('#stRwHint'), cf = neurPerPhoto('ancorat') || 1455;
+  if(S.rw !== 'on'){ h.innerHTML = `Cloudflare: ~${Math.round(cf).toLocaleString('ro-RO')} neuroni pe poză 9B (cam ${Math.floor(10000 / cf)} pe zi gratuit, apoi ~${usd(cf * NEUR_USD)} pe poză). Runware rulează același model, de câteva ori mai ieftin.`; }
+  else {
+    const n = Math.max(1, Math.min(3, +(S.bestOf9 || 1) || 1));
+    h.innerHTML = `Același model (FLUX.2 klein 9B), aceleași repere, același prompt, PNG ca acum. ${S.rwAvg > 0 ? `Cost real mediu: <b>${usd4(S.rwAvg)}</b> pe imagine` : 'Estimat ~$0,002–0,004 pe imagine'}${n > 1 ? `, deci ~${usd(rwPer() * n)} pe poză cu ${n} variante` : ''}; nu consumă neuroni. Dacă Runware nu răspunde sau atingi plafonul zilnic, poza merge singură pe Cloudflare.`
+      + (rwDirect() ? '' : !S.wkBase ? '<br>⚠️ Pune adresa Worker-ului sau cheia Runware mai jos.' : '<br>Cheia stă în Worker (secretul <b>RUNWARE_KEY</b>, Worker v9).');
+    const day = rwDay(), cap = RW_CAP[S.rwCap] ?? .5, pc = Number.isFinite(cap) ? Math.min(100, day.usd / cap * 100) : 0;
+    $('#stRwDay').innerHTML = `Azi pe Runware: <b>${usd(day.usd)}</b> · ${day.n} ${day.n === 1 ? 'imagine' : 'imagini'}${Number.isFinite(cap) ? ' · plafon $' + cap.toFixed(2).replace('.', ',') + `<div class="bar"><i style="width:${pc}%"></i></div>` : ' · fără plafon'}`
+      + (S.rwLast ? `<div style="margin-top:6px;font-size:12px;color:var(--tx3)">Ultima: ${usd4(S.rwLast.usd)} · ${(S.rwLast.ms / 1000).toFixed(1).replace('.', ',')} s · ${S.rwLast.w}×${S.rwLast.h} · ${S.rwLast.refs} repere</div>` : '');
+  }
+}
+async function rwTest(){
+  for(const [id, k] of Object.entries(FIELDS)) S[k] = $('#' + id).value.trim(); saveSettings();
+  const r = $('#stRwRes'); r.className = 'status'; r.innerHTML = '<span class="spin"></span> Generez o poză de test pe Runware…';
+  try{
+    if(S.vaultHas && S.vaultHas.runware === false){ delete S.vaultHas.runware; rwFails = 0; }   // poate ai pus între timp secretul în Worker
+    if(!rwReady()) throw new Error('Pune cheia Runware în Worker (RUNWARE_KEY) sau aici, în telefon.');
+    const b = await rwRun('a cup of coffee on a wooden table by a window, morning light, real smartphone photo', [], 512, 512, null);
+    r.className = 'status ok';
+    r.innerHTML = `✓ Runware merge${S.rwLast ? ` · ${usd4(S.rwLast.usd)} · ${(S.rwLast.ms / 1000).toFixed(1).replace('.', ',')} s` : ''}.<br><img src="${URL.createObjectURL(b)}" style="width:140px;border-radius:12px;margin-top:8px" alt=""><br><span class="hint">Pentru fața personajului tău: „🔬 Compară pe personajul meu” (pune 9B Cloudflare lângă 9B Runware).</span>`;
+    drawRw();
+  }catch(e){ r.className = 'status err'; r.textContent = '✗ ' + e.message; }
 }
 
 /* ───────── navigare ───────── */
@@ -2343,7 +2380,7 @@ function drawPics(c){
   drawBodyNote(c, box);
   drawRefs(c, box);
   drawHome(c, box);
-  if(c.photo && (S.imgProv === 'worker' || S.imgProv === 'fal')){
+  if(c.photo && S.imgProv === 'worker'){
     const fb = c.faceBox && c.faceBox.k === c.photo ? c.faceBox : null;
     box.insertAdjacentHTML('beforeend', `<div class="faceref"><div class="fimg" id="pfFace">${fb ? '<span class="spin"></span>' : '?'}</div><div><b>Fața (al doilea reper)</b><small>${fb ? (fb.none ? 'Nu am găsit fața; folosesc partea de sus a pozei. ' : '') + (fb.phys ? 'Trăsături citite din poza de profil, trimise la fiecare poză: <i>' + esc(fb.phys) + '</i>' : 'Detaliile feței, pe lângă poza de profil întreagă.') : 'Se citește la prima poză.'}</small><button class="btn sm" id="pfFaceRe">${fb ? '↻ Caută din nou' : '🔍 Caută acum'}</button></div></div>`);
     const show = async force => { const el = $('#pfFace'); if(!el) return; el.innerHTML = '<span class="spin"></span>';
@@ -2982,23 +3019,8 @@ function updateJump(){
   $('#jumpDown').hidden = !far;
   $('#jumpN').hidden = !jumpCount; $('#jumpN').textContent = jumpCount > 9 ? '9+' : jumpCount;
 }
-/* ───────── 4.1: voce umană ─────────
-   motor: tel (vocea telefonului) · el (ElevenLabs direct) · fal (ElevenLabs v3 prin fal.ai)
-   înregistrarea se face o singură dată, se păstrează în IndexedDB (aud:<id>:<alt>) și se reascultă gratuit */
-const TTS_PRICE = {eleven_v3:.08, eleven_v4_turbo:.04, eleven_multilingual_v2:.08, fal:.10};   // $ la 1000 de caractere
-// vocile de bază ElevenLabs (merg și prin fal.ai după nume); lista completă din contul tău se încarcă la „Schimbă”
-const EL_BASE = [
-  ['EXAVITQu4vr4xnSDxMaL', 'Sarah', 'f', 'tânără, caldă'], ['FGY2WhTYpPnrIDTdsKH5', 'Laura', 'f', 'tânără, vioaie'],
-  ['XB0fDUnXU5powFXDhCwa', 'Charlotte', 'f', 'catifelată'], ['Xb7hH8MSUJpSbSDYk0k2', 'Alice', 'f', 'clară, sigură'],
-  ['XrExE9yKIg1WjnnlVkGX', 'Matilda', 'f', 'prietenoasă'], ['cgSgspJ2msm6clMCkdW9', 'Jessica', 'f', 'jucăușă'],
-  ['pFZP5JQG7iQjIQuC4Bku', 'Lily', 'f', 'blândă'], ['9BWtsMINqrJLrRacOk9x', 'Aria', 'f', 'matură, expresivă'],
-  ['SAz9YHcvj6GT2YYXdXww', 'River', 'n', 'neutră, relaxată'],
-  ['CwhRBWXzGAHq8TQ4Fs17', 'Roger', 'm', 'relaxat'], ['IKne3meq5aSn9XLyUdCD', 'Charlie', 'm', 'tânăr, natural'],
-  ['JBFqnCBsd6RMkjVDRZzb', 'George', 'm', 'cald, matur'], ['N2lVS1w4EtoT3dr4eOWO', 'Callum', 'm', 'răgușit'],
-  ['TX3LPaxmHKxFdv7VOQHJ', 'Liam', 'm', 'tânăr, energic'], ['bIHbv24MWmeRgasZH58o', 'Will', 'm', 'prietenos'],
-  ['cjVigY5qzO86Huf0OWal', 'Eric', 'm', 'calm'], ['iP95p4xoKVk53GoZ742B', 'Chris', 'm', 'degajat'],
-  ['nPczCjzI2devNBz1zQrb', 'Brian', 'm', 'grav'], ['onwK4e9ZLuTAKqWW03F9', 'Daniel', 'm', 'autoritar'], ['pqHfZKP75CvOlQylNhV4', 'Bill', 'm', 'bătrân, sfătos']
-].map(([id, name, g, d]) => ({id, name, g, d}));
+/* ───────── vocea personajelor: vocea telefonului (9.19: doar Anthropic + Cloudflare + Runware, fără servicii de voce plătite)
+   mesajele vocale înregistrate înainte (aud:<id>:<alt>, ElevenLabs/fal) rămân în IndexedDB și se redau în continuare */
 // etichetele din text: scrise în română de personaj, traduse pentru modelul de voce
 const VTAGS = {'râde':'laughs', 'rade':'laughs', 'chicotește':'giggles', 'chicoteste':'giggles', 'oftează':'sighs', 'ofteaza':'sighs', 'șoptește':'whispers', 'soptește':'whispers', 'soapta':'whispers'};
 const VTAG_RE = /\[([^\]\n]{2,24})\]/g;
@@ -3013,76 +3035,8 @@ function genderOf(c){
   if(/\b(man|boy|male|guy)\b|bărbat|barbat|băiat|baiat|domn/.test(t)) return 'm';
   return '';
 }
-function hashPick(list, seed){ let h = 0; for(const ch of String(seed)) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return list[h % list.length]; }
-function defaultVoice(c){
-  const g = genderOf(c), pool = EL_BASE.filter(v => g ? v.g === g : v.g !== 'n');
-  return hashPick(pool.length ? pool : EL_BASE, c.id);
-}
-function voiceOf(c){ return c.voice && c.voice.id ? c.voice : defaultVoice(c); }
-function voiceLabel(c){
-  if(S.tts === 'tel') return 'Vocea telefonului' + (c.vPitch && c.vPitch !== 1 ? (c.vPitch < 1 ? ' · mai gravă' : ' · mai subțire') : '');
-  const v = voiceOf(c); return v.name + (c.voice ? '' : ' (aleasă automat)') + ' · ' + (S.tts === 'el' ? 'ElevenLabs' : 'fal.ai');
-}
+function voiceLabel(c){ return 'Vocea telefonului' + (c.vPitch && c.vPitch !== 1 ? (c.vPitch < 1 ? ' · mai gravă' : ' · mai subțire') : ''); }
 const ttsKey = m => 'aud:' + m.id + ':' + (m.alt || 0);
-
-async function ttsBlob(c, text, signal){
-  const v = voiceOf(c);
-  if(S.tts === 'el'){
-    if(!hasKey('eleven')) throw new Error('lipsește cheia ElevenLabs (Setări → Răspunsuri și voce).');
-    const call = async (model, vs) => {
-      let r;
-      try{ r = await fetch(apiUrl('eleven', `/v1/text-to-speech/${encodeURIComponent(v.id)}?output_format=mp3_44100_64`), {method:'POST', signal,
-        headers:apiHeaders('eleven', {'content-type':'application/json', accept:'audio/mpeg'}),
-        body:JSON.stringify(vs ? {text, model_id:model, voice_settings:vs} : {text, model_id:model})}); }
-      catch(e){ if(e.name === 'AbortError') throw e; throw new Error('nu pot ajunge la ElevenLabs (internet?).'); }
-      if(r.ok) return {blob:await r.blob(), model};
-      const j = await r.json().catch(() => ({})), msg = JSON.stringify(j.detail || j).slice(0, 160);
-      if(r.status === 401) throw new Error(/quota|credits/i.test(msg) ? 'ai terminat caracterele lunii pe ElevenLabs.' : 'cheia ElevenLabs nu e bună.');
-      if(/quota|credits/i.test(msg)) throw new Error('ai terminat caracterele lunii pe ElevenLabs.');
-      if(r.status === 404 && /voice/i.test(msg)) throw new Error('vocea aleasă nu mai există. Alege alta din profilul personajului.');
-      const e = new Error('ElevenLabs ' + r.status + ': ' + msg); e.st = r.status; throw e;
-    };
-    const model = S.elModel || 'eleven_v3';
-    try{ return await call(model, {stability:.5, similarity_boost:.75}); }
-    catch(e){
-      if(!e.st) throw e;
-      try{ return await call(model); }                                    // setări de voce nepermise de model
-      catch(e2){ if(!e2.st || model === 'eleven_multilingual_v2') throw e2; return await call('eleven_multilingual_v2', {stability:.45, similarity_boost:.75, style:.3}); }
-    }
-  }
-  if(S.tts === 'fal'){
-    if(!hasKey('fal')) throw new Error('lipsește cheia fal.ai (Setări → Răspunsuri și voce).');
-    let r;
-    try{ r = await fetch(apiUrl('fal', '/fal-ai/elevenlabs/tts/eleven-v3'), {method:'POST', signal, headers:apiHeaders('fal', {'content-type':'application/json'}),
-      body:JSON.stringify({text, voice:v.name, stability:.5})}); }
-    catch(e){ if(e.name === 'AbortError') throw e; throw new Error('nu pot ajunge la fal.ai (internet?).'); }
-    const j = await r.json().catch(() => ({}));
-    if(!r.ok) throw new Error(r.status === 401 || r.status === 403 ? 'cheia fal.ai nu e bună.' : 'fal.ai ' + r.status + ': ' + JSON.stringify(j.detail || j).slice(0, 160));
-    const url = j.audio && j.audio.url; if(!url) throw new Error('fal.ai n-a trimis sunetul.');
-    return {blob:await (await fetch(url, {signal})).blob(), model:'fal'};
-  }
-  throw new Error('vocea telefonului nu înregistrează.');
-}
-// durata reală și unda reală, din sunet
-async function analyzeAudio(blob){
-  try{
-    const AC = window.AudioContext || window.webkitAudioContext, ac = new AC();
-    const buf = await ac.decodeAudioData(await blob.arrayBuffer()); try{ ac.close(); }catch(e){}
-    const d = buf.getChannelData(0), n = 28, step = Math.max(1, Math.floor(d.length / n)), pk = [];
-    for(let i = 0; i < n; i++){ let s = 0, c = 0; for(let j = i * step; j < (i + 1) * step && j < d.length; j += 32){ s += d[j] * d[j]; c++; } pk.push(Math.sqrt(s / Math.max(1, c))); }
-    const mx = Math.max(...pk) || 1;
-    return {d:Math.max(1, Math.round(buf.duration)), w:pk.map(p => Math.round(12 + 88 * p / mx))};
-  }catch(e){ return null; }
-}
-async function recordVoice(c, m, signal){
-  const text = ttsText(m.text, true); if(!text) return null;
-  const {blob, model} = await ttsBlob(c, text, signal);
-  await DB.set(ttsKey(m), blob);
-  const a = await analyzeAudio(blob);
-  m.vmeta = m.vmeta || {}; m.vmeta[m.alt || 0] = a || {d:voiceDur(m.text)};
-  addUsage(c.id, text.length / 1000 * (TTS_PRICE[model] || .1), 'voc');
-  return blob;
-}
 
 // mesaj vocal: undă reală dacă există înregistrare, altfel stabilă (din id)
 function voiceDur(t){ return Math.max(2, Math.round(String(t).split(/\s+/).length / 2.6)); }
@@ -3120,14 +3074,8 @@ function speakPhone(c, text, onEnd){
   });
   if(!parts.length) onEnd && onEnd();
 }
-async function audioFor(c, m, btn){
-  let blob = await DB.get(ttsKey(m)).catch(() => null);
-  if(blob) return blob;
-  if(btn) btn.classList.add('load');
-  try{ blob = await recordVoice(c, m); await saveChat(); }
-  finally{ if(btn) btn.classList.remove('load'); }
-  return blob;
-}
+// înregistrarea păstrată (din versiunile cu voce umană), dacă există
+const audioFor = m => DB.get(ttsKey(m)).catch(() => null);
 async function playVoice(m, el){
   const bars = [...el.querySelectorAll('.wave i')], btn = el.querySelector('.vplay'), dl = el.querySelector('.dur');
   if(vPlaying === el){ stopAllVoice(); return; }
@@ -3136,9 +3084,8 @@ async function playVoice(m, el){
   const stopUI = () => { bars.forEach(b => b.classList.remove('on')); btn.textContent = '▶'; clearInterval(el._t); dl.textContent = fmtDur(total); if(vPlaying === el) vPlaying = null; };
   vPlaying = el; el._stop = stopUI;
   const prog = f => { const k = Math.min(bars.length, Math.round(f * bars.length)); bars.forEach((b, i) => b.classList.toggle('on', i < k)); };
-  if(S.tts !== 'tel'){
-    let blob = null;
-    try{ blob = await audioFor(cur, m, btn); }catch(e){ toast('Vocea: ' + e.message + ' Folosesc vocea telefonului.', 4000); }
+  {
+    const blob = await audioFor(m);
     if(vPlaying !== el) return;
     if(blob){
       const a = vAudio = new Audio(URL.createObjectURL(blob));
@@ -3156,63 +3103,17 @@ async function playVoice(m, el){
   el._t = setInterval(() => prog((Date.now() - t0) / dur), 80);
   speakPhone(cur, m.text, stopUI);
 }
-// 🔊 pe un mesaj scris: același motor de voce (cu ElevenLabs/fal se înregistrează o dată și se păstrează)
+// 🔊 pe un mesaj scris: înregistrarea păstrată, dacă există, altfel vocea telefonului
 async function say(t, m){
   stopAllVoice();
-  if(S.tts !== 'tel' && m && cur){
-    try{ const b = await audioFor(cur, m); const a = vAudio = new Audio(URL.createObjectURL(b)); a.onended = () => URL.revokeObjectURL(a.src); await a.play(); return; }
-    catch(e){ toast('Vocea: ' + e.message, 3500); }
-  }
+  const b = m && cur ? await audioFor(m) : null;
+  if(b){ try{ const a = vAudio = new Audio(URL.createObjectURL(b)); a.onended = () => URL.revokeObjectURL(a.src); await a.play(); return; }catch(e){} }
   speakPhone(cur, t);
 }
 const SAMPLE = c => `Bună! Sunt ${c.name}. [râde] Deci... așa sună vocea mea. Îți place?`;
-async function voiceSample(c, btn, v){
-  stopAllVoice();
-  if(S.tts === 'tel'){ speakPhone(c, SAMPLE(c)); return; }
-  const keep = c.voice; if(v) c.voice = v;
-  const old = btn ? btn.innerHTML : '';
-  if(btn){ btn.disabled = true; btn.innerHTML = '<span class="spin"></span>'; }
-  try{
-    const {blob, model} = await ttsBlob(c, ttsText(SAMPLE(c), true));
-    addUsage(null, SAMPLE(c).length / 1000 * (TTS_PRICE[model] || .1), 'voc');
-    const a = vAudio = new Audio(URL.createObjectURL(blob)); await a.play();
-  }catch(e){ toast('Vocea: ' + e.message, 4500); }
-  finally{ c.voice = keep; if(btn){ btn.disabled = false; btn.innerHTML = old; } }
-}
-let elVoices = null;
-async function loadElVoices(){
-  if(elVoices) return elVoices;
-  try{
-    const r = await fetch(apiUrl('eleven', '/v1/voices'), {headers:apiHeaders('eleven')});
-    if(!r.ok) throw 0;
-    const j = await r.json();
-    const gmap = {female:'f', male:'m', neutral:'n'};
-    elVoices = (j.voices || []).map(v => ({id:v.voice_id, name:v.name.split(/\s[-–]\s/)[0], g:gmap[(v.labels || {}).gender] || 'n',
-      d:[{young:'tânără', middle_aged:'matură', old:'în vârstă'}[(v.labels || {}).age] || '', (v.labels || {}).descriptive || (v.labels || {}).description, v.category === 'premade' ? '' : 'din contul tău'].filter(Boolean).join(', ').replace(/_/g, ' '), prev:v.preview_url}));
-    if(!elVoices.length) elVoices = null;
-  }catch(e){ elVoices = null; }
-  return elVoices || EL_BASE;
-}
-async function pickVoice(c, done){
-  if(S.tts === 'tel'){
-    sheet([['🔉', 'Mai gravă', async () => { c.vPitch = .85; await saveChars(); done(); }], ['🔊', 'Normală', async () => { c.vPitch = 0; await saveChars(); done(); }], ['🎵', 'Mai subțire', async () => { c.vPitch = 1.18; await saveChars(); done(); }],
-      ['⚙️', 'Vreau voce umană (ElevenLabs)', () => { openSettings(); openSetPanel('chat'); }]]);
-    return;
-  }
-  openSheet(`<h4>🎙️ Vocea lui ${esc(c.name)}</h4><div class="vlist" id="vList"><p class="hint" style="padding:8px"><span class="spin"></span> Încarc vocile…</p></div>`);
-  let list = S.tts === 'el' ? await loadElVoices() : EL_BASE;
-  const g = genderOf(c), cv = voiceOf(c);
-  list = [...list].sort((a, b) => (b.g === g) - (a.g === g));
-  const box = $('#vList'); if(!box) return;
-  box.innerHTML = list.map((v, k) => `<div class="vrow${v.id === cv.id ? ' on' : ''}" data-k="${k}"><button class="vp" data-vp="${k}" aria-label="Ascultă">▶</button><div style="flex:1"><b>${esc(v.name)}</b><br><small>${esc({f:'feminină', m:'masculină', n:'neutră'}[v.g] || '')}${v.d ? ' · ' + esc(v.d) : ''}</small></div><button class="btn sm" data-vs="${k}">${v.id === cv.id ? '✓' : 'Alege'}</button></div>`).join('')
-    + `<p class="hint" style="padding:4px 6px">▶ ascultă o mostră${S.tts === 'el' ? ' (gratuită, în engleză)' : ' (în română, costă ~1 ban)'}. Vocile tale din ElevenLabs apar și ele aici.</p>`;
-  box.onclick = async e => {
-    const p = e.target.closest('[data-vp]'), sel = e.target.closest('[data-vs]');
-    if(p){ const v = list[+p.dataset.vp]; stopAllVoice();
-      if(v.prev){ vAudio = new Audio(v.prev); vAudio.play().catch(() => toast('Nu pot porni mostra.')); }
-      else voiceSample(c, p, v); }
-    if(sel){ const v = list[+sel.dataset.vs]; c.voice = {id:v.id, name:v.name}; await saveChars(); closeSheet(); toast('🎙️ ' + c.name + ' vorbește acum cu vocea ' + v.name + '.'); done(); }
-  };
+function voiceSample(c){ stopAllVoice(); speakPhone(c, SAMPLE(c)); }
+function pickVoice(c, done){
+  sheet([['🔉', 'Mai gravă', async () => { c.vPitch = .85; await saveChars(); done(); }], ['🔊', 'Normală', async () => { c.vPitch = 0; await saveChars(); done(); }], ['🎵', 'Mai subțire', async () => { c.vPitch = 1.18; await saveChars(); done(); }]]);
 }
 const seenMap = new WeakMap();
 const devDone = new Set();   // 7.5: pozele deja „developate” în sesiunea asta
@@ -3556,7 +3457,7 @@ async function jrnSweep(){
       for(const d of days.filter(x => !(c.journal || []).some(j => j.day === x)).slice(0, 3)){ const r = await jrnReq(c, d); if(r) items.push({c, day:d, ...r}); }
     }
     if(!items.length) return;
-    if(S.prov === 'anthropic' && S.jrnBatch !== 'off' && !batchBroken){
+    if(S.jrnBatch !== 'off' && !batchBroken){
       try{ await jrnBatchSubmit(items); return; }catch(e){ batchBroken = true; }      // dacă lotul nu merge (rețea, cont), scriem direct, ca înainte
     }
     for(const x of items){ try{ const out = await stream(x.sys, [{role:'user', text:x.prompt}], {max:600, cid:x.c.id, tag:'jurnal'}); await jrnSave(x.c, x.day, out); }catch(e){ break; } }
@@ -3564,7 +3465,7 @@ async function jrnSweep(){
 }
 /* ───────── 8.19: sarcinile de fundal prin Batch API (−50%): analiza, planurile, cunoscuții, statusurile, comentariile ───────── */
 let laterQ = [], laterPend = [], laterT = 0, laterRun = false, laterLoaded = false;
-const canBatch = () => S.prov === 'anthropic' && S.bgBatch !== 'off' && !batchBroken && aiReady();
+const canBatch = () => S.bgBatch !== 'off' && !batchBroken && aiReady();
 const LATER_MAXAGE = {status:4 * 36e5};   // un status vechi de ore nu mai are sens
 async function laterLoad(){ if(laterLoaded) return; laterLoaded = true; try{ laterQ = (await DB.get('laterQ')) || []; laterPend = (await DB.get('laterPend')) || []; }catch(e){} }
 const laterSave = () => Promise.all([DB.set('laterQ', laterQ), DB.set('laterPend', laterPend)]).catch(() => {});
@@ -3603,7 +3504,7 @@ async function laterFlush(){
 async function laterPoll(){
   await laterLoad();
   if(laterQ.length && !laterT && !laterRun) laterT = setTimeout(laterFlush, 5000);   // rămase de la sesiunea trecută
-  if(laterRun || !laterPend.length || !aiReady() || S.prov !== 'anthropic') return;
+  if(laterRun || !laterPend.length || !aiReady()) return;
   laterRun = true;
   const todo = [];
   try{
@@ -3817,10 +3718,6 @@ async function reply(target, opts = {}){
       m.text = m.text.replace(AI_VOICE, '').trim();
       if(S.vmsg !== 'off'){ m.voice = true; m.text = m.text.replace(/\*[^*]*\*/g, ' ').replace(/\s{2,}/g, ' ').trim(); }
     } else delete m.voice;
-    if(m.voice && m.text && S.tts !== 'tel'){
-      if(live){ live.rec = true; if(chat === ch) setBusyUI(true); }
-      try{ await recordVoice(c, m, busy.signal); }catch(e){ if(e.name === 'AbortError') throw e; toast('Vocea: ' + e.message, 4500); }
-    }
     if(!rm){ rm = m.text.match(AI_REACT); if(rm) m.text = m.text.replace(AI_REACT, '').trim(); }
     if(rm && um && !target){ um.react = rm[1] === '❤' ? '❤️' : rm[1]; if(['❤️', '🥰'].includes(um.react) && chat === ch) setTimeout(() => fxBurst(um.react, 8), 400); }
     if(!m.text) throw new Error('Răspuns gol. Încearcă din nou.');
@@ -3976,18 +3873,15 @@ function priceFor(model){
   const m = String(model || '').toLowerCase();
   // 9.17: Haiku 5.5 costă $0,10 / $0,50 (era socotit ca Haiku 4.5, $1 / $5: de 10× prea mult); Fable / Mythos: $10 / $50
   let p = /fable|mythos/.test(m) ? [10, 50] : m.includes('opus') ? [4, 20] : /haiku-5-5/.test(m) ? [.1, .5] : m.includes('haiku') ? [1, 5] : [2, 10];
-  if(S.prov !== 'anthropic') p = [0, 0];
   const pin = parseFloat(String(S.pIn).replace(',', '.')), pout = parseFloat(String(S.pOut).replace(',', '.'));
-  const main = S.prov !== 'anthropic' || !m.includes('haiku') || String(S.model || '').toLowerCase().includes('haiku');
+  const main = !m.includes('haiku') || String(S.model || '').toLowerCase().includes('haiku');
   if(main){ if(!isNaN(pin)) p[0] = pin; if(!isNaN(pout)) p[1] = pout; }   // prețul tău personalizat e pentru modelul principal
   return p;
 }
 function imgPrice(){
-  const v = parseFloat(String(S.imgCost).replace(',', '.'));
-  if(!isNaN(v)) return v;
-  if(lastImgProv === 'fal') return .035;
+  if(lastImgProv === 'runware') return rwPer();   // 9.18: media costului real întors de Runware
   if(S.imgProv === 'worker' && S.cfPlan === 'paid'){ const n = neurPerPhoto(lastImgModel || S.wkModel) || 5000; return neurToday >= 10000 ? n * NEUR_USD : 0; }
-  return {gemini:.04, fal:.035, worker:0}[S.imgProv] || 0;
+  return 0;
 }
 let usageQ = Promise.resolve();
 function noteRewrite(why){
@@ -4002,7 +3896,7 @@ function noteRewrite(why){
 async function fixHaikuUsage(){
   if((S.hfix || 0) >= 1) return;
   const aux = String(S.auxModel || AUX_DEF).toLowerCase();
-  if(S.prov === 'anthropic' && S.aux !== 'off' && /haiku-5-5/.test(aux) && !/haiku/.test(String(S.model || '').toLowerCase())){
+  if(S.aux !== 'off' && /haiku-5-5/.test(aux) && !/haiku/.test(String(S.model || '').toLowerCase())){
     usageQ = usageQ.then(async () => {
       const u = await DB.get('usage'); if(!u || !u.months) return;
       for(const M of Object.values(u.months)){
@@ -4033,7 +3927,7 @@ function addUsage(cid, usd, kind, tok, tag){
 }
 function recordTokens(cid, usage, model, tag, mult = 1){
   if(!usage) return;
-  model = model || (S.prov === 'anthropic' ? S.model : S.oaModel);
+  model = model || S.model;
   const [pin, pout] = priceFor(model);
   const inp = usage.input_tokens || usage.prompt_tokens || 0, out = usage.output_tokens || usage.completion_tokens || 0;
   const cw = usage.cache_creation_input_tokens || 0, cr = usage.cache_read_input_tokens || 0;
@@ -4358,7 +4252,7 @@ function profScroll(){
 // target = mesajul-poză de refăcut; mode: 'same' (aceeași scenă, altă variantă) sau 'new' (altă scenă)
 async function askPhoto(spont, target, mode, opt = {}){
   if(busy){ if(!spont) toast('Așteaptă să termine ' + (live ? live.c.name : '') + '.'); return; }
-  if(spont && S.wkChat !== 'fal' && capLeft() < (neurPerPhoto(S.imgProv === 'worker' ? (S.wkChat || S.wkModel) : undefined) || 5000)) return;   // limita zilnică atinsă: fără poze spontane
+  if(spont && !rwFor(S.wkChat || S.wkModel) && capLeft() < (neurPerPhoto(S.imgProv === 'worker' ? (S.wkChat || S.wkModel) : undefined) || 5000)) return;   // limita zilnică atinsă: fără poze spontane
   if(S.imgProv === 'none'){ toast('Pornește pozele din Setări.'); return; }
   const c = cur, ch = chat;
   let m;
@@ -5099,10 +4993,10 @@ async function exprGen(c, baseK){
   const base = await DB.get(baseK); if(!base) return false;
   c.expr = c.expr || {}; const set = c.expr[baseK] = c.expr[baseK] || {};
   // 9.5: pe modelul ales la „Fidelitatea feței” (9B ține fața), toate deodată, fiecare verificată în telefon că e aceeași față
-  const nine = S.imgProv === 'worker' && S.wkChat === 'ancorat' && (!Number.isFinite(capLeft()) || capLeft() >= 5 * (neurPerPhoto('ancorat') || 1455) + ECO_RESERVE);
+  const nine = S.imgProv === 'worker' && S.wkChat === 'ancorat' && (rwFor('ancorat') || !Number.isFinite(capLeft()) || capLeft() >= 5 * (neurPerPhoto('ancorat') || 1455) + ECO_RESERVE);
   const model = nine ? 'ancorat' : (S.imgProv === 'worker' ? 'eco' : undefined), per = neurPerPhoto(model) || 5000;   // 9.6: Eco dacă 9B nu încape în limita zilei
   let todo = Object.entries(EXPR).filter(([k]) => !set[k]);
-  if(S.imgProv === 'worker'){ const fit = Math.floor(capLeft() / per); if(fit < todo.length){ todo = todo.slice(0, Math.max(0, fit)); if(!todo.length){ toast('Limita zilnică de poze a fost atinsă; continui mâine.', 3500); return false; } } }
+  if(S.imgProv === 'worker' && !(nine && rwFor('ancorat'))){ const fit = Math.floor(capLeft() / per); if(fit < todo.length){ todo = todo.slice(0, Math.max(0, fit)); if(!todo.length){ toast('Limita zilnică de poze a fost atinsă; continui mâine.', 3500); return false; } } }
   let ref = null; try{ const f = (await faceDescs(base)).sort((a, b) => b.a - a.a)[0]; if(f) ref = f.d; }catch(e){}
   const same = async b => { if(!ref) return 0; try{ const fs = await faceDescs(b); return fs.length ? Math.min(...fs.map(f => fdist(f.d, ref))) : 1; }catch(e){ return 0; } };
   const one = async ([k, [, en]]) => {
@@ -5914,11 +5808,11 @@ async function deleteChar(cc){
 }
 
 /* ───────── SETĂRI ───────── */
-const aiReady = () => S.prov === 'anthropic' ? hasKey('anthropic') : !!(S.oaBase && S.oaModel);
-const FIELDS = {stKey:'key', stModel:'model', stOaBase:'oaBase', stOaKey:'oaKey', stOaModel:'oaModel', stUser:'userName', stAbout:'userAbout', stBday:'userBday',
-  stGemKey:'gemKey', stGemModel:'gemModel', stWkBase:'wkBase', stWkTok:'wkTok', stWkModel:'wkModel', stWkSize:'wkSize',
-  stFalKey:'falKey', stFalModel:'falModel', stFalSize:'falSize', stImgCost:'imgCost', stPin:'pIn', stPout:'pOut', stElKey:'elKey', stTtsFalKey:'falKey', stChatFalKey:'falKey', stVkBase:'wkBase', stVkTok:'wkTok'};
-const SEGS = {stRegen:'regen3', stFx:'fx', stFeed:'feed', stStory:'story', stSky:'sky', stSocial:'social', stCfCap:'cfCap', stCfPlan:'cfPlan', stTts:'tts', stElModel:'elModel', stAux:'aux', stCtx:'ctxN', stVmsg:'vmsg', stJrn:'jrn', stTheme:'theme', stProv:'prov', stLen:'len', stFont:'font', stImg:'imgProv', stImgAlt:'imgProv', stSugg:'sugg', stPro:'pro', stVoice:'voice', stSpont:'spont', stImgCheck:'imgCheck', stWkChat:'wkChat', stBkEvery:'bkEvery', stVault:'vault', stCallFace:'callFace'};
+const aiReady = () => hasKey('anthropic');
+const FIELDS = {stKey:'key', stModel:'model', stUser:'userName', stAbout:'userAbout', stBday:'userBday',
+  stWkBase:'wkBase', stWkTok:'wkTok', stWkModel:'wkModel', stWkSize:'wkSize',
+  stPin:'pIn', stPout:'pOut', stVkBase:'wkBase', stVkTok:'wkTok', stRwKey:'rwKey'};
+const SEGS = {stRw:'rw', stRwCap:'rwCap', stRegen:'regen3', stFx:'fx', stFeed:'feed', stStory:'story', stSky:'sky', stSocial:'social', stCfCap:'cfCap', stCfPlan:'cfPlan', stAux:'aux', stCtx:'ctxN', stVmsg:'vmsg', stJrn:'jrn', stTheme:'theme', stLen:'len', stFont:'font', stImg:'imgProv', stSugg:'sugg', stPro:'pro', stVoice:'voice', stSpont:'spont', stImgCheck:'imgCheck', stWkChat:'wkChat', stBkEvery:'bkEvery', stVault:'vault', stCallFace:'callFace'};
 let setPanel = null, setPanelPushed = false;
 /* 8.7: actualizare din aplicație. Codul vine oricum din rețea la pornire;
    asta prinde versiunile apărute cât aplicația a stat deschisă și forțează reîncărcarea curată. */
@@ -5998,39 +5892,30 @@ function renderSetSummary(){
   $('#stMeAv').textContent = (nm || '?')[0].toUpperCase();
   $('#stMeName').textContent = nm || 'Tu';
   $('#stMeSub').innerHTML = aiReady() ? `<span style="color:var(--ok)">● conectat</span> · ${chars.length} ${chars.length === 1 ? 'personaj' : 'personaje'}` : '<span style="color:var(--err)">● lipsește cheia</span>';
-  $('#sum_ai').innerHTML = S.prov === 'anthropic'
-    ? (hasKey('anthropic') ? `<span class="ok">✓</span> Claude · ${esc(S.model || DEF.model)}${vaultOn() ? ' · 🔐 seif' : ''}` : '<span class="bad">lipsește cheia</span>')
-    : (aiReady() ? `<span class="ok">✓</span> ${esc(S.oaModel)}` : '<span class="bad">necompletat</span>');
+  $('#sum_ai').innerHTML = hasKey('anthropic') ? `<span class="ok">✓</span> Claude · ${esc(S.model || DEF.model)}${vaultOn() ? ' · 🔐 seif' : ''}` : '<span class="bad">lipsește cheia</span>';
   $('#sum_me').textContent = nm ? nm + (S.userAbout.trim() ? ' · ' + S.userAbout.trim() : '') : 'Cum să-ți spună personajele';
-  const ip = {none:'Oprite', worker:'Worker Cloudflare · ' + (S.wkModel || 'eco') + (S.cfPlan === 'paid' ? ' · Paid' : ''), fal:'fal.ai', gemini:'Gemini'}[S.imgProv] || '';
+  const ip = {none:'Oprite', worker:'Worker Cloudflare · ' + (S.wkModel || 'eco') + (S.cfPlan === 'paid' ? ' · Paid' : '') + (S.rw === 'on' ? ' · ⚡ 9B pe Runware' : '')}[S.imgProv] || '';
   $('#sum_img').textContent = ip;
-  $('#sum_chat').textContent = {scurt:'Răspunsuri scurte', mediu:'Răspunsuri medii', lung:'Răspunsuri lungi'}[S.len] + ' · voce ' + {off:'oprită', tap:'la 🔊', auto:'automată'}[S.voice] + ' · ' + ({tel:'telefon', el:'ElevenLabs', fal:'fal.ai'}[S.tts] || 'telefon');
+  $('#sum_chat').textContent = {scurt:'Răspunsuri scurte', mediu:'Răspunsuri medii', lung:'Răspunsuri lungi'}[S.len] + ' · voce ' + {off:'oprită', tap:'la 🔊', auto:'automată'}[S.voice] + ' · vocea telefonului';
   $('#sum_lock').textContent = S.lock === 'bio' ? 'Amprentă + PIN' : S.lock === 'pin' ? 'PIN' : 'Oprită';
   $('#sum_push').textContent = S.pushOn ? 'Pornite' : 'Oprite';
   $('#sum_look').textContent = {auto:'Temă automată', dark:'Temă întunecată', light:'Temă luminoasă'}[S.theme] + ' · text ' + {15:'mic', 16:'normal', 18:'mare'}[S.font];
 }
 function syncSegs(){
   for(const [id, k] of Object.entries(SEGS)) $$('#' + id + ' button').forEach(b => b.classList.toggle('on', b.dataset.v === String(S[k])));
-  $('#stAnt').hidden = S.prov !== 'anthropic' || S.vault === 'on'; $('#stAntAdv').hidden = S.prov !== 'anthropic';
+  $('#stAnt').hidden = S.vault === 'on';
   $('#stVaultBox').hidden = S.vault !== 'on';
-  $('#stVkWipeWrap').hidden = !(S.vault === 'on' && S.vaultHas && ['key', 'falKey', 'elKey', 'gemKey'].some(k => String(S[k] || '').trim()));
-  if(!$('#vSet').hidden) renderSetSummary(); $('#stOa').hidden = S.prov === 'anthropic';
-  const alt = S.imgProv === 'fal' || S.imgProv === 'gemini';
-  $$('#stImg button').forEach(b => b.classList.toggle('on', b.dataset.v === (alt ? 'alt' : S.imgProv)));
-  $$('#stImgAlt button').forEach(b => b.classList.toggle('on', b.dataset.v === S.imgProv));
-  $('#stAltWrap').hidden = !alt;
+  $('#stVkWipeWrap').hidden = !(S.vault === 'on' && S.vaultHas && ['key', 'rwKey'].some(k => String(S[k] || '').trim()));
+  if(!$('#vSet').hidden) renderSetSummary();
+  $$('#stImg button').forEach(b => b.classList.toggle('on', b.dataset.v === S.imgProv));
   $('#stImgTestWrap').hidden = S.imgProv === 'none';
-  $('#stChatWrap').hidden = S.imgProv !== 'worker'; $('#stChatFal').hidden = S.wkChat !== 'fal'; drawChatHint(); drawFixHint(); drawBodyHint(); drawBestHint();
-  drawWkEst();
+  $('#stChatWrap').hidden = S.imgProv !== 'worker'; drawChatHint(); drawFixHint(); drawBodyHint(); drawBestHint();
+  drawWkEst(); drawRw();
   $('#stCapWrap').hidden = S.cfPlan !== 'paid';
   $('#stCapHint').textContent = {free:'Factura rămâne $5/lună, fără nimic în plus. ' + (S.wkChat === 'ancorat' ? 'Pozele merg pe 9B cât încap în cei 10.000 de neuroni gratuiți (~6 pe zi), apoi trec singure pe Eco (cu retușul feței, ~115 neuroni) și abia când nu mai încape nici Eco se opresc' : 'Când se termină neuronii gratuiți de azi, pozele se opresc') + ' până la ' + resetAt() + '.',
     '0.1':'Cel mult ~$0,10 pe zi peste cei $5 (≈ $3/lună în cel mai rău caz). Apoi pozele se opresc până la ' + resetAt() + '.',
     none:'Fără oprire: fiecare poză peste cotă se adaugă la factură.'}[S.cfCap] || '';
-  $('#ttsEl').hidden = S.tts !== 'el'; $('#ttsFal').hidden = S.tts !== 'fal';
-  $('#ttsHint').textContent = {tel:'Vocea sintetică a telefonului. Gratuită, dar sună robotic. Pentru voce umană alege ElevenLabs.',
-    el:'Voce umană, cu râs, oftat și șoaptă. Planul gratuit ElevenLabs are ~10 minute de audio pe lună. Vocea fiecărui personaj se alege din profilul lui.',
-    fal:'Același model ElevenLabs v3, plătit din contul fal.ai (~$0,10 la 1000 de caractere, cam 2-3 bani pe mesaj vocal). Vocea se alege din profilul personajului.'}[S.tts] || '';
-  $('#stGem').hidden = S.imgProv !== 'gemini'; $('#stWk').hidden = S.imgProv !== 'worker'; $('#stFal').hidden = S.imgProv !== 'fal';
+  $('#stWk').hidden = S.imgProv !== 'worker';
   document.documentElement.style.fontSize = (+S.font || 16) + 'px';
   applyTheme();
 }
@@ -6133,6 +6018,7 @@ function drawBestHint(){
   const nine = sceneModel() !== 'eco', key = nine ? 'bestOf9' : 'bestOf';
   $$('#stBestOf button').forEach(b => b.classList.toggle('on', b.dataset.v === String(S[key] || (nine ? '1' : '3'))));
   const n = Math.max(1, Math.min(3, +(S[key] || (nine ? '1' : '3')) || 1)), per = neurPerPhoto(sceneModel()) || 0;
+  if(S.imgProv === 'worker' && nine && rwFor('ancorat')){ el.textContent = n < 2 ? `O singură variantă pe poză (~${usd4(rwPer())}, Runware).` : `Se fac ${n} variante în paralel pe Runware; telefonul le măsoară fața și o păstrează pe cea mai asemănătoare cu poza de profil. ~${usd(rwPer() * n)} pe poză, tot mai puțin decât o singură poză 9B pe Cloudflare (~${usd((neurPerPhoto('ancorat') || 1455) * NEUR_USD)}).`; return; }
   el.textContent = S.imgProv !== 'worker' ? 'Merge cu Worker-ul tău (Cloudflare).' : n < 2 ? 'O singură variantă pe poză.'
     : `Se fac ${n} variante în paralel; telefonul le măsoară fața și o păstrează pe cea mai asemănătoare cu poza de profil. ~${Math.round(per * n).toLocaleString('ro-RO')} neuroni pe poză${nine ? ' pe 9B (fiecare variantă în plus costă încă o poză întreagă)' : ''}. Dacă limita zilnică nu ajunge, se fac mai puține.`;
   if(n < 2 && S.imgProv === 'worker') el.textContent = `O singură variantă pe poză (~${Math.round(per).toLocaleString('ro-RO')} neuroni${nine ? ', 9B' : ''}).`;
@@ -6157,7 +6043,7 @@ function drawFixHint(){
 function drawChatHint(){
   const el = $('#stWkChatHint'); if(!el) return;
   const e = neurPerPhoto('eco'), f = neurPerPhoto('ancorat');
-  if(S.wkChat === 'fal'){ el.innerHTML = 'Pozele din chat merg prin fal.ai PuLID, un model făcut special să păstreze aceeași față (din fața decupată din poza de profil). Plătit separat la fal.ai, câțiva cenți pe poză; nu consumă neuroni Cloudflare. Stickerele, avatarul, statusurile și pozele împreună rămân pe Worker.' + (hasKey('fal') ? '' : ' <b>Pune cheia fal.ai mai jos.</b>'); return; }
+  if(S.wkChat === 'ancorat' && S.rw === 'on'){ el.innerHTML = `9B ține fața mult mai bine. Merge prin Runware (vezi „Motorul pentru 9B” mai jos): ~${usd4(rwPer())} pe imagine, fără neuroni. Stickerele, avatarul și retușul feței rămân pe Eco (Cloudflare).`; return; }
   el.innerHTML = S.wkChat === 'ancorat'
     ? `9B ține fața mult mai bine. ~${Math.round(f).toLocaleString('ro-RO')} neuroni pe poză: cam ${Math.floor(10000 / f)} poze pe zi în cota gratuită, apoi ~${usd(f * NEUR_USD)} pe poză (limita zilnică din Setări rămâne în vigoare). Stickerele, avatarul și statusurile rămân pe modelul de mai jos.`
     : `Eco: ~${Math.round(e)} neuroni pe poză. Împreună cu variantele multiple și retușul feței, în testele pe personajul tău a ieșit mai asemănător decât 9B (~${Math.round(f).toLocaleString('ro-RO')} neuroni).`;
@@ -6168,12 +6054,12 @@ async function refTest(){
   if(!c){ box.innerHTML = '<p class="hint">Ai nevoie de un personaj cu poză de profil.</p>'; return; }
   if(S.imgProv !== 'worker' || !S.wkBase){ box.innerHTML = '<p class="hint">Pornește întâi Worker-ul.</p>'; return; }
   const cost = Math.round(neurPerPhoto('eco') * 2 + neurPerPhoto('ancorat'));
-  if(!confirm2(`Generez ${S.falKey ? 4 : 3} poze cu ${c.name} (aceeași scenă), ca să compari fața: eco cu 2 repere, eco cu 1 reper, 9B${S.falKey ? ' și fal.ai PuLID (câțiva cenți)' : ''}. ~${cost.toLocaleString('ro-RO')} neuroni.`)) return;
+  if(!confirm2(`Generez ${3 + (rwReady() ? 1 : 0)} poze cu ${c.name} (aceeași scenă), ca să compari fața: eco cu 2 repere, eco cu 1 reper, 9B${rwReady() ? ' pe Cloudflare, 9B pe Runware (~$0,004)' : ''} ~${cost.toLocaleString('ro-RO')} neuroni.`)) return;
   const R = await idRefs(c);
   const shot = 'mirror selfie in a cozy bedroom, standing, holding the phone, casual t-shirt and jeans, warm lamp light, relaxed smile', fr = framingOf(shot);
   const p2 = idPrompt(c, shot, fr, R, '', true), p1 = idPrompt(c, shot, fr, R, '', false);
-  const tests = [['Eco · ' + (2 + R.extra.length) + ' repere', {model:'eco', force:{two:true}, p1, extra:R.extra}], ['Eco · 1 reper', {model:'eco', force:{two:false, px:512}, p1}], ['Fidel 9B', {model:'ancorat', force:{two:true}, p1, extra:R.extra}]];
-  if(S.falKey) tests.push(['fal.ai PuLID', {prov:'fal'}]);
+  const tests = [['Eco · ' + (2 + R.extra.length) + ' repere', {model:'eco', force:{two:true}, p1, extra:R.extra}], ['Eco · 1 reper', {model:'eco', force:{two:false, px:512}, p1}], ['Fidel 9B' + (rwReady() ? ' · Cloudflare' : ''), {model:'ancorat', force:{two:true}, p1, extra:R.extra, cf:true}]];
+  if(rwReady()) tests.push(['Fidel 9B · Runware', {model:'ancorat', force:{two:true}, p1, extra:R.extra, rw:true}]);
   const pfu = await imgUrl(c.photo);
   box.innerHTML = `<div class="rtgrid"><figure><img src="${pfu}" alt=""><figcaption>Poza de profil</figcaption></figure>${tests.map((t, i) => `<figure id="rt${i}"><div class="ph"><span class="spin"></span></div><figcaption>${t[0]}</figcaption></figure>`).join('')}</div><p class="hint" id="rtNote">Generez pe rând…</p>`;
   let twoOk = null;
@@ -6181,14 +6067,15 @@ async function refTest(){
     const [lbl, o] = tests[i], fig = $('#rt' + i);
     try{
       let b;
-      try{ b = o.prov === 'fal' ? await genImage(`${fr.p}. ${shot}.${physFull(c, R.id) ? ' The person: ' + physFull(c, R.id) + '.' : ''} ${STIL_TAG[c.stil || 'photo']}`, R.face, null, null, o) : await genImage(p2, R.face, null, R.body, o); }
-      catch(e){ if(o.force && o.force.two){ if(o.model === 'eco') twoOk = false; b = await genImage(p2, R.face, null, R.body, {model:o.model, force:{two:false, px:512}, p1}); fig.querySelector('figcaption').textContent = lbl.replace('2 repere', '1 reper') + ' (2 repere: eroare)'; } else throw e; }
+      try{ b = await genImage(p2, R.face, null, R.body, o); }
+      catch(e){ if(o.force && o.force.two){ if(o.model === 'eco') twoOk = false; b = await genImage(p2, R.face, null, R.body, {model:o.model, force:{two:false, px:512}, p1, cf:o.cf, rw:o.rw}); fig.querySelector('figcaption').textContent = lbl.replace('2 repere', '1 reper') + ' (2 repere: eroare)'; } else throw e; }
       if(o.model === 'eco' && o.force && o.force.two && twoOk === null) twoOk = true;
       fig.querySelector('.ph').outerHTML = `<img src="${URL.createObjectURL(b)}" data-big alt="">`;
+      try{ const fd = (await localFace(b, c)).d; if(fd != null) fig.querySelector('figcaption').textContent += ' · fața ' + idPct(fd) + '%'; }catch(e){}   // 9.18: aceeași măsură ca la „cea mai bună din N”
     }catch(e){ fig.querySelector('.ph').innerHTML = '✗'; fig.querySelector('figcaption').textContent = lbl + ': ' + String(e.message).slice(0, 60); }
   }
   if(twoOk !== null){ S.wkRef = twoOk ? 'two' : 'one'; saveSettings(); }
-  $('#rtNote').textContent = (twoOk === false ? 'Worker-ul tău nu acceptă 2 repere: de acum trimit doar poza de profil (1024 px). ' : twoOk ? '2 repere merg pe Worker-ul tău. ' : '') + 'Alege mai sus „Eco” sau „Fidel”, după fața care seamănă mai bine. Atinge o poză ca s-o vezi mare.';
+  $('#rtNote').textContent = (twoOk === false ? 'Worker-ul tău nu acceptă 2 repere: de acum trimit doar poza de profil (1024 px). ' : twoOk ? '2 repere merg pe Worker-ul tău. ' : '') + 'Alege mai sus „Eco” sau „Fidel”, după fața care seamănă mai bine (procentul = asemănarea măsurată în telefon; variază de la o generare la alta, compară pe 2–3 rulări). Atinge o poză ca s-o vezi mare.';
   box.querySelectorAll('img').forEach(im => im.onclick = () => openSheet(`<div class="pad"><img src="${im.src}" style="width:100%;border-radius:14px" alt=""></div>`));
   setTimeout(() => loadNeurons(true), 1500);
 }
@@ -6213,7 +6100,7 @@ async function vaultCheck(){
     const j = await wkFetch('/health');
     if(!j.v || j.v < 8) throw new Error('Worker-ul e o versiune veche. Pune codul din cloudflare-worker-simplu.js (v8).');
     S.vaultHas = j.seif || {}; saveSettings(); syncSegs();
-    const L = {anthropic:'Anthropic', fal:'fal.ai', eleven:'ElevenLabs', gemini:'Google'};
+    const L = {anthropic:'Anthropic', runware:'Runware'};
     r.className = 'status ok';
     r.innerHTML = '✓ Seiful răspunde (v' + j.v + ').<br>' + Object.entries(L).map(([k, n]) => (S.vaultHas[k] ? '🔐 ' : '▫️ ') + n + (S.vaultHas[k] ? '' : ' (lipsește)')).join(' · ')
       + (j.origine ? '' : '<br>⚠️ Pune și variabila ORIGIN = ' + esc(location.origin) + ' în Worker, ca să nu-l poată folosi alt site.');
@@ -6229,30 +6116,9 @@ async function vaultNewToken(){
     if(S.pushOn) pushCfgToSW().catch(() => {});
   });
 }
-async function listGemModels(){
-  const r = $('#stGemRes');
-  if(!hasKey('gemini')){ r.className = 'status err'; r.textContent = 'Pune întâi cheia Google.'; return; }
-  r.className = 'status'; r.innerHTML = '<span class="spin"></span> Întreb Google…';
-  try{
-    const res = await fetch(apiUrl('gemini', '/v1beta/models?pageSize=1000'), {headers:apiHeaders('gemini')});
-    if(!res.ok) throw new Error(await errText(res));
-    const d = await res.json();
-    const ids = (d.models || []).filter(m => /image/i.test(m.name) && !/imagen/i.test(m.name) && (m.supportedGenerationMethods || []).includes('generateContent'))
-      .map(m => ({id:m.name.replace(/^models\//, ''), label:m.displayName || ''}));
-    if(!ids.length) throw new Error('Cheia nu are acces la niciun model de imagine.');
-    $('#dlGem').innerHTML = ids.map(x => `<option value="${esc(x.id)}">${esc(x.label)}</option>`).join('');
-    openSheet(`<h4>Modele de imagine disponibile pentru cheia ta</h4>` + ids.map((x, k) =>
-      `<button class="opt" data-k="${k}"><i>${x.id === S.gemModel ? '✓' : '🖼️'}</i><span>${esc(x.id)}<br><small style="color:var(--tx3)">${esc(x.label)}</small></span></button>`).join(''));
-    $$('.sheet .opt').forEach(b => b.onclick = () => {
-      S.gemModel = ids[+b.dataset.k].id; $('#stGemModel').value = S.gemModel; saveSettings(); closeSheet();
-      r.className = 'status ok'; r.textContent = '✓ Model ales: ' + S.gemModel;
-    });
-    r.className = 'status ok'; r.textContent = ids.length + ' modele găsite. Alege unul.';
-  }catch(e){ r.className = 'status err'; r.textContent = '✗ ' + e.message; }
-}
 // 8.20: ce nu pleacă niciodată într-un backup și nu poate fi suprascris de o restaurare:
 // cheile, adresele la care pleacă ele, seiful și blocarea (hash-ul PIN-ului s-ar sparge ușor dintr-un fișier)
-const SECRET_SETTINGS = ['key', 'oaKey', 'gemKey', 'wkTok', 'elKey', 'falKey', 'oaBase', 'wkBase', 'prov', 'vault', 'vaultHas', 'lock', 'pinHash', 'pinSalt', 'pinLen', 'pinV', 'bioId'];
+const SECRET_SETTINGS = ['key', 'wkTok', 'rwKey', 'wkBase', 'prov', 'vault', 'vaultHas', 'lock', 'pinHash', 'pinSalt', 'pinLen', 'pinV', 'bioId'];
 async function exportAll(share){
   toast('Pregătesc backup-ul…');
   const out = {app:'taifas2', v:APP_VER, date:new Date().toISOString(), data:{}};
@@ -6466,11 +6332,10 @@ function bind(){
   for(const [id, k] of Object.entries(FIELDS)) $('#' + id).addEventListener('change', e => { S[k] = e.target.value.trim(); for(const [id2, k2] of Object.entries(FIELDS)) if(k2 === k && id2 !== id) $('#' + id2).value = S[k]; saveSettings(); if(k === 'wkBase' || k === 'wkTok' || k === 'wkModel' || k === 'wkSize') loadNeurons(); if(k === 'wkBase' || k === 'oaBase'){ S.vaultHas = null; saveSettings(); cspSync(false); } if(k === 'wkTok' && S.pushOn) pushCfgToSW().catch(() => {}); drawWkEst(); renderSetSummary(); });
   for(const [id, k] of Object.entries(SEGS)) $$('#' + id + ' button').forEach(b => b.onclick = () => {
     let v = k === 'font' ? +b.dataset.v : b.dataset.v;
-    if(v === 'alt') v = (S.imgProv === 'fal' || S.imgProv === 'gemini') ? S.imgProv : (S.imgAlt || 'fal');
-    if(k === 'imgProv' && (v === 'fal' || v === 'gemini')) S.imgAlt = v;
     if(k === 'bestOf' && sceneModel() !== 'eco'){ S.bestOf9 = v; saveSettings(); syncSegs(); return; }   // 9.1: pe 9B variantele se țin separat
+    // 9.18: pe Runware o variantă costă ~1/5 dintr-o poză 9B Cloudflare, așa că 3 variante (fața cea mai apropiată câștigă) sunt tot mai ieftine
+    if(k === 'rw' && v !== S.rw){ if(v === 'on' && (S.bestOf9 || '1') === '1') S.bestOf9 = '3'; if(v === 'off' && S.bestOf9 === '3') S.bestOf9 = '1'; }
     S[k] = v; saveSettings(); syncSegs();
-    if(k === 'prov') cspSync(false);
     if(k === 'imgProv' || k === 'cfPlan') loadNeurons();
     if(k === 'cfPlan') drawWkEst();
   });
@@ -6478,8 +6343,8 @@ function bind(){
   $('#stVkCheck').onclick = () => { S.wkBase = $('#stVkBase').value.trim(); S.wkTok = $('#stVkTok').value.trim(); saveSettings(); vaultCheck(); };
   $('#stVkGen').onclick = vaultNewToken;
   $('#stVkWipe').onclick = () => confirmSheet('Ștergi cheile din telefon? Seiful le are deja; aplicația va merge doar prin Worker.', 'Șterge', () => {
-    for(const k of ['key', 'falKey', 'elKey', 'gemKey']) S[k] = '';
-    for(const [id, k] of Object.entries(FIELDS)) if(['key', 'falKey', 'elKey', 'gemKey'].includes(k)) $('#' + id).value = '';
+    for(const k of ['key', 'rwKey']) S[k] = '';
+    for(const [id, k] of Object.entries(FIELDS)) if(['key', 'rwKey'].includes(k)) $('#' + id).value = '';
     saveSettings(); syncSegs(); toast('🧹 Cheile au fost scoase din telefon');
   });
   $('#stExport').onclick = () => exportAll(false);
@@ -6495,18 +6360,31 @@ function bind(){
   $('#stCardFile').onchange = e => { if(e.target.files[0]) importCard(e.target.files[0]); e.target.value = ''; };
   $('#stImgTest').onclick = testImages;
   $('#stRefTest').onclick = refTest;
-  $('#stGemList').onclick = () => { S.gemKey = $('#stGemKey').value.trim(); saveSettings(); listGemModels(); };
+  $('#stRwTest').onclick = rwTest;
   $('#stImport').onclick = () => $('#stImpFile').click();
   $('#stImpFile').onchange = e => { if(e.target.files[0]) importAll(e.target.files[0]); e.target.value = ''; };
   $('#stWipe').onclick = () => confirmSheet('Ștergi TOATE personajele, conversațiile și setările?', 'Șterge tot', async () => { await DB.clear(); location.reload(); });
 }
 
 /* ───────── pornire ───────── */
+// 9.19: furnizorii rămași sunt Anthropic (text), Cloudflare (Worker) și Runware (9B). Setările vechi (alt furnizor de text,
+//       fal.ai, Gemini, ElevenLabs) se mută pe echivalentul rămas, iar cheile lor se șterg din telefon.
+function onlyOurProviders(){
+  let ch = false;
+  const set = (k, v) => { if(S[k] !== v){ S[k] = v; ch = true; } };
+  set('prov', 'anthropic');
+  if(!['none', 'worker'].includes(S.imgProv)) set('imgProv', String(S.wkBase || '').trim() ? 'worker' : 'none');
+  if(S.wkChat === 'fal') set('wkChat', 'ancorat');
+  set('tts', 'tel');
+  for(const k of ['oaBase', 'oaKey', 'oaModel', 'gemKey', 'gemModel', 'falKey', 'falModel', 'falSize', 'elKey', 'elModel', 'imgAlt', 'imgCost']) if(k in S){ delete S[k]; ch = true; }
+  if(S.vaultHas) for(const k of ['fal', 'eleven', 'gemini']) if(k in S.vaultHas){ delete S.vaultHas[k]; ch = true; }
+  if(ch) saveSettings();
+}
 // 8.20: Content-Security-Policy. Pagina poate vorbi doar cu serviciile cunoscute + adresele tale (Worker, furnizor OpenAI).
 // Lista de adrese proprii stă în localStorage (o citește scriptul din <head> înainte de orice altceva).
 function cspOrigins(){
   const o = [];
-  for(const u of [S.wkBase && wkUrl(), S.prov !== 'anthropic' && S.oaBase]) if(u){ try{ const x = new URL(u); if(x.protocol === 'https:') o.push(x.origin); }catch(e){} }
+  for(const u of [S.wkBase && wkUrl()]) if(u){ try{ const x = new URL(u); if(x.protocol === 'https:') o.push(x.origin); }catch(e){} }
   return [...new Set(o)].sort();
 }
 function cspSync(boot){
@@ -6538,6 +6416,7 @@ async function init(){
   if((S.sv || 0) < 39){ if(!S.bestOf9) S.bestOf9 = '1'; if(!S.autoModel) S.autoModel = 'chat'; S.sv = 39; saveSettings(); }
   // 9.6: fără costuri peste cei $5/lună: „Fără limită” → „Doar gratuit” (o dată; se poate pune înapoi)
   if((S.sv || 0) < 40){ if(S.cfPlan === 'paid' && S.cfCap === 'none') S.cfCap = 'free'; S.sv = 40; saveSettings(); }
+  onlyOurProviders();   // 9.19: la fiecare pornire (și după o restaurare dintr-un backup vechi)
   if(cspSync(true)) return;   // 8.20: adresă nouă → repornim o dată, ca politica de securitate să o permită
   chars = (await DB.get('chars') || []).filter(c => c && c.id && c.name);
   if((S.sv || 0) < 34){
