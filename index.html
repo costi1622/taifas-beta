@@ -1653,8 +1653,9 @@ details.sdanger>summary{color:var(--err)}
             <div class="adjrow"><input id="edAdjTxt" maxlength="200" placeholder="ex. rochie neagră scurtă și cizme"><button type="button" class="btn sm pri" id="edAdjGo">Aplică</button></div>
           </div>
           <div class="hint" id="edFullNow" hidden>🧍 Are deja o poză întreagă. <button type="button" class="btn sm" id="edFullView">Vezi</button></div>
-          <details class="crav"><summary>Avansat: promptul în engleză</summary>
-            <textarea id="edPromptEn" rows="5" readonly placeholder="Se scrie singur din descriere și din zone."></textarea>
+          <details class="crav"><summary>Avansat: promptul în engleză (editabil)</summary>
+            <textarea id="edPromptEn" rows="6" placeholder="Se scrie singur din descriere și din zone. Îl poți scrie sau corecta tu: se folosește exact așa, până schimbi descrierea sau zonele."></textarea>
+            <div class="hint">Dacă îl scrii tu, se folosește exact cum e (fără fețele variate automat). Când schimbi descrierea sau zonele, se reface din ele.</div>
           </details>
         </div>
         <div class="hint" id="edCreaOff" hidden>Pornește pozele din Setări → Poze ca AI-ul să-i poată face poza din descriere.</div>

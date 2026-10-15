@@ -1,5 +1,5 @@
 window.__taifas = true;   // 8.20.1: semn pentru index.html că app.js s-a încărcat
-const APP_VER = '9.25';
+const APP_VER = '9.26';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -1322,7 +1322,7 @@ async function openChat(id, push = true, tid, dir){
   $('#chName').textContent = cur.name;
   $('#chTag').innerHTML = statusLine();
   $('#chatBg').style.backgroundImage = '';
-  if(cur.photo && ['clar', 'poza'].includes(cur.bg || 'clar')) $('#chatBg').dataset.bgk = cur.photo;
+  if(cur.photo && ['clar', 'poza'].includes(cur.bg || 'clar')) $('#chatBg').dataset.bgk = photoNow(cur);
   applyLook(cur);
   renderScene();
   updateComposer();
@@ -2446,28 +2446,45 @@ function drawAv(c){
     <p class="hint" style="margin-top:6px">${c.avs ? (c.avLive ? 'Pornit: poza mică se schimbă singură (dimineața, ziua, seara, noaptea; vesel sau pensiv după dispoziție).' : 'Oprit: rămâne poza de profil.') : `6 poze generate o singură dată (~${neurPerPhoto() ? Math.round(neurPerPhoto() * 6) + ' neuroni' : 'câțiva cenți'}).`}</p>`;
   hydrate(box);
   box.onclick = e => { const v = e.target.closest('[data-view]'); if(v) viewImg(v.dataset.view, Object.values(c.avs || {})); };
-  const on = $('#avOn'); if(on) on.onclick = async () => { c.avLive = !c.avLive; await saveChars(); drawAv(c); toast(c.avLive ? '🖼️ Avatarul viu e pornit' : 'Avatarul viu e oprit'); };
+  const on = $('#avOn'); if(on) on.onclick = async () => { c.avLive = !c.avLive; await saveChars(); avRefresh(c); toast(c.avLive ? '🖼️ Avatarul viu e pornit' : 'Avatarul viu e oprit'); };
   const g = $('#avGen'); if(g) g.onclick = () => genAvatars(c);
 }
 async function genAvatars(c){
   if(busy){ toast('Așteaptă să termine răspunsul.'); return; }
   const b = $('#avGen'); if(b){ b.disabled = true; b.innerHTML = '<span class="spin"></span> 0/6'; }
-  const ref = await DB.get(c.photo); if(!ref){ toast('Nu găsesc poza de profil.'); return; }
+  const photo = c.photo, ref = await DB.get(photo); if(!ref){ toast('Nu găsesc poza de profil.'); if(b){ b.disabled = false; b.textContent = '✨ Generează cele 6 variante'; } return; }
+  // 9.26: aceeași calitate ca la creator: modelul de la „Fidelitatea feței” (9B dacă încape), poza de profil ca reper la 1024 px,
+  //       fiecare variantă verificată în telefon să fie aceeași față (o reîncercare dacă nu e)
+  let refD = null; try{ const fs = await faceDescs(ref); if(fs.length) refD = fs.sort((x, y) => y.a - x.a)[0].d; }catch(e){}
+  const model = crModel(6, '768x1024');
   const avs = {...(c.avs || {})}; let ok = 0;
   for(const [k, , desc] of AV_V){
+    if(c.photo !== photo) break;   // poza de profil s-a schimbat între timp
     try{
       const prompt = `A new head-and-shoulders portrait photo of the same person as in the reference image (keep the face, hair and identity exactly). ${desc}. Framing like a profile picture. ${STIL_TAG[c.stil || 'photo']}`;
-      let bl = await genImage(prompt, ref, null, null, {why:'profil'});
+      let bl = null, bd = 9;
+      for(let t = 0; t < 2; t++){
+        let x = await genImage(prompt, ref, null, null, {model, size:'768x1024', force:{two:false, px:1024}, p1:prompt, quiet:true, why:'profil'});
+        addUsage(c.id, imgPrice(), 'img', null, 'profil');
+        let d = 0; if(refD){ try{ const fs = await faceDescs(x); d = fs.length ? Math.min(...fs.map(f => fdist(f.d, refD))) : 1; }catch(e){ d = 0; } }
+        if(d < bd){ bl = x; bd = d; }
+        if(d < .5) break;
+      }
       try{ if(bl.type === 'image/png') bl = await toJpeg(bl, 1024, .9); }catch(e){}
       const old = avs[k]; avs[k] = await saveImg(bl); if(old) delImg(old).catch(() => {});
-      addUsage(c.id, imgPrice(), 'img', null, 'profil'); ok++;
+      ok++;
       c.avs = {...avs}; await saveChars();
       if(b && document.body.contains(b)) b.innerHTML = `<span class="spin"></span> ${ok}/6`;
     }catch(e){ toast('O variantă n-a mers: ' + e.message, 3500); if(e.cap) break; }
   }
   if(ok){ c.avLive = true; await saveChars(); toast(`🖼️ ${ok} variante gata. Avatarul viu e pornit.`); }
-  if(profId === c.id) drawAv(c);
+  avRefresh(c);
+}
+// 9.26: după avatarele vii (sau pornit/oprit): profilul întreg, Acasă și antetul chatului arată imediat poza de acum
+function avRefresh(c){
+  if(profId === c.id && !$('#vProf').hidden) charProfile(c.id, false); else if(profId === c.id) drawAv(c);
   if(!$('#vHome').hidden) renderHome();
+  if(cur === c && $('#chAv')){ $('#chAv').outerHTML = avatarHTML(cur, 'av" id="chAv'); const bg = $('#chatBg'); if(bg && cur.photo && ['clar', 'poza'].includes(cur.bg || 'clar')) bg.dataset.bgk = photoNow(cur); hydrate(document); }
 }
 
 /* ───────── 🗂️ carduri de personaj ───────── */
@@ -3177,7 +3194,7 @@ function heroHTML(){
   const chips = [online ? '<span class="on">● online</span>' : '', cur.rel ? `<span>💞 ${esc(relOf(cur).name)}</span>` : '', wi ? `<span>📍 ${esc(wi)}</span>` : lf && lf.w ? `<span>${LIFE_E[lf.b]} ${esc(lf.w)}</span>` : ''].filter(Boolean).join('');
   const ov = `<div class="ov"><b>${esc(cur.name)}</b>${cur.tag ? `<small>${esc(cur.tag)}</small>` : ''}${chips ? `<div class="hchips">${chips}</div>` : ''}</div>`;
   if(clear) return `<div class="hero clear">${ov}</div>`;
-  return `<div class="hero">${cur.photo ? `<img data-k="${esc(cur.photo)}" alt="">` : `<div class="ph" style="background:${colorFor(cur)}">${esc((cur.name || '?')[0])}</div>`}${ov}</div>`;
+  return `<div class="hero">${cur.photo ? `<img data-k="${esc(photoNow(cur))}" alt="">` : `<div class="ph" style="background:${colorFor(cur)}">${esc((cur.name || '?')[0])}</div>`}${ov}</div>`;
 }
 function renderMsgs(toBottom, keep){
   const box = $('#msgs');
@@ -4197,7 +4214,7 @@ async function charProfile(id, push = true){
   const fromChat = !$('#vChat').hidden && cur && cur.id === id;
   $('#pfTopName').textContent = c.name;
   $('#pfBody').innerHTML = `
-    <div class="pfHero">${c.photo ? `<img data-k="${esc(c.photo)}" data-view="${esc(c.photo)}" alt="">` : `<div class="ph" style="background:${colorFor(c)}">${esc(c.name[0])}</div>`}${c.photoFull ? '<button type="button" class="pfFull" id="pfFullBtn">🧍 Poza întreagă</button>' : c.photo && S.imgProv !== 'none' ? '<button type="button" class="pfFull" id="pfMakeFull">🧍 Fă-i poza întreagă</button>' : ''}</div>
+    <div class="pfHero">${c.photo ? `<img data-k="${esc(photoNow(c))}" data-view="${esc(photoNow(c))}" alt="">` : `<div class="ph" style="background:${colorFor(c)}">${esc(c.name[0])}</div>`}${c.photoFull ? '<button type="button" class="pfFull" id="pfFullBtn">🧍 Poza întreagă</button>' : c.photo && S.imgProv !== 'none' ? '<button type="button" class="pfFull" id="pfMakeFull">🧍 Fă-i poza întreagă</button>' : ''}</div>
     <div class="igHead">
       <button class="igAv${hasStory ? ' ring' + (storyUn ? ' un' : '') : ''}" id="pfAvBtn" aria-label="${hasStory ? 'Vezi story-ul' : 'Poza de profil'}">${avatarHTML(c)}</button>
       <div class="igStats">
@@ -6119,17 +6136,29 @@ function crDrawZones(){
   box.oninput = e => { const k = e.target.dataset && e.target.dataset.z; if(!k || !ed || !ed.cr) return; ed.cr.z.zones[k] = e.target.value; crZoneChanged(); };
 }
 function crZoneChanged(){ if(ed && ed.cr) $('#edZoneHint').textContent = crHasZ(ed.cr.z) ? 'Se generează după zone. Schimbă orice zonă și apasă din nou „Generează”.' : ''; }
+// 9.26: cereri JSON robuste pentru creator: dacă AI-ul răspunde fără JSON, se mai cere o dată, mai strict; un refuz e spus clar
+async function crAskJSON(sys, text, max){
+  let last = '';
+  for(let k = 0; k < 2; k++){
+    const meta = {};
+    const out = await stream(sys, [{role:'user', text:k ? text + '\n\nIMPORTANT: răspunde DOAR cu obiectul JSON cerut, care începe cu { și se termină cu }, fără niciun alt text.' : text}], {max:k ? Math.round(max * 1.5) : max, aux:true, meta});
+    if(meta.stop === 'refusal') throw new Error('AI-ul n-a vrut să prelucreze descrierea. Reformulează mai neutru și mai încearcă.');
+    last = out;
+    if(String(out).includes('{')){ try{ return parseJSON(out); }catch(e){ if(k) throw e; } }
+  }
+  throw new Error(/\b(nu pot|nu voi|can.?t|cannot|won.?t|unable)\b/i.test(last) ? 'AI-ul n-a vrut să prelucreze descrierea. Reformulează mai neutru și mai încearcă.' : 'AI-ul n-a răspuns cum trebuie de două ori. Mai încearcă.');
+}
 // descrierea liberă → zone (română) + alegerile pentru corp; cu „îmbogățește”, completează și ce lipsește
 async function crZones(ro, rich){
-  const out = await stream('Organizezi descrieri de personaje pe zone, în română corectă. Răspunzi DOAR cu JSON valid.', [{role:'user', text:
+  const j = await crAskJSON('Organizezi descrieri de personaje pe zone, în română corectă. Răspunzi DOAR cu JSON valid.',
 `Descrierea scrisă de utilizator:
 """${ro.slice(0, 2500)}"""
 Împarte-o pe zone, păstrând EXACT tot ce a scris (nu contrazice nimic). ${rich ? 'Apoi completează zonele goale și adaugă detalii concrete, firești și coerente cu ce a scris (fără să schimbi ce a scris), ca descrierea să fie completă.' : 'Unde nu a scris nimic, lasă zona goală.'}
 Personajul e întotdeauna adult (cel puțin 21 de ani).
 Zone (text scurt, fiecare cel mult 35 de cuvinte): ${CR_ZONES.map(([k, l]) => `"${k}" = ${l}`).join('; ')}.
 Pentru corp alege, dacă reiese din descriere${rich ? ' sau dacă ai completat' : ''}, câte o valoare EXACT din listele: ${CR_BODY.map(([k, l, o]) => `"${k}" (${l}): ${o.join(' | ')}`).join('; ')}; "h" = înălțimea în centimetri (0 dacă nu se știe). Ce nu intră în liste merge în zona "corp".
-JSON: {"zones":{${CR_ZONES.map(([k]) => `"${k}":""`).join(',')}},"body":{"h":0${CR_BODY.map(([k]) => `,"${k}":""`).join('')}},"names":["3 prenume potrivite"]}`}], {max:1400, aux:true});
-  const j = parseJSON(out), Z = crEmptyZ();
+JSON: {"zones":{${CR_ZONES.map(([k]) => `"${k}":""`).join(',')}},"body":{"h":0${CR_BODY.map(([k]) => `,"${k}":""`).join('')}},"names":["3 prenume potrivite"]}`, 1800);
+  const Z = crEmptyZ();
   for(const [k] of CR_ZONES) Z.zones[k] = faraLiniute(String((j.zones || {})[k] || '').trim()).slice(0, 400);
   const jb = j.body || {};
   for(const [k, , opts] of CR_BODY){ const v = String(jb[k] || '').trim(); Z.body[k] = opts.includes(v) ? v : ''; }
@@ -6137,25 +6166,62 @@ JSON: {"zones":{${CR_ZONES.map(([k]) => `"${k}":""`).join(',')}},"body":{"h":0${
   if(!crHasZ(Z)) throw new Error('n-am putut înțelege descrierea; mai încearcă');
   return {Z, names:(Array.isArray(j.names) ? j.names : []).map(x => String(x).trim()).filter(x => x && x.length < 30).slice(0, 3)};
 }
-// zonele → prompt englez (o cerere scurtă; refăcut doar când zonele se schimbă)
-async function crEnFrom(Z){
-  const src = {...Z.zones, corp:crBodyText(Z)};
-  const out = await stream('You translate structured character appearance notes into a precise English prompt for a photo generator. Answer with JSON only.', [{role:'user', text:
-`Notes (Romanian), by zone:
-${Object.entries(src).filter(([, v]) => String(v).trim()).map(([k, v]) => `${k}: ${v}`).join('\n')}
-Translate faithfully into concise, neutral English, keeping every detail. The person is always a clearly adult person (21 or older). Fill empty zones with nothing.
-JSON: {"subject":"gender and apparent age, skin tone","face":"","hair":"","body":"","hands":"","outfit":"","shoes":"","pose":"","place":"","light":""}`}], {max:900, aux:true});
-  const j = parseJSON(out), f = k => String(j[k] || '').trim().replace(/[.\s]+$/, '');
-  if(!f('subject') && !f('face') && !f('body')) throw new Error('n-am putut pregăti promptul; mai încearcă');
-  return [f('subject') && `${f('subject')}.`, f('face') && `Face: ${f('face')}.`, f('hair') && `Hair: ${f('hair')}.`, f('body') && `Body: ${f('body')}.`, f('hands') && `Hands: ${f('hands')}.`,
+// 9.26: corpul ales pe butoane intră în prompt EXACT (fără traducere AI, care putea înmuia sau pierde detalii) și chiar după subiect
+const CR_BODY_EN = {
+  build:{'slabă':'very slim thin build', 'suplă':'slender build', 'atletică':'athletic toned build', 'medie':'average build', 'curbilinie':'curvy hourglass figure', 'plinuță':'soft chubby full-figured build', 'plină':'plus-size full-figured build', 'musculoasă':'muscular build'},
+  shoulders:{'înguști':'narrow shoulders', 'medii':'average shoulders', 'lați':'broad shoulders'},
+  bust:{'plat':'flat chest', 'mic':'small bust', 'mediu':'medium bust', 'mare':'large bust', 'foarte mare':'very large bust'},
+  bustShape:{'rotund':'round bust shape', 'natural, în formă de lacrimă':'natural teardrop-shaped bust', 'ridicat, ferm':'high firm bust', 'ușor lăsat':'naturally slightly sagging bust', 'depărtat':'wide-set bust', 'apropiat':'close-set bust'},
+  waist:{'foarte îngustă':'very narrow waist', 'îngustă':'narrow waist', 'medie':'average waist', 'lată':'wide waist'},
+  belly:{'plat':'flat stomach', 'tonifiat':'toned stomach', 'ușor rotunjit':'slightly soft rounded belly', 'rotunjit':'rounded belly'},
+  hips:{'înguste':'narrow hips', 'medii':'average hips', 'late':'wide hips', 'foarte late':'very wide hips'},
+  glutes:{'mici':'small buttocks', 'medii':'average buttocks', 'rotunde':'round buttocks', 'pline':'full buttocks'},
+  legsLen:{'lungi':'long legs', 'medii':'average-length legs', 'scurte':'short legs'},
+  legs:{'subțiri':'slim legs', 'tonifiate':'toned legs', 'pline':'full thighs and legs', 'musculoase':'muscular legs'},
+  arms:{'subțiri':'slim arms', 'tonifiate':'toned arms', 'pline':'soft full arms', 'musculoase':'muscular arms'},
+  skin:{'foarte deschis':'very fair skin', 'deschis':'fair skin', 'măsliniu':'olive skin', 'bronzat':'tanned skin', 'închis':'dark skin'}};
+function crBodyEn(Z){
+  const b = (Z && Z.body) || {}, p = [];
+  if(+b.h) p.push(`${+b.h} cm tall${+b.h < 158 ? ' (petite)' : +b.h > 178 ? ' (tall)' : ''}`);
+  for(const [k] of CR_BODY) if(b[k] && CR_BODY_EN[k] && CR_BODY_EN[k][b[k]]) p.push(CR_BODY_EN[k][b[k]]);
+  return p.join(', ');
+}
+// 9.26: fețe diferite între variante: unde nu ai descris fața, fiecare variantă primește alte trăsături (altfel generatorul
+// cade pe aceeași față „generică” la fiecare generare); ce ai scris tu despre față rămâne neatins
+const CR_FACEMIX = [
+  [/(oval|rotund|pătrat|patrat|alungit|inimă|inima|formă|forma)\s*(a\s*)?(feței|fetei|față|fata)?|față (ovală|rotundă|pătrată|alungită)|fata (ovala|rotunda|patrata)/i, ['an oval face', 'a heart-shaped face', 'a round soft face', 'a square face with a defined jaw', 'a long narrow face', 'a diamond-shaped face with high cheekbones']],
+  [/ochi/i, ['almond-shaped eyes', 'large round eyes', 'slightly hooded eyes', 'upturned cat-like eyes', 'deep-set eyes', 'wide-set eyes']],
+  [/\bnas/i, ['a small straight nose', 'a button nose', 'a slightly aquiline nose', 'a wide soft nose', 'a long straight nose', 'a nose with a slight bump']],
+  [/buz/i, ['full lips', 'thin lips', 'a wide mouth', 'cupid\'s-bow lips', 'a small mouth with a full lower lip']],
+  [/(pistrui|aluni|gropi|sprâncen|sprancen|pomeți|pometi)/i, ['high cheekbones', 'soft rounded cheeks', 'light freckles across the nose', 'a small beauty mark', 'thick natural eyebrows', 'dimples when smiling', 'a slightly crooked smile']]];
+function crFaceMix(Z){
+  const txt = [$('#edPrompt').value, Z && Z.zones && Z.zones.fata].join(' '), out = [];
+  for(const [re, opts] of CR_FACEMIX) if(!re.test(txt)) out.push(opts[Math.floor(Math.random() * opts.length)]);
+  return out.length ? `Distinctive facial features: ${out.join(', ')}. A unique, real-looking individual, not a generic model face.` : '';
+}
+// zonele (sau, fără zone, descrierea liberă) → descrierea în engleză; corpul ales pe butoane se adaugă exact
+async function crEnFrom(Z, ro){
+  const zon = Object.entries(Z.zones).filter(([, v]) => String(v).trim());
+  const notes = zon.length ? zon.map(([k, v]) => `${k}: ${v}`).join('\n') : `free description: ${String(ro || '').slice(0, 2500)}`;
+  const j = await crAskJSON('You translate character appearance notes into a precise English prompt for a photo generator. Answer with JSON only.',
+`Notes (Romanian):
+${notes}
+Translate faithfully into concise, neutral English, keeping every detail. The person is always a clearly adult person (21 or older). Leave a field empty if the notes say nothing about it.
+JSON: {"subject":"gender and apparent age, skin tone","face":"","hair":"","body":"","hands":"","outfit":"","shoes":"","pose":"","place":"","light":""}`, 900);
+  const f = k => String(j[k] || '').trim().replace(/[.\s]+$/, '');
+  if(!f('subject') && !f('face') && !f('body') && !f('hair')) throw new Error('n-am putut pregăti promptul; mai încearcă');
+  const be = crBodyEn(Z), body = [be, f('body')].filter(Boolean).join(', ');
+  return [f('subject') && `${f('subject')}.`, body && `Body: ${body}.`, f('face') && `Face: ${f('face')}.`, f('hair') && `Hair: ${f('hair')}.`, f('hands') && `Hands: ${f('hands')}.`,
     f('outfit') && `Outfit: ${f('outfit')}.`, f('shoes') && `Shoes: ${f('shoes')}.`, `Pose: ${f('pose') || 'natural relaxed standing pose'}.`, f('place') && `Setting: ${f('place')}.`, f('light') && `Light: ${f('light')}.`].filter(Boolean).join(' ');
 }
 const crAllText = () => [$('#edPrompt').value, ...Object.values(ed.cr.z.zones)].join(' ');
-const crPrompt = (en, frame) => `${CR_FRAMES[frame].p}. ${en} ${frame === 'portrait' ? '' : CR_HANDS + ' '}${STIL_TAG[crStil()]}`;
+const crKey = () => JSON.stringify([$('#edPrompt').value.trim(), ed.cr.z]);
+const crPrompt = (en, frame, mix) => `${CR_FRAMES[frame].p}. ${en}${mix ? ' ' + mix : ''} ${frame === 'portrait' ? '' : CR_HANDS + ' '}${STIL_TAG[crStil()]}`;
 function crInit(c){
   const Z = c && c.appZones && c.appZones.zones ? {zones:{...crEmptyZ().zones, ...c.appZones.zones}, body:{...crEmptyZ().body, ...c.appZones.body}} : crEmptyZ();
-  ed.cr = {frame:(c && c.frame) || 'full', vars:[], chosen:-1, run:0, busy:false, z:Z, enFor:c && c.appEn ? JSON.stringify(Z) : '', en:(c && c.appEn) || ''};
+  ed.cr = {frame:(c && c.frame) || 'full', vars:[], chosen:-1, run:0, busy:false, z:Z, en:(c && c.appEn) || '', enFor:'', manual:false};
   $('#edPrompt').value = (c && c.appPrompt) || ''; $('#edPromptEn').value = ed.cr.en;
+  if(c && c.appEn){ ed.cr.enFor = crKey(); ed.cr.manual = !!c.appEnManual; }
   $('#edAutoAng').checked = S.crAngles !== 'off';
   $('#edZonesWrap').open = crHasZ(Z);
   crDrawFrame(); crStyleSync(); crDrawZones(); crZoneChanged(); crRender(); crBusyUI(false);
@@ -6196,26 +6262,22 @@ function crEnrich(){
 }
 function crGenerate(){
   if(!crGuard()) return;
-  const ro = $('#edPrompt').value.trim();
-  if(!crHasZ(ed.cr.z) && ro.length < 8){ toast('Scrie întâi cum arată (câteva detalii) sau completează zonele.'); $('#edPrompt').focus(); return; }
+  const ro = $('#edPrompt').value.trim(), manual = ed.cr.manual && $('#edPromptEn').value.trim();
+  if(!crHasZ(ed.cr.z) && ro.length < 8 && !manual){ toast('Scrie întâi cum arată (câteva detalii) sau completează zonele.'); $('#edPrompt').focus(); return; }
   crRun('Generarea', async (E, R, signal) => {
-    if(!crHasZ(R.z)){
-      setEdStatus('<span class="spin"></span> Înțeleg descrierea…');
-      const t = await crZones(ro, false); if(ed !== E) return;
-      R.z = t.Z; crDrawZones(); crZoneChanged();
-      if(!$('#edName').value.trim() && t.names.length){ $('#edName').value = t.names[0]; $('#edTitle').textContent = t.names[0]; drawNames(t.names); }
-      if(CR_MINOR.test(crAllText())){ setEdStatus('Personajele din Taifas sunt adulte. Corectează vârsta.', 'err'); return; }
-    }
-    const key = JSON.stringify(R.z);
-    if(key !== R.enFor || !R.en){ setEdStatus('<span class="spin"></span> Pregătesc promptul…'); R.en = await crEnFrom(R.z); R.enFor = key; if(ed !== E) return; $('#edPromptEn').value = R.en; }
+    // 9.26: promptul englez scris de tine se folosește exact; se reface doar dacă schimbi descrierea sau zonele după ce l-ai scris
+    const key = crKey();
+    if(R.manual && key !== R.enFor){ R.manual = false; toast('Ai schimbat descrierea: promptul în engleză s-a refăcut din ea.', 3500); }
+    if(R.manual) R.en = $('#edPromptEn').value.trim();
+    else if(key !== R.enFor || !R.en){ setEdStatus('<span class="spin"></span> Pregătesc promptul…'); R.en = await crEnFrom(R.z, ro); R.enFor = key; if(ed !== E) return; $('#edPromptEn').value = R.en; }
     if(CR_MINOR.test(R.en)){ setEdStatus('Personajele din Taifas sunt adulte. Corectează vârsta.', 'err'); return; }
-    const frame = R.frame, FR = CR_FRAMES[frame], model = crModel(4, FR.size), prompt = crPrompt(R.en, frame), run = ++R.run;
+    const frame = R.frame, FR = CR_FRAMES[frame], model = crModel(4, FR.size), run = ++R.run;
     for(const v of R.vars) if(!v.keep && v.url) URL.revokeObjectURL(v.url);
     R.vars = R.vars.filter(v => v.keep);
-    const fresh = [0, 1, 2, 3].map(() => ({id:uid(), st:'gen', frame, prompt, kind:'nou'}));
+    const fresh = [0, 1, 2, 3].map(() => ({id:uid(), st:'gen', frame, prompt:crPrompt(R.en, frame, R.manual ? '' : crFaceMix(R.z)), kind:'nou'}));
     R.vars = fresh.concat(R.vars); R.chosen = R.vars.findIndex(v => v.keep); crRender();
     setEdStatus(`<span class="spin"></span> Generez 4 variante (${model === 'ancorat' ? 'Fidel · 9B' : 'Eco'})…`);
-    await Promise.allSettled(fresh.map(v => crMake(E, run, v, () => genImage(prompt, null, signal, null, {model, size:FR.size, quiet:true, why:'profil'}))));
+    await Promise.allSettled(fresh.map(v => crMake(E, run, v, () => genImage(v.prompt, null, signal, null, {model, size:FR.size, quiet:true, why:'profil'}))));
     if(signal.aborted) return;
     await crAfterBatch(E, fresh);
   });
@@ -6448,7 +6510,8 @@ async function crSave(c){
   if(!ed) return;
   if(ed.readP) await Promise.race([ed.readP, sleep(20000)]);
   c.appPrompt = $('#edPrompt').value.trim(); if(!c.appPrompt) delete c.appPrompt;
-  if(ed.cr){ c.frame = ed.cr.frame; if(crHasZ(ed.cr.z)) c.appZones = JSON.parse(JSON.stringify(ed.cr.z)); else delete c.appZones; if(ed.cr.en) c.appEn = ed.cr.en; }
+  if(ed.cr){ c.frame = ed.cr.frame; if(crHasZ(ed.cr.z)) c.appZones = JSON.parse(JSON.stringify(ed.cr.z)); else delete c.appZones;
+    const en = ed.cr.manual ? $('#edPromptEn').value.trim() : ed.cr.en; if(en) c.appEn = en; else delete c.appEn; if(ed.cr.manual) c.appEnManual = true; else delete c.appEnManual; }
   if(ed.fullTouched){
     const old = c.photoFull;
     if(ed.fullBlob){ c.photoFull = await saveImg(ed.fullBlob); c.fullBox = ed.fullBox || null; }
@@ -6726,7 +6789,10 @@ async function saveEditorNow(){
   let c = ed.id ? charById(ed.id) : null;
   const isNew = !c;
   if(isNew){ c = {id:uid(), created:Date.now()}; chars.push(c); }
-  if(ed.photoBlob){ const old = c.photo; c.photo = await saveImg(ed.photoBlob); if(old) await delPhotoIfUnused(c, old); c.aiPortrait = !!ed.aiPortrait; }
+  if(ed.photoBlob){ const old = c.photo; c.photo = await saveImg(ed.photoBlob); if(old) await delPhotoIfUnused(c, old); c.aiPortrait = !!ed.aiPortrait;
+    // 9.26: avatarele vii și unghiurile făcute automat erau ale feței vechi: se scot (altfel avatarul și pozele din chat arătau altă persoană)
+    if(old && c.avs){ for(const k of Object.values(c.avs)) await delImg(k).catch(() => {}); delete c.avs; c.avLive = false; }
+    if(old && c.refsAuto && !(ed.angles && ed.angles.length)){ for(const k of c.refs || []) await delImg(k).catch(() => {}); c.refs = []; delete c.refsAuto; c.refBoxes = {}; } }
   await crSave(c);   // 9.24: poza întreagă, corpul, unghiurile, descrierea ta
   const oldGreet = c.greet;
   Object.assign(c, {name, tag:$('#edTag').value.trim(), aspect:$('#edAspect').value.trim(), persona:$('#edPersona').value.trim(),
@@ -7395,6 +7461,7 @@ function bind(){
   $('#edAdjGo').onclick = crAdjust;
   $('#edAutoAng').onchange = e => { S.crAngles = e.target.checked ? 'on' : 'off'; saveSettings(); if(e.target.checked && ed && ed.cr && ed.cr.chosen >= 0 && !ed.angles && !ed.cr.busy) crAngles(); };
   $('#edFullView').onclick = () => { if(ed && ed.id) viewFull(charById(ed.id)); };
+  $('#edPromptEn').addEventListener('input', () => { if(!ed || !ed.cr) return; ed.cr.manual = !!$('#edPromptEn').value.trim(); ed.cr.enFor = crKey(); });   // 9.26: îl poți scrie tu
   $('#edNameGen').onclick = runNames;
   $('#edSurprise').onclick = surpriseSheet;
   $('#edName').addEventListener('input', () => { $('#edTitle').textContent = $('#edName').value.trim() || 'Personaj nou'; $$('#edNames button').forEach(b => b.classList.toggle('on', b.textContent === $('#edName').value.trim())); });
