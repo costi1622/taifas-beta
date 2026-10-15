@@ -700,6 +700,17 @@ JSON, keys in exactly this order, nothing else:
   if(!j.shot){ const mm = String(out).match(/"shot"\s*:\s*"((?:[^"\\]|\\.)*)/); if(mm) j.shot = mm[1].replace(/\\"/g, '"'); }
   if(!j.camera){ const mm = String(out).match(/"camera"\s*:\s*"([^"]*)"/); if(mm) j.camera = mm[1]; }
   let shot = String(j.shot || promised || '').trim().replace(/^["„]|["”]$/g, '').replace(/[.\s]+$/, '');
+  // 9.23: cererea explicită a utilizatorului pentru nuditate trebuie să ajungă în promptul imaginii;
+  // un refuz în dialog sau ținuta anterioară nu trebuie să transforme automat scena într-o poză îmbrăcată.
+  const userAskedNude = hist.some(x => x.role === 'user' && /\b(nude|naked|unclothed|without clothes|no clothes|fully undressed|nudity|nud[aă]|dezbr[aă]cat[aă]|f[aă]r[aă] haine|f[aă]r[aă] [îi]mbr[aă]c[aă]minte|f[aă]r[aă] haine pe ea|f[aă]r[aă] haine pe el|s[aă]nii goi|pieptul gol)\b/i.test(String(x.text || '')));
+  const adultKnown = /\b(adult[aă]?|18\s*(?:\+|ani|years? old)|19\s*(?:ani|years? old)|[2-9]\d\s*(?:ani|years? old)|\d{2} de ani)\b/i.test(String(c.persona || '') + ' ' + String(c.look || '') + ' ' + String(c.name || ''));
+  if(userAskedNude && adultKnown){
+    const w = ch.where || {};
+    const room = String(w.room || 'bedroom').replace(/[^a-z -]/gi, '').slice(0, 40) || 'bedroom';
+    const place = String(w.place || 'at home').replace(/[\n\r]/g, ' ').slice(0, 70);
+    const light = String(w.light || 'soft natural room lighting').replace(/[\n\r]/g, ' ').slice(0, 70);
+    shot = `Full-body mirror selfie of the same clearly adult fictional character, completely nude with no clothes, no underwear and no towel, standing naturally in the ${room} ${place ? '(' + place + ')' : ''}, non-sexual artistic nudity, relaxed neutral pose, arms resting naturally at the sides, entire body visible head to feet, ordinary lived-in room, ${light}, realistic candid smartphone photo. The user's explicit request for a nude image overrides previous outfit continuity and any in-character dialogue refusal. Do not add clothing or cover the body with objects.`;
+  }
   if(shot.length < 15) shot = fallbackShot(c, ch, exclude);
   if(shot.length < 15) throw new Error('Nu am putut descrie poza din conversație. Mai încearcă o dată.');
   if(j.where && typeof j.where === 'object'){
