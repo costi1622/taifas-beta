@@ -1,5 +1,5 @@
 window.__taifas = true;   // 8.20.1: semn pentru index.html că app.js s-a încărcat
-const APP_VER = '9.27';
+const APP_VER = '9.28';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -6303,10 +6303,16 @@ async function crAfterBatch(E, list){
   if(!ok.length){ setEdStatus('Nicio variantă n-a ieșit: ' + esc((list.find(v => v.err) || {}).err || 'eroare'), 'err'); return; }
   if(S.crHands !== 'off' && aiReady()) await crHands(E, ok);
   if(ed !== E) return;
-  const best = ok.slice().sort((a, b) => (b.chk ? b.chk.score : 0) - (a.chk ? a.chk.score : 0))[0];
-  R.vars.forEach(v => v.best = false); if(best && best.chk && best.chk.score > 0) best.best = true;
+  // 9.28: recomandarea = cea mai apropiată de descriere (nota lui Claude cântărește cel mai mult), apoi verificările din telefon;
+  //       la egalitate nu se mai alege implicit prima (stânga sus): fără ⭐ dacă nu e una clar mai bună
+  const tot = v => (v.chk ? v.chk.score : 0) + (v.chk && v.chk.match != null ? v.chk.match * 1.5 : 0);
+  const sorted = ok.slice().sort((x, y) => tot(y) - tot(x) || ((y.chk && y.chk.match) || 0) - ((x.chk && x.chk.match) || 0));
+  R.vars.forEach(v => v.best = false);
+  const best = sorted[0], second = sorted[1];
+  if(best && tot(best) > 0 && (!second || tot(best) - tot(second) >= .5)) best.best = true;
   crRender();
-  setEdStatus(`✓ ${ok.length} ${ok.length === 1 ? 'variantă gata' : 'variante gata'}. Atinge una ca s-o vezi mare, apoi „Alege”.`, 'ok');
+  setEdStatus(`✓ ${ok.length} ${ok.length === 1 ? 'variantă gata' : 'variante gata'}${best && best.best ? '. ⭐ = cea mai apropiată de descriere' : ''}. Atinge una ca s-o vezi mare, apoi „Alege”.`, 'ok');
+
 }
 // verificarea din telefon (fără cost): o singură persoană, fața clară, corpul în cadru după încadrarea cerută
 async function crCheck(v){
@@ -6348,22 +6354,33 @@ async function crPose(im){
 // Claude se uită la mâini, degete și picioare (o singură cerere pentru tot lotul; pornit implicit)
 async function crHands(E, list){
   try{
-    setEdStatus('<span class="spin"></span> Verific mâinile și degetele…');
+    setEdStatus('<span class="spin"></span> Compar variantele cu descrierea și verific mâinile…');
     const imgs = []; for(const v of list) imgs.push(await blobToB64(await toJpeg(v.blob, 768, .85)));
-    const out = await stream('You inspect generated photos for anatomy errors. Answer with JSON only.', [{role:'user', images:imgs, text:
-`There are ${imgs.length} images, in order. For each one, check the hands and fingers (count, shape, fused or extra fingers), the arms, legs and feet. JSON array, one item per image, in order: [{"hands":"ok|bad|hidden","feet":"ok|bad|hidden","note":"max 8 words, in Romanian"}]`}], {max:400, aux:true, cid:E.id});
-    const a = out.indexOf('['), b = out.lastIndexOf(']'), arr = JSON.parse(out.slice(a, b + 1));
-    list.forEach((v, i) => { const x = arr[i] || {}; if(!v.chk) return; v.chk.hands = x.hands; v.chk.note = String(x.note || '').slice(0, 60);
+    // 9.28: și cât de bine se potrivește fiecare variantă cu ce ai cerut (aceeași cerere, fără cost în plus)
+    const R = E.cr, ro = $('#edPrompt').value.trim(), want = (list[0] && list[0].want) || '';
+    const desc = [ro && 'User description (Romanian): ' + ro.slice(0, 1200), R && crHasZ(R.z) ? 'Details by zone (Romanian): ' + Object.entries(R.z.zones).filter(([, x]) => String(x).trim()).map(([k, x]) => k + ': ' + x).join('; ') + (crBodyText(R.z) ? '; corp: ' + crBodyText(R.z) : '') : '', R && R.en ? 'Prompt (English): ' + R.en.slice(0, 1500) : '', want && 'Requested change for these variants: ' + want].filter(Boolean).join('\n');
+    const j = await stream('You inspect generated photos: how well each matches the requested description, and anatomy errors. Be strict and discriminating: the scores must reflect real differences between the images. Answer with JSON only.', [{role:'user', images:imgs, text:
+`There are ${imgs.length} images, in order.
+${desc || '(no description)'}
+For each image: "match" = 0-10, how faithfully it matches the description (age, gender, face, hair color and style, body type and proportions, outfit, shoes, place, light; the requested change if any); "miss" = the most important thing that differs from the description, max 8 words, in Romanian ("" if nothing); then check the hands and fingers (count, shape, fused or extra fingers) and the feet.
+JSON array, one item per image, in order: [{"match":0,"miss":"","hands":"ok|bad|hidden","feet":"ok|bad|hidden"}]`}], {max:700, aux:true, cid:E.id});
+    const a = j.indexOf('['), b = j.lastIndexOf(']'), arr = JSON.parse(j.slice(a, b + 1));
+    list.forEach((v, i) => { const x = arr[i] || {}; if(!v.chk) return; v.chk.hands = x.hands;
+      const m = Math.round(+x.match); if(Number.isFinite(m) && m >= 0 && m <= 10) v.chk.match = m;
+      v.chk.missDesc = faraLiniute(String(x.miss || x.note || '').trim()).slice(0, 70);
       if(x.hands === 'bad'){ v.chk.miss.push('mâini greșite'); v.chk.score -= 3; } else if(x.hands === 'ok') v.chk.score += 1;
       if(x.feet === 'bad'){ v.chk.miss.push('picioare greșite'); v.chk.score -= 2; } });
   }catch(e){ /* dacă nu merge, rămân verificările din telefon */ }
+
 }
 function crBadge(v){
   if(v.st === 'gen') return '<span class="crb wait"><span class="spin"></span></span>';
   if(v.st === 'err') return `<span class="crb bad">⚠️ ${esc((v.err || 'eroare').slice(0, 40))}</span>`;
   const k = v.chk; if(!k) return '<span class="crb wait">verific…</span>';
   const same = v.sameD != null ? (v.sameD < .5 ? '<span class="crb ok">👤 aceeași față</span>' : '<span class="crb bad">👤 altă față</span>') : '';
-  return (k.miss.length ? `<span class="crb bad">⚠️ ${esc(k.miss.slice(0, 2).join(', '))}</span>` : `<span class="crb ok">✓ ${v.frame === 'full' ? 'corp întreg' : v.frame === '34' ? 'trei sferturi' : 'portret'}</span>`) + same + (v.best ? '<span class="crb star">⭐ recomandată</span>' : '');
+  const mt = k.match != null ? `<span class="crb ${k.match >= 8 ? 'ok' : k.match <= 5 ? 'bad' : ''}" title="${esc(k.missDesc || '')}">🎯 ${k.match}/10${k.missDesc && k.match < 9 ? ' · ' + esc(k.missDesc) : ''}</span>` : '';   // 9.28: cât se potrivește cu descrierea
+  return (v.best ? '<span class="crb star">⭐ recomandată</span>' : '') + mt + (k.miss.length ? `<span class="crb bad">⚠️ ${esc(k.miss.slice(0, 2).join(', '))}</span>` : `<span class="crb ok">✓ ${v.frame === 'full' ? 'corp întreg' : v.frame === '34' ? 'trei sferturi' : 'portret'}</span>`) + same;
+
 }
 const CR_KIND = {aj:'🪄', mai:'🔁'};
 function crRender(){
@@ -6456,7 +6473,7 @@ function crAdjust(){
     const en = (await stream('You translate short photo-edit requests into English for an image editor. Answer with the English instruction only.', [{role:'user', text:'Translate faithfully, concise, neutral: ' + ro}], {max:120, aux:true})).trim().replace(/^["“]|["”]$/g, '');
     const FR = CR_FRAMES[v.frame], keepHair = /(păr|par\b|coaf|hair)/i.test(ro) ? '' : ', the same hairstyle';
     const p = `Edit this exact photo. Keep the same person: identical face and identity, the same skin${keepHair}. Change ONLY this: ${en}. Keep the framing: ${FR.p}. Everything that is not mentioned stays exactly as it is. ${v.frame === 'portrait' ? '' : CR_HANDS + ' '}${STIL_TAG[crStil()]}`;
-    await crFromChosen(E, R2, v, p, 2, 'aj', signal, 'Fac 2 variante ajustate (aceeași persoană)…');
+    await crFromChosen(E, R2, v, p, 2, 'aj', signal, 'Fac 2 variante ajustate (aceeași persoană)…', ro);
   });
 }
 // „🔁 Mai multe ca asta”: încă 4 variante ale aceleiași persoane, cu mici diferențe de poziție și expresie
@@ -6468,9 +6485,9 @@ function crMore(){
     await crFromChosen(E, R2, v, p, 4, 'mai', signal, 'Fac încă 4 variante ca aceasta…');
   });
 }
-async function crFromChosen(E, R, v, p, n, kind, signal, msg){
+async function crFromChosen(E, R, v, p, n, kind, signal, msg, want){
   const FR = CR_FRAMES[v.frame], model = crModel(n, FR.size), run = ++R.run;
-  const fresh = Array.from({length:n}, () => ({id:uid(), st:'gen', frame:v.frame, prompt:p, kind}));
+  const fresh = Array.from({length:n}, () => ({id:uid(), st:'gen', frame:v.frame, prompt:p, kind, want:want || ''}));
   R.vars = fresh.concat(R.vars); R.chosen = R.vars.indexOf(v); crRender();
   setEdStatus('<span class="spin"></span> ' + msg);
   await Promise.allSettled(fresh.map(x => crMake(E, run, x, () => genImage(p, v.blob, signal, null, {model, size:FR.size, force:{two:false, px:1024}, p1:p, quiet:true, why:'profil'}))));
