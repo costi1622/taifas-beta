@@ -1486,6 +1486,30 @@ details.sdanger>summary{color:var(--err)}
 .callv.showing .cvid{filter:blur(7px) brightness(.72);transition:filter .5s}
 .callv .cvid{transition:opacity .5s,filter .5s}
 @media (prefers-reduced-motion:reduce){.callv .cshow .glare{animation:none}}
+/* ── 9.24: personajul din descriere (poza întreagă) ── */
+.crea{margin:14px 0 6px;padding:14px;border-radius:18px;background:var(--card);border:1px solid var(--hair,#ffffff14);display:flex;flex-direction:column;gap:10px}
+.crea > label{font-weight:700}
+.crea textarea{width:100%}
+.crea .chipset{margin:0}
+.crea .crgo{width:100%}
+.crgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.crgrid:empty{display:none}
+.crv{margin:0;position:relative;border-radius:14px;overflow:hidden;background:#0003;border:2px solid transparent;display:flex;flex-direction:column}
+.crv.on{border-color:var(--acc)}
+.crv img,.crv .crph{width:100%;aspect-ratio:2/3;object-fit:cover;display:block}
+.crv .crph{background:linear-gradient(110deg,#ffffff08 30%,#ffffff1a 50%,#ffffff08 70%);background-size:200% 100%;animation:crsh 1.3s linear infinite}
+@keyframes crsh{to{background-position:-200% 0}}
+.crv figcaption{display:flex;flex-wrap:wrap;gap:4px;padding:6px 6px 0;min-height:26px}
+.crb{font-size:.68rem;line-height:1.2;padding:3px 7px;border-radius:99px;background:#0006;color:var(--tx)}
+.crb.ok{background:#1f7a4a;color:#fff}.crb.bad{background:#a5362f;color:#fff}.crb.star{background:#b58a12;color:#fff}
+.crv .btn{margin:6px}
+.crchosen{display:flex;flex-direction:column;gap:8px}
+.crchosen .adjrow{display:flex;gap:6px}.crchosen .adjrow input{flex:1;min-width:0}
+.angview{display:flex;gap:8px}.angview:empty{display:none}.angview img{width:30%;aspect-ratio:3/4;object-fit:cover;border-radius:10px}
+.crav textarea{width:100%;margin-top:8px;font-size:.82rem}
+.crav .chk{display:flex;gap:8px;align-items:flex-start;font-size:.82rem;margin-top:8px;font-weight:400}
+.pfHero .pfFull{position:absolute;right:12px;bottom:14px;z-index:2;padding:7px 13px;border-radius:99px;border:1px solid #ffffff33;background:#0009;color:#fff;font:inherit;font-size:.82rem;backdrop-filter:blur(10px)}
+.viewer #vwFace[hidden]{display:none}
 </style>
 </head>
 <body>
@@ -1583,6 +1607,28 @@ details.sdanger>summary{color:var(--err)}
       <div class="sec">
         <button type="button" class="photo" id="edPhoto"><span><b>＋</b>Urcă o poză<br>AI-ul o descrie 1:1</span></button>
         <input type="file" id="edFile" accept="image/*" hidden>
+        <div class="crea" id="edCrea">
+          <label for="edPrompt">✨ Sau descrie cum arată, iar AI-ul îi face poza</label>
+          <textarea id="edPrompt" rows="4" maxlength="2500" placeholder="ex. brunetă de 28 de ani, 1,70 m, atletică, păr lung ondulat, ochi verzi, unghii roșii, un inel argintiu, rochie verde de vară, sandale albe, pe o terasă la apus"></textarea>
+          <div class="chipset" id="edFrame"><button type="button" data-v="full">🧍 Corp întreg</button><button type="button" data-v="34">Trei sferturi</button><button type="button" data-v="portrait">Portret</button></div>
+          <div class="chipset" id="edStyle"><button type="button" data-v="photo">Foto realist</button><button type="button" data-v="anime">Anime</button><button type="button" data-v="illustration">Ilustrație</button><button type="button" data-v="3d">3D</button></div>
+          <button type="button" class="btn pri crgo" id="edGen4">🎨 Generează 4 variante</button>
+          <div class="crgrid" id="edVars"></div>
+          <div class="crchosen" id="edChosen" hidden>
+            <div class="btns"><button type="button" class="btn sm" id="edViewChosen">🔍 Vezi mare</button><button type="button" class="btn sm" id="edAngles">📐 Fișă de personaj</button></div>
+            <div class="angview" id="edAngleView"></div>
+            <div class="hint">📐 Fișa face încă 2 unghiuri ale feței (trei sferturi și profil); la salvare devin repere pentru pozele din chat, ca să semene mai bine.</div>
+            <label for="edAdjTxt">🪄 Ajustează: aceeași persoană, se schimbă doar ce scrii</label>
+            <div class="chipset adj" id="edAdjChips"><button type="button" data-adj="altă ținută">👗 Altă ținută</button><button type="button" data-adj="altă coafură">💇 Alt păr</button><button type="button" data-adj="mai înaltă, cu proporții firești">📏 Mai înaltă</button><button type="button" data-adj="mai scundă, cu proporții firești">📐 Mai scundă</button><button type="button" data-adj="altă poziție a corpului, la fel de naturală">🕺 Altă poziție</button><button type="button" data-adj="alt loc în fundal">🏙️ Alt loc</button><button type="button" data-adj="un zâmbet cald, natural">😊 Zâmbet</button></div>
+            <div class="adjrow"><input id="edAdjTxt" maxlength="200" placeholder="ex. rochie neagră scurtă și cizme"><button type="button" class="btn sm pri" id="edAdjGo">Aplică</button></div>
+          </div>
+          <div class="hint" id="edFullNow" hidden>🧍 Are deja o poză întreagă. <button type="button" class="btn sm" id="edFullView">Vezi</button></div>
+          <details class="crav"><summary>Avansat: promptul în engleză și verificări</summary>
+            <textarea id="edPromptEn" rows="5" placeholder="Se scrie singur din descrierea ta. Îl poți corecta; se reface când schimbi descrierea."></textarea>
+            <label class="chk"><input type="checkbox" id="edHands"> 🖐️ Verifică și mâinile, degetele și picioarele cu Claude (o cerere mică pentru toate variantele)</label>
+          </details>
+        </div>
+        <div class="hint" id="edCreaOff" hidden>Pornește pozele din Setări → Poze ca AI-ul să-i poată face poza din descriere.</div>
         <div class="lblrow"><label for="edName">Nume</label><button type="button" class="btn sm" id="edNameGen">🎲 Alte nume</button></div>
         <input id="edName" placeholder="ex. Ana" maxlength="40">
         <div class="namechips" id="edNames"></div>
