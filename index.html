@@ -1434,6 +1434,39 @@ input:focus,textarea:focus,select:focus{border-color:color-mix(in srgb,var(--acc
 .lkin{display:flex;flex-direction:column;align-items:center;padding-bottom:10px}
 /* 8.6: orașul */
 .cityrow{display:flex;gap:8px}.cityrow input{flex:1}
+
+/* 9.22: Setări noi — bord de stare, mod rapid, căutare, secțiuni pliate */
+.sdash{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:-6px 0 10px}
+.stile{display:flex;flex-direction:column;align-items:flex-start;gap:3px;padding:12px 11px;border-radius:16px;background:var(--bg2);border:1px solid var(--hair,var(--line));text-align:left;min-width:0;transition:transform .15s var(--ease,ease)}
+.stile:active{transform:scale(.97)}
+.stile i{font-style:normal;font-size:1.15rem}
+.stile b{font-size:.9rem;line-height:1.2;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.stile small{font-size:.72rem;color:var(--tx3)}
+.stile.ok b{color:var(--ok)} .stile.bad b{color:var(--err)}
+.shealth{display:flex;align-items:center;gap:10px;width:100%;padding:11px 14px;border-radius:14px;margin-bottom:14px;text-align:left;font-size:.86rem;background:color-mix(in srgb,var(--ok) 12%,transparent);color:var(--tx);border:1px solid color-mix(in srgb,var(--ok) 30%,transparent)}
+.shealth.warn{background:color-mix(in srgb,#ffb020 14%,transparent);border-color:color-mix(in srgb,#ffb020 40%,transparent)}
+.shealth em{margin-left:auto;font-style:normal;color:var(--tx3)}
+.smode{padding:12px;border-radius:16px;background:var(--bg2);margin-bottom:12px}
+.smodeh{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:8px}
+.smodeh small{color:var(--tx3);font-size:.75rem}
+.sfind{margin-bottom:16px}
+.sfind input{width:100%}
+#stFindRes{margin-top:6px;border-radius:14px;overflow:hidden;background:var(--bg2)}
+#stFindRes:empty{display:none}
+#stFindRes button{display:block;width:100%;text-align:left;padding:10px 14px;font-size:.88rem;border-bottom:1px solid var(--line)}
+#stFindRes button small{display:block;color:var(--tx3);font-size:.74rem}
+#stFindRes p{padding:10px 14px;margin:0;color:var(--tx3);font-size:.85rem}
+.panel h3.sh{margin:26px 0 2px}
+details.sadv{margin-top:14px;padding:10px 12px;border-radius:14px;background:var(--bg2);border:1px solid var(--line)}
+details.sadv>summary{list-style:none;display:flex;flex-wrap:wrap;align-items:baseline;gap:6px;color:var(--tx)}
+details.sadv>summary::-webkit-details-marker{display:none}
+details.sadv>summary::after{content:'›';margin-left:auto;transition:transform .2s;color:var(--tx3)}
+details.sadv[open]>summary::after{transform:rotate(90deg)}
+details.sadv>summary small{color:var(--tx3);font-weight:500;font-size:.75rem}
+details.sdanger>summary{color:var(--err)}
+.sflash{animation:sflash 1.6s var(--ease,ease)}
+@keyframes sflash{0%,40%{box-shadow:0 0 0 3px var(--acc,#9b5cff);border-radius:12px}100%{box-shadow:0 0 0 0 transparent}}
+@media (max-width:360px){.sdash{grid-template-columns:1fr 1fr}}
 </style>
 </head>
 <body>
@@ -1590,20 +1623,32 @@ input:focus,textarea:focus,select:focus{border-color:color-mix(in srgb,var(--acc
   <div class="scroll" id="stScroll"><div class="form">
     <div id="setList">
       <div class="scard"><span class="av" id="stMeAv">?</span><div><b id="stMeName">Tu</b><small id="stMeSub"></small></div></div>
-      <div class="sgroup"><h4>Cont</h4>
+      <div class="sdash">
+        <button class="stile" data-p="ai"><i>🧠</i><b id="dAi">…</b><small>Inteligența</small></button>
+        <button class="stile" data-p="img"><i>📸</i><b id="dImg">…</b><small id="dImgSub">Poze</small></button>
+        <button class="stile" data-p="cost"><i>💰</i><b id="dCost">…</b><small>luna aceasta</small></button>
+      </div>
+      <button class="shealth" id="stHealth" type="button"></button>
+      <div class="smode">
+        <div class="smodeh"><b>Mod rapid</b><small id="stModeNow"></small></div>
+        <div class="seg" id="stMode"><button data-v="eco">🌱 Economic</button><button data-v="bal">⚖️ Echilibrat</button><button data-v="max">💎 Maxim</button></div>
+        <p class="hint" id="stModeHint"></p>
+      </div>
+      <div class="sfind"><input id="stFind" type="text" inputmode="search" placeholder="🔎 Caută o setare: voce, plafon, temă, backup…" autocomplete="off" enterkeyhint="search"><div id="stFindRes"></div></div>
+      <div class="sgroup"><h4>Esențiale</h4>
         <button class="srow" data-p="ai"><i style="background:linear-gradient(135deg,#9b5cff,#6a4cff)">🧠</i><span><b>Inteligența (Claude)</b><small id="sum_ai"></small></span><em>›</em></button>
-        <button class="srow" data-p="me"><i style="background:linear-gradient(135deg,#4f8cff,#2f6bff)">👤</i><span><b>Despre tine</b><small id="sum_me"></small></span><em>›</em></button>
+        <button class="srow" data-p="img"><i style="background:linear-gradient(135deg,#ff4f9a,#ff6b4a)">🖼️</i><span><b>Poze</b><small id="sum_img"></small></span><em>›</em></button>
       </div>
       <div class="sgroup"><h4>Conversații</h4>
-        <button class="srow" data-p="img"><i style="background:linear-gradient(135deg,#ff4f9a,#ff6b4a)">🖼️</i><span><b>Poze</b><small id="sum_img"></small></span><em>›</em></button>
-        <button class="srow" data-p="chat"><i style="background:linear-gradient(135deg,#22c3a6,#16a085)">💬</i><span><b>Răspunsuri și voce</b><small id="sum_chat"></small></span><em>›</em></button>
+        <button class="srow" data-p="chat"><i style="background:linear-gradient(135deg,#22c3a6,#16a085)">💬</i><span><b>Răspunsuri, voce și viața personajelor</b><small id="sum_chat"></small></span><em>›</em></button>
+        <button class="srow" data-p="me"><i style="background:linear-gradient(135deg,#4f8cff,#2f6bff)">👤</i><span><b>Despre tine</b><small id="sum_me"></small></span><em>›</em></button>
         <button class="srow" data-p="look"><i style="background:linear-gradient(135deg,#ffb020,#ff8a00)">🎨</i><span><b>Aspect</b><small id="sum_look"></small></span><em>›</em></button>
       </div>
-      <div class="sgroup"><h4>Date</h4>
+      <div class="sgroup"><h4>Siguranță și date</h4>
         <button class="srow" data-p="cost"><i style="background:linear-gradient(135deg,#5fd39a,#2fa86d)">💰</i><span><b>Consum</b><small id="sum_cost"><span id="stCostMini"></span></small></span><em>›</em></button>
+        <button class="srow" data-p="data"><i style="background:linear-gradient(135deg,#8a8f9c,#5e6370)">💾</i><span><b>Backup și restaurare</b><small id="sum_data">Personaje, conversații, poze</small></span><em>›</em></button>
         <button class="srow" data-p="lock"><i style="background:linear-gradient(135deg,#3ac2a0,#1f8f78)">🔒</i><span><b>Blocare</b><small id="sum_lock"></small></span><em>›</em></button>
         <button class="srow" data-p="push"><i style="background:linear-gradient(135deg,#ffb020,#ff6a3d)">🔔</i><span><b>Notificări</b><small id="sum_push"></small></span><em>›</em></button>
-        <button class="srow" data-p="data"><i style="background:linear-gradient(135deg,#8a8f9c,#5e6370)">💾</i><span><b>Backup și restaurare</b><small id="sum_data">Personaje, conversații, poze</small></span><em>›</em></button>
         <button class="srow" id="stWrapped"><i style="background:linear-gradient(135deg,#ff4f9a,#9b5cff)">📊</i><span><b>Taifas Wrapped</b><small>Luna ta în cifre și momente</small></span><em>›</em></button>
       </div>
       <div class="updRow"><span class="hint" id="stVer"></span><button class="btn sm" id="stUpd">⟳ Caută actualizare</button></div>
@@ -1615,29 +1660,31 @@ input:focus,textarea:focus,select:focus{border-color:color-mix(in srgb,var(--acc
         <label for="stKey">Cheie Anthropic</label>
         <input id="stKey" type="password" placeholder="sk-ant-…" autocomplete="off">
       </div>
-      <h3 style="margin-top:6px">🔐 Unde stau cheile</h3>
-      <div class="seg" id="stVault"><button data-v="off">În telefon</button><button data-v="on">În Worker (seif)</button></div>
-      <div id="stVaultBox" hidden>
-        <p class="hint">Cheile (Anthropic, Runware) stau ca secrete în Worker-ul tău (v9). Telefonul ține doar adresa și parola; orice cerere trece prin Worker, care adaugă cheia.</p>
-        <label for="stVkBase">Adresa Worker-ului (v9)</label>
-        <input id="stVkBase" type="url" placeholder="https://taifas-imagini.….workers.dev/v1">
-        <label for="stVkTok">Parolă (secretul TOKEN din Worker, minimum 24 de caractere)</label>
-        <input id="stVkTok" type="password" autocomplete="off">
-        <div class="btns"><button type="button" class="btn sm" id="stVkCheck">🔎 Verifică seiful</button><button type="button" class="btn sm" id="stVkGen">🔑 Parolă nouă</button></div>
-        <div class="status" id="stVkRes"></div>
-        <div class="btns" id="stVkWipeWrap" hidden><button type="button" class="btn sm dan" id="stVkWipe">🧹 Șterge cheile din telefon</button></div>
-      </div>
       <div class="btns"><button type="button" class="btn" id="stTest">Testează</button></div>
       <div class="status" id="stTestRes"></div>
-      <label>Model mic pentru sarcini de fundal (sugestii, memorie, rezumat, jurnal, scene foto)</label>
-      <div class="seg" id="stAux"><button data-v="on">Haiku (ieftin)</button><button data-v="off">Modelul principal</button></div>
-      <div class="hint">Personajul răspunde mereu cu modelul principal; doar sarcinile din spate folosesc modelul mic.</div>
-      <h3 style="margin-top:20px">Model Claude</h3>
-      <div id="stAntAdv">
-        <label for="stModel">Model Claude</label>
-        <input id="stModel" list="dlModels" placeholder="claude-sonnet-5-5">
-        <datalist id="dlModels"><option value="claude-sonnet-5-5"><option value="claude-opus-5-5"><option value="claude-haiku-5-5"><option value="claude-sonnet-5"></datalist>
-      </div>
+      <details class="sadv" id="stVaultDet"><summary>🔐 Unde stau cheile <small>telefon sau Worker (seif)</small></summary>
+        <div class="seg" id="stVault"><button data-v="off">În telefon</button><button data-v="on">În Worker (seif)</button></div>
+        <div id="stVaultBox" hidden>
+          <p class="hint">Cheile (Anthropic, Runware) stau ca secrete în Worker-ul tău (v9). Telefonul ține doar adresa și parola; orice cerere trece prin Worker, care adaugă cheia.</p>
+          <label for="stVkBase">Adresa Worker-ului (v9)</label>
+          <input id="stVkBase" type="url" placeholder="https://taifas-imagini.….workers.dev/v1">
+          <label for="stVkTok">Parolă (secretul TOKEN din Worker, minimum 24 de caractere)</label>
+          <input id="stVkTok" type="password" autocomplete="off">
+          <div class="btns"><button type="button" class="btn sm" id="stVkCheck">🔎 Verifică seiful</button><button type="button" class="btn sm" id="stVkGen">🔑 Parolă nouă</button></div>
+          <div class="status" id="stVkRes"></div>
+          <div class="btns" id="stVkWipeWrap" hidden><button type="button" class="btn sm dan" id="stVkWipe">🧹 Șterge cheile din telefon</button></div>
+        </div>
+      </details>
+      <details class="sadv" id="stModelDet"><summary>⚙️ Modelele <small>Claude pentru personaje, Haiku pentru fundal</small></summary>
+        <div id="stAntAdv">
+          <label for="stModel">Modelul personajelor</label>
+          <input id="stModel" list="dlModels" placeholder="claude-sonnet-5-5">
+          <datalist id="dlModels"><option value="claude-sonnet-5-5"><option value="claude-opus-5-5"><option value="claude-haiku-5-5"><option value="claude-sonnet-5"></datalist>
+        </div>
+        <label>Model mic pentru sarcini de fundal (sugestii, memorie, rezumat, jurnal, scene foto)</label>
+        <div class="seg" id="stAux"><button data-v="on">Haiku (ieftin)</button><button data-v="off">Modelul principal</button></div>
+        <div class="hint">Personajul răspunde mereu cu modelul principal; doar sarcinile din spate folosesc modelul mic.</div>
+      </details>
     </div>
 
     <div class="panel sec" data-panel="me" data-title="Despre tine" hidden>
@@ -1654,21 +1701,53 @@ input:focus,textarea:focus,select:focus{border-color:color-mix(in srgb,var(--acc
     </div>
 
     <div class="panel sec" data-panel="img" data-title="Poze" hidden>
-      <div class="seg" id="stImg"><button data-v="none">Oprite</button><button data-v="worker">Worker-ul meu (Cloudflare)</button></div>
+      <div class="seg" id="stImg"><button data-v="none">Oprite</button><button data-v="worker">Pornite (Worker-ul meu)</button></div>
       <div id="stWk" hidden>
-        <label for="stWkBase">Adresa Worker-ului (se termină în /v1)</label>
-        <input id="stWkBase" type="url" placeholder="https://taifas-imagini.….workers.dev/v1">
-        <label for="stWkTok">Parolă (TOKEN)</label>
-        <input id="stWkTok" type="password" autocomplete="off">
+        <details class="sadv" id="stWkConn"><summary>🔗 Conexiunea cu Worker-ul <small id="stWkConnSum"></small></summary>
+          <label for="stWkBase">Adresa Worker-ului (se termină în /v1)</label>
+          <input id="stWkBase" type="url" placeholder="https://taifas-imagini.….workers.dev/v1">
+          <label for="stWkTok">Parolă (TOKEN)</label>
+          <input id="stWkTok" type="password" autocomplete="off">
+        </details>
+      </div>
+      <div id="stChatWrap">
+        <h3 class="sh">📷 Pozele din chat</h3>
+        <label>Fidelitatea feței</label>
+        <div class="seg" id="stWkChat"><button data-v="">Eco · klein 4B</button><button data-v="ancorat">Fidel · klein 9B</button></div>
+        <p class="hint" id="stWkChatHint"></p>
+        <div id="stRwWrap">
+          <label style="margin-top:14px">Unde se face „Fidel · 9B”</label>
+          <div class="seg" id="stRw"><button data-v="off">Cloudflare</button><button data-v="on">⚡ Runware</button></div>
+          <p class="hint" id="stRwHint"></p>
+          <div id="stRwBox" hidden>
+            <label style="margin-top:10px">Identitatea</label>
+            <div class="seg" id="stIdBoost"><button data-v="on">🎯 Maximă</button><button data-v="off">Simplă</button></div>
+            <p class="hint">Maximă: 3 variante, telefonul o păstrează pe cea cu fața cea mai apropiată de poza de profil (încă 3 dacă niciuna nu seamănă), apoi fața e retușată cu același model și rămâne doar dacă iese mai aproape. ~4 imagini pe poză. Simplă: o singură imagine.</p>
+            <label style="margin-top:10px">Plafon zilnic Runware</label>
+            <div class="seg" id="stRwCap"><button data-v="0.25">$0,25</button><button data-v="0.5">$0,50</button><button data-v="1">$1</button><button data-v="none">Fără</button></div>
+            <div class="neur" id="stRwDay" style="margin-top:8px"></div>
+            <details class="sadv"><summary>🔑 Cheie Runware în telefon <small>opțional</small></summary>
+              <input id="stRwKey" type="password" placeholder="goală = cheia din Worker (RUNWARE_KEY)" autocomplete="off" aria-label="Cheie Runware în telefon">
+            </details>
+          </div>
+        </div>
+        <label style="margin-top:14px">Verificare automată</label>
+        <div class="seg" id="stImgCheck"><button data-v="on">Pornită</button><button data-v="off">Oprită</button></div>
+        <p class="hint">Claude Haiku compară fiecare poză cu poza de profil și cu scena; dacă nu se potrivesc, o reface o dată și o păstrează pe cea mai bună.</p>
+        <label style="margin-top:14px">Poze spontane (doar personajele cu portret generat cu 🎨)</label>
+        <div class="seg" id="stSpont"><button data-v="off">Niciodată</button><button data-v="rar">Rar</button><button data-v="des">Des</button></div>
+      </div>
+      <div id="stCfSec">
+        <h3 class="sh">☁️ Cloudflare</h3>
+        <div class="neur" id="stNeur"></div>
         <label>Planul tău Cloudflare Workers</label>
         <div class="seg" id="stCfPlan"><button data-v="free">Gratuit</button><button data-v="paid">Paid · $5/lună</button></div>
         <div id="stCapWrap" hidden>
-          <label>Limită zilnică pentru poze (peste cei 10.000 de neuroni gratuiți)</label>
+          <label>Limită zilnică (peste cei 10.000 de neuroni gratuiți)</label>
           <div class="seg" id="stCfCap"><button data-v="free">Doar gratuit</button><button data-v="0.1">Max $0,10/zi</button><button data-v="none">Fără limită</button></div>
           <p class="hint" id="stCapHint"></p>
         </div>
-        <div class="neur" id="stNeur"></div>
-        <details style="margin-top:12px"><summary>Reglaje Worker</summary>
+        <details class="sadv"><summary>🛠️ Reglaje Worker <small>model și mărime pentru restul pozelor</small></summary>
           <label for="stWkModel">Model</label>
           <select id="stWkModel"><option value="eco">eco: FLUX.2 klein 4B (ține fața, cel mai ieftin)</option><option value="ancorat">ancorat: FLUX.2 klein 9B (puțin mai fin, de ~13 ori mai scump)</option><option value="ancorat+">ancorat+: FLUX.2 dev (cel mai bun, foarte scump)</option></select>
           <label for="stWkSize">Mărime</label>
@@ -1676,38 +1755,18 @@ input:focus,textarea:focus,select:focus{border-color:color-mix(in srgb,var(--acc
           <div class="hint" id="stWkEst"></div>
         </details>
       </div>
-      <div id="stChatWrap">
-        <label style="margin-top:14px">Fidelitatea feței în pozele din chat</label>
-        <div class="seg" id="stWkChat"><button data-v="">Eco · klein 4B</button><button data-v="ancorat">Fidel · klein 9B</button></div>
-        <p class="hint" id="stWkChatHint"></p>
-        <div id="stRwWrap">
-          <label style="margin-top:14px">Motorul pentru „Fidel · 9B”</label>
-          <div class="seg" id="stRw"><button data-v="off">Cloudflare</button><button data-v="on">⚡ Runware</button></div>
-          <p class="hint" id="stRwHint"></p>
-          <div id="stRwBox" hidden>
-            <label for="stRwKey">Cheie Runware în telefon (opțional)</label>
-            <input id="stRwKey" type="password" placeholder="goală = cheia din Worker (RUNWARE_KEY)" autocomplete="off">
-            <label style="margin-top:10px">Plafon zilnic Runware</label>
-            <div class="seg" id="stRwCap"><button data-v="0.25">$0,25</button><button data-v="0.5">$0,50</button><button data-v="1">$1</button><button data-v="none">Fără</button></div>
-            <div class="neur" id="stRwDay" style="margin-top:8px"></div>
-            <div class="btns"><button type="button" class="btn sm" id="stRwTest">⚡ Testează Runware</button></div>
-            <div class="status" id="stRwRes"></div>
-          </div>
-        </div>
+      <details class="sadv" id="stTestDet"><summary>🧪 Teste și comparații</summary>
+        <div class="btns" style="margin-top:4px"><button type="button" class="btn sm" id="stRwTest">⚡ Testează Runware</button></div>
+        <div class="status" id="stRwRes"></div>
         <div class="btns"><button type="button" class="btn sm" id="stRefTest">🔬 Compară pe personajul meu</button></div>
         <div id="stRefRes"></div>
-      </div>
-      <label style="margin-top:14px">Verificare automată a pozelor din chat</label>
-      <div class="seg" id="stImgCheck"><button data-v="on">Pornită</button><button data-v="off">Oprită</button></div>
-      <p class="hint">Pornită: după fiecare poză, Claude Haiku compară identitatea cu poza de profil și verifică scena. Dacă fața diferă sau scena nu corespunde, o reface o dată și păstrează varianta mai bună. Identitatea și proporțiile corpului rămân fixe; locul, hainele, poziția și camera se adaptează conversației. Verificarea folosește modelul AI configurat.</p>
-      <div class="btns" id="stImgTestWrap"><button type="button" class="btn sm" id="stImgTest">🧪 Testează pozele</button></div>
-      <div class="status" id="stImgRes"></div>
-      <h3 style="margin-top:20px">Automat</h3>
-      <label>Poze spontane (doar personajele cu portret generat cu 🎨)</label>
-      <div class="seg" id="stSpont"><button data-v="off">Niciodată</button><button data-v="rar">Rar</button><button data-v="des">Des</button></div>
+        <div class="btns" id="stImgTestWrap"><button type="button" class="btn sm" id="stImgTest">🧪 Testează pozele (Cloudflare)</button></div>
+        <div class="status" id="stImgRes"></div>
+      </details>
     </div>
 
     <div class="panel sec" data-panel="chat" data-title="Răspunsuri și voce" hidden>
+      <h3 class="sh" style="margin-top:0">💬 Răspunsurile</h3>
       <label>Lungimea răspunsurilor</label>
       <div class="seg" id="stLen"><button data-v="scurt">Scurte</button><button data-v="mediu">Medii</button><button data-v="lung">Lungi</button></div>
       <label>Câte mesaje recente primește personajul (restul e în rezumat)</label>
@@ -1716,25 +1775,25 @@ input:focus,textarea:focus,select:focus{border-color:color-mix(in srgb,var(--acc
       <div class="seg" id="stRegen"><button data-v="off">O variantă nouă</button><button data-v="on">🎰 +2 variante la cerere</button></div>
       <label>Sugestii de răspuns</label>
       <div class="seg" id="stSugg"><button data-v="off">Doar la 💡</button><button data-v="auto">După fiecare mesaj</button></div>
-      <label>Personajul îți scrie primul după 8 ore de pauză</label>
-      <div class="seg" id="stPro"><button data-v="off">Nu</button><button data-v="on">Da</button></div>
+      <h3 class="sh">🎙️ Vocea</h3>
       <label>Citire cu voce a mesajelor scrise (la 🔊 sau automat)</label>
       <div class="seg" id="stVoice"><button data-v="off">Oprit</button><button data-v="tap">La 🔊</button><button data-v="auto">Automat</button></div>
-      <label>🗣️ În apelul video, fața vorbește (buze, clipit, mișcarea capului)</label>
-      <div class="seg" id="stCallFace"><button data-v="on">Pornit</button><button data-v="off">Oprit</button></div>
-      <p class="hint">Totul se face în telefon, din poza din apel: gura se mișcă pe silabe, ochii clipesc, capul se mișcă ușor. Nu costă nimic.</p>
       <label>Mesaje vocale de la personaj</label>
       <div class="seg" id="stVmsg"><button data-v="off">Niciodată</button><button data-v="rar">Rar</button><button data-v="des">Des</button></div>
-      <label>Vocea personajelor</label>
-      <p class="hint" id="ttsHint">Vocea telefonului, gratuită. Tonul (mai grav / mai subțire) se alege din profilul fiecărui personaj → 🎙️ Vocea.</p>
+      <label>🗣️ În apelul video, fața vorbește (buze, clipit, mișcarea capului)</label>
+      <div class="seg" id="stCallFace"><button data-v="on">Pornit</button><button data-v="off">Oprit</button></div>
+      <p class="hint" id="ttsHint">Vocea telefonului, gratuită. Tonul (mai grav / mai subțire) se alege din profilul fiecărui personaj → 🎙️ Vocea. Apelul video se face tot în telefon, fără cost.</p>
       <div class="btns"><button class="btn sm" id="stTtsTest">🔊 Ascultă un test</button></div>
+      <h3 class="sh">🌱 Viața personajelor</h3>
+      <label>Personajul îți scrie primul după 8 ore de pauză</label>
+      <div class="seg" id="stPro"><button data-v="off">Nu</button><button data-v="on">Da</button></div>
       <label>📱 Statusuri în Noutăți (personajele postează ce fac)</label>
       <div class="seg" id="stFeed"><button data-v="off">Oprite</button><button data-v="text">Doar text</button><button data-v="poze">Cu poze</button></div>
-      <label>👯 Personajele se cunosc între ele (se pomenesc, își comentează postările)</label>
-      <div class="seg" id="stSocial"><button data-v="on">Da</button><button data-v="off">Nu</button></div>
       <label>📸 Stories (o poză pe zi de la personajele cu care vorbești, dispare după 24 de ore)</label>
       <div class="seg" id="stStory"><button data-v="off">Oprite</button><button data-v="on">Pornite</button></div>
-      <p class="hint">Cel mult 3 pe zi, între 9 și 23, doar cu poze activate. Fiecare story e o poză generată (intră în neuroni).</p>
+      <p class="hint">Cel mult 3 pe zi, între 9 și 23, doar cu poze activate. Fiecare story e o poză generată.</p>
+      <label>👯 Personajele se cunosc între ele (se pomenesc, își comentează postările)</label>
+      <div class="seg" id="stSocial"><button data-v="on">Da</button><button data-v="off">Nu</button></div>
       <label>Jurnalul personajului (o intrare pe zi, automat)</label>
       <div class="seg" id="stJrn"><button data-v="off">Oprit</button><button data-v="on">Pornit</button></div>
     </div>
@@ -1752,9 +1811,11 @@ input:focus,textarea:focus,select:focus{border-color:color-mix(in srgb,var(--acc
 
     <div class="panel sec" data-panel="cost" data-title="Consum" hidden>
       <div class="cost" id="stCost"></div>
-      <label for="stPin">Preț $/1M tokeni: intrare · ieșire</label>
-      <div style="display:flex;gap:8px"><input id="stPin" inputmode="decimal" placeholder="auto"><input id="stPout" inputmode="decimal" placeholder="auto"></div>
-      <div class="hint">Gol = automat după model (Sonnet 5.5: 2 · 10; Opus 5.5: 4 · 20; Haiku: 1 · 5). Estimare, nu factura oficială.</div>
+      <details class="sadv"><summary>✏️ Preț personalizat <small>doar dacă vrei altul decât cel automat</small></summary>
+        <label for="stPin">Preț $/1M tokeni: intrare · ieșire</label>
+        <div style="display:flex;gap:8px"><input id="stPin" inputmode="decimal" placeholder="auto"><input id="stPout" inputmode="decimal" placeholder="auto"></div>
+        <div class="hint">Gol = automat după model (Sonnet 5.5: 2 · 10; Opus 5.5: 4 · 20; Haiku 5.5: 0,10 · 0,50). Estimare, nu factura oficială.</div>
+      </details>
       <div class="btns"><button type="button" class="btn sm" id="stCostReset">Resetează contorul</button></div>
     </div>
 
@@ -1774,7 +1835,9 @@ input:focus,textarea:focus,select:focus{border-color:color-mix(in srgb,var(--acc
       <div class="btns"><button type="button" class="btn" id="stCardImp">📥 Importă un personaj (card)</button></div>
       <input type="file" id="stCardFile" accept=".json,application/json" hidden>
       <div class="hint">Backup-ul conține personajele, conversațiile și pozele. Cheile API nu intră în backup.</div>
-      <div class="btns"><button type="button" class="btn dan" id="stWipe">Șterge tot</button></div>
+      <details class="sadv sdanger"><summary>⚠️ Zona periculoasă</summary>
+        <div class="btns"><button type="button" class="btn dan" id="stWipe">Șterge tot</button></div>
+      </details>
     </div>
   </div></div>
 </section>

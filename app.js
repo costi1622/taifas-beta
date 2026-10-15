@@ -1,5 +1,5 @@
 window.__taifas = true;   // 8.20.1: semn pentru index.html că app.js s-a încărcat
-const APP_VER = '9.19';
+const APP_VER = '9.22';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -38,7 +38,7 @@ const DEF = {
   imgProv:'none',
   wkBase:'', wkTok:'', wkModel:'eco', wkSize:'768x1024',
   sugg:'off', pro:'on', feed:'text', fx:'on', regen3:'on', voice:'tap', tts:'tel', cfPlan:'free', cfCap:'free', theme:'dark', vmsg:'rar', jrn:'on', aux:'on', ctxN:'30',
-  vault:'off', vaultHas:null, faceFix:'on', bodyFix:'off', bestOf:'3', autoModel:'chat', callFace:'on', imgCheck:'on', story:'on', sky:'on', social:'on', userBday:'', lock:'off', pushOn:false, bkEvery:'week', bkLast:0, userPhoto:'', userPhys:'', userBox:null, wkChat:'ancorat', wkRef:'auto', rw:'off', rwKey:'', rwCap:'0.5', rwAvg:0, spont:'rar', sv:34, imgCost:'', pIn:'', pOut:''
+  vault:'off', vaultHas:null, faceFix:'on', bodyFix:'off', bestOf:'3', autoModel:'chat', callFace:'on', imgCheck:'on', story:'on', sky:'on', social:'on', userBday:'', lock:'off', pushOn:false, bkEvery:'week', bkLast:0, userPhoto:'', userPhys:'', userBox:null, wkChat:'ancorat', wkRef:'auto', rw:'off', rwKey:'', rwCap:'0.5', rwAvg:0, idBoost:'on', spont:'rar', sv:34, imgCost:'', pIn:'', pOut:''
 };
 let S = {...DEF};
 let chars = [];            // [{id,name,tag,photo,aspect,look,stil,persona,speech,greet,created,lastAt,last}]
@@ -931,7 +931,7 @@ function bestN(c, opt = {}){
   return n;
 }
 async function bestScene(c, shot, signal, corr, opt = {}){
-  const n = bestN(c, opt);
+  const n = opt.n || bestN(c, opt);
   if(n < 2) return await scenePhoto(c, shot, signal, corr, opt);
   const rs = await Promise.allSettled(Array.from({length:n}, (_, k) => scenePhoto(c, shot, signal, corr, k ? {...opt, why:'variante'} : opt)));
   const ab = rs.find(r => r.status === 'rejected' && r.reason && r.reason.name === 'AbortError'); if(ab) throw ab.reason;
@@ -946,14 +946,43 @@ async function bestScene(c, shot, signal, corr, opt = {}){
 }
 // generează, retușează fața, verifică; dacă e cazul, încă un retuș (9B) sau o refacere completă; păstrează varianta mai bună
 const otherBad = x => !!x && ((x.scene != null && x.scene < 6) || (x.framing != null && x.framing < 5) || (x.hair != null && x.hair < 6) || (x.marks != null && x.marks < 6) || (x.body != null && x.body < 6));
+/* ═════════ 🎯 9.21 identitate maximă pe Runware ═════════
+   Un generator redesenează fața la fiecare poză, deci 1:1 perfect nu există; ce se poate: (1) 3 variante în paralel, telefonul
+   măsoară fața fiecăreia (face-api, gratuit) și o păstrează pe cea mai apropiată de poza de profil; (2) dacă și aceea e „altă față”
+   (distanță > 0,5), încă o tură de 3; (3) retușul feței cu ACELAȘI model (9B pe Runware): doar fața e redesenată după poza de profil
+   și lipită la loc; rămâne numai dacă telefonul măsoară că e mai aproape. Doar pentru pozele din chat (nu stories/statusuri). */
+const idBoostOn = (c, opt = {}) => S.idBoost !== 'off' && S.imgProv === 'worker' && !!c.photo && !opt.together && !isAuto(opt)
+  && (c.stil || 'photo') === 'photo' && rwFor(sceneModel(opt));
+async function idBoost(c, shot, signal, corr, opt = {}){
+  const n = Math.max(1, Math.min(3, Math.floor(rwCapLeft() / rwPer())));
+  let best = await bestScene(c, shot, signal, corr, {...opt, n});
+  if(best.fd != null && best.fd > ID_MAX && rwCapLeft() >= rwPer() * n){
+    pstage(signal, '🎯 Nu seamănă destul, mai încearcă', 93);
+    try{
+      const b2 = await bestScene(c, shot, signal, corr, {...opt, n, why:'variante'});
+      addUsage(c.id, imgPrice(), 'img', null, opt.tag || 'poze');
+      if(b2.fd != null && b2.fd < best.fd) best = b2;
+    }catch(e){ if(e.name === 'AbortError') throw e; }
+  }
+  if(rwFor('ancorat') && rwCapLeft() >= rwPer()){
+    pstage(signal, '✨ Potrivește fața după poza de profil', 95);
+    try{
+      const r = await retouchBest(c, best.blob, signal, 'ancorat', shot, 'retus');
+      if(r){ addUsage(c.id, imgPrice(), 'img', null, opt.tag || 'poze'); if(r.used){ best.blob = r.blob; best.fd = r.d; best.retouched = true; } }
+    }catch(e){ if(e.name === 'AbortError') throw e; }
+  }
+  return best;
+}
 async function makeScenePhoto(c, shot, signal, opt = {}){
-  let a = await scenePhoto(c, shot, signal, null, opt);
+  const boost = idBoostOn(c, opt);
+  const gen = (corr, o) => boost ? idBoost(c, shot, signal, corr, o) : scenePhoto(c, shot, signal, corr, o);
+  let a = await gen(null, opt);
   if(S.imgCheck === 'off' || !aiReady()) return a;
   try{ a.check = await checkPhoto(c, a.blob, shot, signal, opt.together); }catch(e){ if(e.name === 'AbortError') throw e; return a; }
   const bad = x => x && (x.face < 8 || x.scene < 6 || x.framing < 5);
   if(!bad(a.check) || (!rwFor(S.wkChat || S.wkModel) && capLeft() < (neurPerPhoto(S.wkChat || S.wkModel) || 5000))) return a;
   let b;
-  try{ b = await scenePhoto(c, shot, signal, a.check.fix || 'follow the scene and keep the face of the reference', opt); addUsage(c.id, imgPrice(), 'img', null, opt.tag || 'poze'); }
+  try{ b = await gen(a.check.fix || 'follow the scene and keep the face of the reference', opt); addUsage(c.id, imgPrice(), 'img', null, opt.tag || 'poze'); }
   catch(e){ if(e.name === 'AbortError') throw e; return a; }
   try{ b.check = await checkPhoto(c, b.blob, shot, signal, opt.together); }catch(e){ if(e.name === 'AbortError') throw e; }
   const sc = x => x ? x.face * 2 + x.scene + x.framing * .5 : 0;
@@ -1094,9 +1123,9 @@ function drawRw(){
   const h = $('#stRwHint'), cf = neurPerPhoto('ancorat') || 1455;
   if(S.rw !== 'on'){ h.innerHTML = `Cloudflare: ~${Math.round(cf).toLocaleString('ro-RO')} neuroni pe poză 9B (cam ${Math.floor(10000 / cf)} pe zi gratuit, apoi ~${usd(cf * NEUR_USD)} pe poză). Runware rulează același model, de câteva ori mai ieftin.`; }
   else {
-    const n = Math.max(1, Math.min(3, +(S.bestOf9 || 1) || 1));
-    h.innerHTML = `Același model (FLUX.2 klein 9B), aceleași repere, același prompt, PNG ca acum. ${S.rwAvg > 0 ? `Cost real mediu: <b>${usd4(S.rwAvg)}</b> pe imagine` : 'Estimat ~$0,002–0,004 pe imagine'}${n > 1 ? `, deci ~${usd(rwPer() * n)} pe poză cu ${n} variante` : ''}; nu consumă neuroni. Dacă Runware nu răspunde sau atingi plafonul zilnic, poza merge singură pe Cloudflare.`
-      + (rwDirect() ? '' : !S.wkBase ? '<br>⚠️ Pune adresa Worker-ului sau cheia Runware mai jos.' : '<br>Cheia stă în Worker (secretul <b>RUNWARE_KEY</b>, Worker v9).');
+    const n = S.idBoost !== 'off' ? 4 : 1;
+    h.innerHTML = `Același model ca pe Cloudflare. ${S.rwAvg > 0 ? `Cost real: <b>${usd4(S.rwAvg)}</b> pe imagine` : 'Estimat ~$0,002–0,004 pe imagine'}${n > 1 ? ` (~${usd4(rwPer() * n)} pe poză cu identitate maximă)` : ''}. Dacă Runware nu răspunde sau atingi plafonul, poza se face pe Cloudflare.`
+      + (rwDirect() ? '' : !S.wkBase ? '<br>⚠️ Pune adresa Worker-ului sau cheia Runware în telefon.' : '<br>Cheia: secretul <b>RUNWARE_KEY</b> din Worker.');
     const day = rwDay(), cap = RW_CAP[S.rwCap] ?? .5, pc = Number.isFinite(cap) ? Math.min(100, day.usd / cap * 100) : 0;
     $('#stRwDay').innerHTML = `Azi pe Runware: <b>${usd(day.usd)}</b> · ${day.n} ${day.n === 1 ? 'imagine' : 'imagini'}${Number.isFinite(cap) ? ' · plafon $' + cap.toFixed(2).replace('.', ',') + `<div class="bar"><i style="width:${pc}%"></i></div>` : ' · fără plafon'}`
       + (S.rwLast ? `<div style="margin-top:6px;font-size:12px;color:var(--tx3)">Ultima: ${usd4(S.rwLast.usd)} · ${(S.rwLast.ms / 1000).toFixed(1).replace('.', ',')} s · ${S.rwLast.w}×${S.rwLast.h} · ${S.rwLast.refs} repere</div>` : '');
@@ -4286,7 +4315,7 @@ async function askPhoto(spont, target, mode, opt = {}){
     }
     m.img = k; m.prompt = prompt; m.scene = shot; if(where) m.where = where; if(together) m.together = true; else delete m.together; if(check) m.check = check; else delete m.check;
     addUsage(c.id, imgPrice(), 'img');
-    if(S.imgProv === 'worker') setTimeout(() => loadNeurons(true), 1500);
+    if(S.imgProv === 'worker') setTimeout(() => loadNeurons(lastImgProv !== 'runware'), 1500);   // 9.20: poza a mers pe Runware → fără avertismente Cloudflare
   }catch(e){
     const msg = e.message || '';
     const flag = /3030|flagged|safety|blocked|prohibit|nsfw|SAFETY|IMAGE_OTHER|refuzat/i.test(msg);
@@ -5812,7 +5841,7 @@ const aiReady = () => hasKey('anthropic');
 const FIELDS = {stKey:'key', stModel:'model', stUser:'userName', stAbout:'userAbout', stBday:'userBday',
   stWkBase:'wkBase', stWkTok:'wkTok', stWkModel:'wkModel', stWkSize:'wkSize',
   stPin:'pIn', stPout:'pOut', stVkBase:'wkBase', stVkTok:'wkTok', stRwKey:'rwKey'};
-const SEGS = {stRw:'rw', stRwCap:'rwCap', stRegen:'regen3', stFx:'fx', stFeed:'feed', stStory:'story', stSky:'sky', stSocial:'social', stCfCap:'cfCap', stCfPlan:'cfPlan', stAux:'aux', stCtx:'ctxN', stVmsg:'vmsg', stJrn:'jrn', stTheme:'theme', stLen:'len', stFont:'font', stImg:'imgProv', stSugg:'sugg', stPro:'pro', stVoice:'voice', stSpont:'spont', stImgCheck:'imgCheck', stWkChat:'wkChat', stBkEvery:'bkEvery', stVault:'vault', stCallFace:'callFace'};
+const SEGS = {stRw:'rw', stRwCap:'rwCap', stIdBoost:'idBoost', stRegen:'regen3', stFx:'fx', stFeed:'feed', stStory:'story', stSky:'sky', stSocial:'social', stCfCap:'cfCap', stCfPlan:'cfPlan', stAux:'aux', stCtx:'ctxN', stVmsg:'vmsg', stJrn:'jrn', stTheme:'theme', stLen:'len', stFont:'font', stImg:'imgProv', stSugg:'sugg', stPro:'pro', stVoice:'voice', stSpont:'spont', stImgCheck:'imgCheck', stWkChat:'wkChat', stBkEvery:'bkEvery', stVault:'vault', stCallFace:'callFace'};
 let setPanel = null, setPanelPushed = false;
 /* 8.7: actualizare din aplicație. Codul vine oricum din rețea la pornire;
    asta prinde versiunile apărute cât aplicația a stat deschisă și forțează reîncărcarea curată. */
@@ -5871,7 +5900,8 @@ function openSetPanel(p, push = true){
   const el = $(`#vSet .panel[data-panel="${p}"]`);
   $('#stTitle').textContent = el ? el.dataset.title : 'Setări';
   $('#stScroll').scrollTop = 0;
-  if(p === 'img'){ loadNeurons(); drawChatHint(); }
+  if(p === 'img'){ loadNeurons(); drawChatHint(); $('#stWkConn').open = !String(S.wkBase || '').trim(); }
+  if(p === 'ai'){ $('#stVaultDet').open = S.vault === 'on'; }
   if(p === 'me') drawMe();
   if(p === 'data') drawBk();
   if(p === 'lock') drawLock();
@@ -5900,6 +5930,98 @@ function renderSetSummary(){
   $('#sum_lock').textContent = S.lock === 'bio' ? 'Amprentă + PIN' : S.lock === 'pin' ? 'PIN' : 'Oprită';
   $('#sum_push').textContent = S.pushOn ? 'Pornite' : 'Oprite';
   $('#sum_look').textContent = {auto:'Temă automată', dark:'Temă întunecată', light:'Temă luminoasă'}[S.theme] + ' · text ' + {15:'mic', 16:'normal', 18:'mare'}[S.font];
+  renderDash();
+}
+/* ═════════ ⚙️ 9.22 Setări noi: bord de stare, verificare, mod rapid, căutare ═════════ */
+const MODES = {
+  eco:{ctxN:'20', regen3:'off', idBoost:'off', imgCheck:'off', rwCap:'0.25'},
+  bal:{ctxN:'30', regen3:'on', idBoost:'on', imgCheck:'on', rwCap:'0.5'},
+  max:{ctxN:'60', regen3:'on', idBoost:'on', imgCheck:'on', rwCap:'1'}};
+const MODE_TXT = {
+  eco:'Personajul primește ultimele 20 de mesaje · ↻ face o variantă · o imagine pe poză, fără verificare · Runware max $0,25/zi.',
+  bal:'Ultimele 30 de mesaje · ↻ cu 3 variante · identitate maximă și verificare la poze · Runware max $0,50/zi.',
+  max:'Ultimele 60 de mesaje (personajul ține minte mai mult) · ↻ cu 3 variante · identitate maximă și verificare · Runware max $1/zi.'};
+const MODE_NAME = {eco:'🌱 Economic', bal:'⚖️ Echilibrat', max:'💎 Maxim'};
+const modeNow = () => Object.keys(MODES).find(k => Object.entries(MODES[k]).every(([kk, v]) => String(S[kk]) === v)) || '';
+function drawMode(){
+  const m = modeNow();
+  $$('#stMode button').forEach(b => b.classList.toggle('on', b.dataset.v === m));
+  $('#stModeNow').textContent = m ? 'activ: ' + MODE_NAME[m] : 'personalizat';
+  $('#stModeHint').textContent = m ? MODE_TXT[m] : 'Ai reglaje proprii. Alege un mod ca să le pui pe toate deodată (le poți schimba apoi una câte una).';
+}
+function applyMode(k){
+  if(!MODES[k]) return;
+  Object.assign(S, MODES[k]); saveSettings(); syncSegs();
+  toast(MODE_NAME[k] + ' pornit', 2200);
+}
+function healthIssues(){
+  const out = [];
+  if(!hasKey('anthropic')) out.push({t:'🔑 Lipsește cheia Anthropic', p:'ai'});
+  if(S.imgProv === 'worker' && !String(S.wkBase || '').trim()) out.push({t:'🔗 Lipsește adresa Worker-ului', p:'img'});
+  if(S.imgProv === 'worker' && S.rw === 'on'){
+    if(!rwReady()) out.push({t:'⚡ Runware n-are cheie (RUNWARE_KEY în Worker)', p:'img'});
+    else if(rwPaused()) out.push({t:'⚡ Runware a dat erori: pozele merg 10 min pe Cloudflare', p:'img'});
+    else if(rwCapLeft() < rwPer()) out.push({t:'⚡ Plafonul Runware de azi e atins: pozele merg pe Cloudflare', p:'img'});
+  }
+  if(S.imgProv === 'worker' && S.cfPlan === 'paid' && S.cfCap === 'none') out.push({t:'☁️ Cloudflare fără limită: pozele peste cotă se plătesc', p:'img'});
+  if(bkDue()) out.push({t:'💾 Ultimul backup e mai vechi de 7 zile', p:'data'});
+  return out;
+}
+async function renderDash(){
+  const ai = $('#dAi'); if(!ai) return;
+  const key = hasKey('anthropic'), mdl = String(S.model || DEF.model).replace(/^claude-/, '').replace(/-(\d+)-(\d+)$/, ' $1.$2');
+  ai.textContent = key ? mdl.charAt(0).toUpperCase() + mdl.slice(1) : 'fără cheie';
+  ai.parentElement.className = 'stile ' + (key ? 'ok' : 'bad');
+  const im = $('#dImg'), sub = $('#dImgSub');
+  if(S.imgProv !== 'worker'){ im.textContent = 'Oprite'; sub.textContent = 'Poze'; im.parentElement.className = 'stile'; }
+  else if(S.rw === 'on'){ const d = rwDay(); im.textContent = usd(d.usd) + ' azi'; sub.textContent = '⚡ Runware · ' + d.n + ' img'; im.parentElement.className = 'stile ok'; }
+  else { neurCalc(); im.textContent = Math.round(Math.min(100, neurToday / 100)) + '% cotă'; sub.textContent = '☁️ Cloudflare azi'; im.parentElement.className = 'stile' + (neurToday >= 10000 ? ' bad' : ' ok'); }
+  const iss = healthIssues(), hb = $('#stHealth');
+  hb.className = 'shealth' + (iss.length ? ' warn' : '');
+  if(iss.length){ hb.dataset.p = iss[0].p; hb.innerHTML = `<span>${esc(iss[0].t)}${iss.length > 1 ? ` <small>(+${iss.length - 1})</small>` : ''}</span><em>Rezolvă ›</em>`; }
+  else { delete hb.dataset.p; hb.innerHTML = '<span>✓ Totul e în regulă: Claude, pozele și backup-ul</span>'; }
+  drawMode();
+  try{
+    const u = await DB.get('usage'), M = u && u.months && u.months[new Date().toISOString().slice(0, 7)];
+    $('#dCost').textContent = usd(M ? M.txt + M.img + (M.voc || 0) : 0);
+  }catch(e){}
+}
+// căutare: etichetele, titlurile și secțiunile pliate din toate panourile
+const fold = t => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+let findIdx = null;
+function findIndex(){
+  if(findIdx) return findIdx;
+  findIdx = [];
+  for(const pn of $$('#vSet .panel')) for(const el of pn.querySelectorAll('label, h3, details > summary')){
+    const t = (el.matches('summary') ? el.childNodes[0].textContent : el.textContent).trim();
+    if(t) findIdx.push({p:pn.dataset.panel, title:pn.dataset.title, el, t, f:fold(t)});
+  }
+  return findIdx;
+}
+// cel mai de sus element ascuns dintre setare și panou (o secțiune care apare doar după altă alegere), sau null
+function hiddenTop(el, pn){ let top = null; for(let x = el; x && x !== pn; x = x.parentElement) if(x.hidden) top = x; return top; }
+// ce alegere deschide secțiunea ascunsă: butoanele de dinaintea ei (sărind peste explicații)
+function opener(top){ let x = top.previousElementSibling; while(x && (x.matches('p.hint, .hint, .status') || x.hidden)) x = x.previousElementSibling; return x; }
+function runFind(q){
+  const box = $('#stFindRes'); q = fold(q).trim();
+  if(q.length < 2){ box.innerHTML = ''; return; }
+  const words = q.split(/\s+/);
+  const hits = findIndex().filter(x => words.every(w => x.f.includes(w))).slice(0, 8);
+  box.innerHTML = hits.length ? hits.map(x => { const hid = hiddenTop(x.el, x.el.closest('.panel'));
+    return `<button type="button" data-fi="${findIdx.indexOf(x)}">${esc(x.t.slice(0, 90))}<small>${esc(x.title)}${hid ? ' · apare după o altă alegere, îți arăt care' : ''}</small></button>`; }).join('') : '<p>Nicio setare cu „' + esc(q) + '”.</p>';
+}
+function goFind(i){
+  const x = findIdx && findIdx[i]; if(!x) return;
+  $('#stFind').value = ''; $('#stFindRes').innerHTML = '';
+  openSetPanel(x.p);
+  setTimeout(() => {
+    for(let d = x.el.closest('details'); d; d = d.parentElement && d.parentElement.closest('details')) d.open = true;
+    const hid = hiddenTop(x.el, x.el.closest('.panel'));
+    let tgt = x.el.matches('label') && x.el.nextElementSibling && !x.el.nextElementSibling.matches('label, h3') ? x.el.nextElementSibling : x.el;
+    if(hid){ tgt = opener(hid) || hid.parentElement; toast('„' + x.t.slice(0, 40) + '” apare după ce alegi aici.', 3200); }
+    tgt.scrollIntoView({block:'center', behavior:'smooth'});
+    tgt.classList.remove('sflash'); void tgt.offsetWidth; tgt.classList.add('sflash');
+  }, 120);
 }
 function syncSegs(){
   for(const [id, k] of Object.entries(SEGS)) $$('#' + id + ' button').forEach(b => b.classList.toggle('on', b.dataset.v === String(S[k])));
@@ -5916,6 +6038,8 @@ function syncSegs(){
     '0.1':'Cel mult ~$0,10 pe zi peste cei $5 (≈ $3/lună în cel mai rău caz). Apoi pozele se opresc până la ' + resetAt() + '.',
     none:'Fără oprire: fiecare poză peste cotă se adaugă la factură.'}[S.cfCap] || '';
   $('#stWk').hidden = S.imgProv !== 'worker';
+  $('#stCfSec').hidden = $('#stTestDet').hidden = S.imgProv !== 'worker';
+  { let host = ''; try{ host = S.wkBase ? new URL(wkUrl()).host : ''; }catch(e){} $('#stWkConnSum').textContent = host ? '✓ ' + host : '⚠ necompletată'; }
   document.documentElement.style.fontSize = (+S.font || 16) + 'px';
   applyTheme();
 }
@@ -5994,22 +6118,27 @@ async function loadNeurons(after){
     catch(e){ if(e.st === 404){ box.className = 'neur'; box.textContent = 'Consumul de neuroni apare după ce urci Worker-ul v3.'; return; } throw e; }
     d = {...d, neurons:neurToday};
     const lim = d.limit || 10000, pc = Math.min(100, d.neurons / lim * 100);
-    const per = neurPerPhoto(sceneModel()), left = per ? Math.max(0, Math.floor((lim - d.neurons) / per)) : null;
+    // 9.20: cu „Fidel · 9B” pe Runware, din neuroni se mai fac doar pozele Eco (stickere, avatar, retuș) și rezerva la eroare
+    const rw = rwFor('ancorat'), per = neurPerPhoto(rw ? 'eco' : sceneModel()), left = per ? Math.max(0, Math.floor((lim - d.neurons) / per)) : null;
+    const what = rw ? 'poze Eco rămase (stickere, avatar)' : 'poze rămase', rwNote = rw ? '<div style="margin-top:6px;font-size:12px;color:var(--tx3)">⚡ Pozele 9B din chat merg pe Runware și nu consumă neuroni.</div>' : '';
+    const warnOk = after && lastImgProv !== 'runware';
     if(S.cfPlan === 'paid'){
       const over = Math.max(0, d.neurons - lim), day = new Date().toISOString().slice(0, 10);
       box.className = 'neur';
       box.innerHTML = `Azi: <b>${Math.round(d.neurons).toLocaleString('ro-RO')}</b> neuroni · primii ${lim.toLocaleString('ro-RO')} gratuiți`
-        + (over ? ` · peste cotă: <b>${Math.round(over).toLocaleString('ro-RO')}</b> ≈ <b>${usd(over * NEUR_USD)}</b> azi` : left !== null ? ` · <b>~${left}</b> poze gratuite rămase, apoi ~${usd(per * NEUR_USD)}/poză` : '')
-        + `<div class="bar"><i style="width:${pc}%"></i></div>`;
+        + (over ? ` · peste cotă: <b>${Math.round(over).toLocaleString('ro-RO')}</b> ≈ <b>${usd(over * NEUR_USD)}</b> azi` : left !== null ? ` · <b>~${left}</b> ${rw ? what : 'poze gratuite rămase'}, apoi ~${usd(per * NEUR_USD)}/poză` : '')
+        + `<div class="bar"><i style="width:${pc}%"></i></div>` + rwNote;
       { const nb = S.neurBy && S.neurBy.d === utcDay() ? Object.entries(S.neurBy.by).filter(x => x[1] > 0).sort((a, b) => b[1] - a[1]) : [];
         if(nb.length) box.innerHTML += `<div style="margin-top:6px;font-size:12px;color:var(--tx3)">Pe ce, azi (estimat de aplicație): ${nb.map(([k, v]) => (NEUR_WHY[k] || k) + ' ' + Math.round(v).toLocaleString('ro-RO')).join(' · ')}</div>`; }
       if(capLeft() !== Infinity && capLeft() < (per || 5000)) box.innerHTML += `<div style="margin-top:6px;color:var(--warn,#ffb020)">⏸ Pozele sunt oprite până la ${resetAt()} (limita ta).</div>`;
-      if(after && over && neurWarned !== day){ neurWarned = day; toast(`Ai trecut de cota gratuită de azi. Pozele merg în continuare${per ? `, ~${usd(per * NEUR_USD)} fiecare` : ''}.`, 4500); }
+      if(warnOk && over && neurWarned !== day){ neurWarned = day; toast(`Ai trecut de cota gratuită de azi. Pozele merg în continuare${per ? `, ~${usd(per * NEUR_USD)} fiecare` : ''}.`, 4500); }
       return;
     }
     box.className = 'neur' + (pc >= 80 ? ' warn' : '');
-    box.innerHTML = `Azi: <b>${Math.round(d.neurons).toLocaleString('ro-RO')}</b> / ${lim.toLocaleString('ro-RO')} neuroni gratuiți (${Math.round(pc)}%)${left !== null ? ` · <b>~${left}</b> poze rămase` : ''}<div class="bar"><i style="width:${pc}%"></i></div>`;
-    if(after && pc >= 80) toast(pc >= 100 ? '⚠️ Cota gratuită Cloudflare de azi s-a terminat. Se resetează la ' + resetAt() + '.' : `⚠️ Ai folosit ${Math.round(pc)}% din neuronii gratuiți de azi.`, 4500);
+    box.innerHTML = `Azi: <b>${Math.round(d.neurons).toLocaleString('ro-RO')}</b> / ${lim.toLocaleString('ro-RO')} neuroni gratuiți (${Math.round(pc)}%)${left !== null ? ` · <b>~${left}</b> ${what}` : ''}<div class="bar"><i style="width:${pc}%"></i></div>` + rwNote;
+    // 9.20: avertismentul apare doar când poza chiar a mers pe Cloudflare, și o singură dată pe zi pentru fiecare prag (80% / 100%)
+    const lvl = utcDay() + (pc >= 100 ? ':100' : ':80');
+    if(warnOk && pc >= 80 && S.neurWarnFree !== lvl && (S.neurWarnFree = lvl, saveSettings(), true)) toast(pc >= 100 ? '⚠️ Cota gratuită Cloudflare de azi s-a terminat. Se resetează la ' + resetAt() + '.' : `⚠️ Ai folosit ${Math.round(pc)}% din neuronii gratuiți de azi.`, 4500);
   }catch(e){ box.className = 'neur'; box.textContent = 'Consum neuroni: ' + e.message; }
 }
 /* 🔬 7.3: comparație reală pe Worker-ul tău, cu poza de profil a personajului: eco 2 repere, eco 1 reper, 9B */
@@ -6043,7 +6172,7 @@ function drawFixHint(){
 function drawChatHint(){
   const el = $('#stWkChatHint'); if(!el) return;
   const e = neurPerPhoto('eco'), f = neurPerPhoto('ancorat');
-  if(S.wkChat === 'ancorat' && S.rw === 'on'){ el.innerHTML = `9B ține fața mult mai bine. Merge prin Runware (vezi „Motorul pentru 9B” mai jos): ~${usd4(rwPer())} pe imagine, fără neuroni. Stickerele, avatarul și retușul feței rămân pe Eco (Cloudflare).`; return; }
+  if(S.wkChat === 'ancorat' && S.rw === 'on'){ el.innerHTML = `9B ține fața mult mai bine. Se face pe Runware (~${usd4(rwPer())} pe imagine, fără neuroni). Stickerele și avatarul rămân pe Cloudflare.`; return; }
   el.innerHTML = S.wkChat === 'ancorat'
     ? `9B ține fața mult mai bine. ~${Math.round(f).toLocaleString('ro-RO')} neuroni pe poză: cam ${Math.floor(10000 / f)} poze pe zi în cota gratuită, apoi ~${usd(f * NEUR_USD)} pe poză (limita zilnică din Setări rămâne în vigoare). Stickerele, avatarul și statusurile rămân pe modelul de mai jos.`
     : `Eco: ~${Math.round(e)} neuroni pe poză. Împreună cu variantele multiple și retușul feței, în testele pe personajul tău a ieșit mai asemănător decât 9B (~${Math.round(f).toLocaleString('ro-RO')} neuroni).`;
@@ -6054,12 +6183,13 @@ async function refTest(){
   if(!c){ box.innerHTML = '<p class="hint">Ai nevoie de un personaj cu poză de profil.</p>'; return; }
   if(S.imgProv !== 'worker' || !S.wkBase){ box.innerHTML = '<p class="hint">Pornește întâi Worker-ul.</p>'; return; }
   const cost = Math.round(neurPerPhoto('eco') * 2 + neurPerPhoto('ancorat'));
-  if(!confirm2(`Generez ${3 + (rwReady() ? 1 : 0)} poze cu ${c.name} (aceeași scenă), ca să compari fața: eco cu 2 repere, eco cu 1 reper, 9B${rwReady() ? ' pe Cloudflare, 9B pe Runware (~$0,004)' : ''} ~${cost.toLocaleString('ro-RO')} neuroni.`)) return;
+  if(!confirm2(`Generez ${3 + (rwReady() ? 1 : 0) + (rwReady() && S.rw === 'on' && S.idBoost !== 'off' ? 1 : 0)} poze cu ${c.name} (aceeași scenă), ca să compari fața: eco cu 2 repere, eco cu 1 reper, 9B${rwReady() ? ' pe Cloudflare, 9B pe Runware (~$0,004)' : ''} ~${cost.toLocaleString('ro-RO')} neuroni.`)) return;
   const R = await idRefs(c);
   const shot = 'mirror selfie in a cozy bedroom, standing, holding the phone, casual t-shirt and jeans, warm lamp light, relaxed smile', fr = framingOf(shot);
   const p2 = idPrompt(c, shot, fr, R, '', true), p1 = idPrompt(c, shot, fr, R, '', false);
   const tests = [['Eco · ' + (2 + R.extra.length) + ' repere', {model:'eco', force:{two:true}, p1, extra:R.extra}], ['Eco · 1 reper', {model:'eco', force:{two:false, px:512}, p1}], ['Fidel 9B' + (rwReady() ? ' · Cloudflare' : ''), {model:'ancorat', force:{two:true}, p1, extra:R.extra, cf:true}]];
   if(rwReady()) tests.push(['Fidel 9B · Runware', {model:'ancorat', force:{two:true}, p1, extra:R.extra, rw:true}]);
+  if(rwReady() && S.rw === 'on' && S.idBoost !== 'off') tests.push(['Runware · identitate maximă', {boost:true}]);
   const pfu = await imgUrl(c.photo);
   box.innerHTML = `<div class="rtgrid"><figure><img src="${pfu}" alt=""><figcaption>Poza de profil</figcaption></figure>${tests.map((t, i) => `<figure id="rt${i}"><div class="ph"><span class="spin"></span></div><figcaption>${t[0]}</figcaption></figure>`).join('')}</div><p class="hint" id="rtNote">Generez pe rând…</p>`;
   let twoOk = null;
@@ -6067,7 +6197,7 @@ async function refTest(){
     const [lbl, o] = tests[i], fig = $('#rt' + i);
     try{
       let b;
-      try{ b = await genImage(p2, R.face, null, R.body, o); }
+      try{ b = o.boost ? (await idBoost(c, shot, null, null, {})).blob : await genImage(p2, R.face, null, R.body, o); }
       catch(e){ if(o.force && o.force.two){ if(o.model === 'eco') twoOk = false; b = await genImage(p2, R.face, null, R.body, {model:o.model, force:{two:false, px:512}, p1, cf:o.cf, rw:o.rw}); fig.querySelector('figcaption').textContent = lbl.replace('2 repere', '1 reper') + ' (2 repere: eroare)'; } else throw e; }
       if(o.model === 'eco' && o.force && o.force.two && twoOk === null) twoOk = true;
       fig.querySelector('.ph').outerHTML = `<img src="${URL.createObjectURL(b)}" data-big alt="">`;
@@ -6170,6 +6300,9 @@ function bind(){
   $('#btnSettings').onclick = openSettings;
   $$('#nav [data-tab]').forEach(b => b.onclick = () => { if(homeTab === b.dataset.tab){ $('#homeScroll').scrollTo({top:0, behavior:'smooth'}); return; } homeTab = b.dataset.tab; renderHome(); $('#homeScroll').scrollTop = 0; const sc = $('#homeScroll'); sc.classList.remove('tabin'); void sc.offsetWidth; sc.classList.add('tabin'); });
   $('#obStart').onclick = () => openSettings();
+  $$('#stMode button').forEach(b => b.onclick = () => applyMode(b.dataset.v));
+  $('#stFind').addEventListener('input', e => runFind(e.target.value));
+  $('#stFindRes').addEventListener('click', e => { const b = e.target.closest('[data-fi]'); if(b) goFind(+b.dataset.fi); });
   $('#stTtsTest').onclick = () => voiceSample(chars[0] || {id:'test', name:'Taifas', look:'woman'}, $('#stTtsTest'));
   // lista de conversații: glisare spre stânga = Fixează / Golește
   let rx = 0, ry = 0, rEl = null, rLock = null, rOpen = null;
