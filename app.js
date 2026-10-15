@@ -1,5 +1,5 @@
 window.__taifas = true;   // 8.20.1: semn pentru index.html că app.js s-a încărcat
-const APP_VER = '9.26';
+const APP_VER = '9.27';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -190,7 +190,8 @@ const AV_V = [
   ['vesel', '😄 Vesel', 'laughing happily, bright cheerful light, joyful expression'],
   ['trist', '😔 Pensiv', 'thoughtful pensive expression, looking slightly away from the camera, soft muted light']];
 function avKeyNow(c){
-  const mo = cur === c && chat && chat.mood && chat.mood.t ? chat.mood.t.toLowerCase() : '';
+  // 9.27: dispoziția de acum, oriunde (din chatul deschis sau, altfel, ultima știută a personajului, din ultimele 6 ore)
+  const mo = (cur === c && chat && chat.mood && chat.mood.t ? chat.mood.t : c && c.moodNow && c.moodNow.t && Date.now() - (c.moodNow.ts || 0) < 6 * 36e5 ? c.moodNow.t : '').toLowerCase();
   if(/trist|supărat|obosit|melancol|dor|îngrijor|nervos|abătut/.test(mo)) return 'trist';
   if(/vesel|fericit|râde|entuziasm|amuzat|bine dispus|încântat|jucăuș/.test(mo)) return 'vesel';
   const h = new Date().getHours();
@@ -634,6 +635,9 @@ function idPrompt(c, shot, fr, R, fix, two){
 function framingOf(shot){
   const t = String(shot || '').toLowerCase();
   if(/close[- ]?up|headshot|face only|portrait of (her|his) face|prim[- ]plan/.test(t)) return {k:'close', p:'Close-up selfie, head and shoulders, phone held at arm\'s length'};
+  // 9.27: stă jos sau e întinsă (canapea, pat, fotoliu, scaun): selfie de aproape, cu locul pe care stă bine vizibil, nu oglindă
+  const seated = /\b(sitting|seated|lying|lies|reclining|curled up|on the (sofa|couch|bed|armchair|chair|floor)|in bed)\b/.test(t);
+  if(seated && !/propped|timer|tripod|self-timer/.test(t)) return {k:'mid', p:'Arm\'s-length selfie taken with the phone held slightly above, the character sitting or lying exactly as described, framed from the head down to the thighs, the sofa, bed or chair she is on and the room around clearly visible'};
   if(/mirror/.test(t)) return {k:'full', p:'Full-body mirror selfie: the whole body visible from head to feet in the mirror, the phone in her hand visible in the mirror, the room visible around'};
   if(/propped|timer|tripod|self-timer/.test(t)) return {k:'full', p:'Photo taken with the phone propped up on a shelf with the self-timer: the whole body visible from head to feet, the room around clearly visible, natural candid pose'};
   if(/full[- ]?body|head to (toe|feet)|whole body|wide shot|photo taken by someone|from afar|lying|kneeling|walking|dancing/.test(t)) return {k:'full', p:'Full-body photo: the entire body visible from head to toe, camera far enough to show the surroundings'};
@@ -684,7 +688,8 @@ Rules:
 2. Otherwise: where ${c.name} is RIGHT NOW according to the most recent messages (room, what she/he sits/lies/stands on, what the hands do, what is worn). The latest statement wins over older ones; if the latest messages say nothing, keep the last known state.
 3. Clothing continuity: keep the last known outfit unless the conversation changes it. If the character is clearly an adult (18+) and the conversation explicitly requests a nude photo, the scene may depict natural, non-explicit artistic nudity; describe the unclothed state plainly and do not substitute underwear, towels, strategically placed objects, or clothing. Never depict nudity for minors or characters whose age is ambiguous, and do not describe explicit sexual acts.
 4. The character is alone unless the conversation says someone is with them, so the camera is: "selfie", "mirror selfie", or "phone propped up with timer" (for full-body shots without a mirror). Never "photo taken by someone" when alone.
-5. Default to showing the body (mirror selfie, timer shot, or selfie down to the thighs); "close-up selfie" only if the face is asked for.
+4b. The photo must show EXACTLY the current moment of the latest messages: the same place and room, the same piece of furniture the character is on (e.g. on the sofa, in bed, at the kitchen table), the same body position, the same activity and the objects in the hands. The camera must fit that position: sitting or lying (sofa, bed, armchair, chair, floor) = "selfie" taken from arm's length (or "phone propped up with timer" for the whole body), never "mirror selfie"; "mirror selfie" only when the character is standing and a mirror fits the place.
+5. Default to showing the body (selfie down to the thighs, timer shot, or a mirror selfie when standing); "close-up selfie" only if the face is asked for.
 6. Light must match the time of day and the place (at night indoors: lamps, warm and a bit dim).
 7. Make it look like a real, ordinary moment: real furniture and objects, a bit of everyday mess, nothing staged.
 8. Never describe the face, hair, skin or body shape (they come from the reference photo). Describe only place, pose, clothes, expression, light.
@@ -4307,7 +4312,7 @@ async function charProfile(id, push = true){
   $('#pfPhone').onclick = () => openPhone(c);
   $('#pfCall').onclick = async () => { if(!fromChat) await openChat(id); else history.back(); setTimeout(callChoice, 350); };
   $('#pfGift').onclick = async () => { if(!fromChat) await openChat(id); else history.back(); setTimeout(giftSheet, 350); };
-  $('#pfAvBtn').onclick = () => { if(storyLive().some(x => x.cid === id)) openStories(id); else if(c.photo) viewImg(c.photo, [c.photo]); };
+  $('#pfAvBtn').onclick = () => { if(storyLive().some(x => x.cid === id)) openStories(id); else if(c.photo){ const k = photoNow(c); viewImg(k, [...new Set([k, c.photo])]); } };   // 9.27: poza de acum (avatarul viu), apoi cea de bază
   body.querySelectorAll('[data-hi]').forEach(b => b.onclick = e => { e.stopPropagation(); const h = hiDays[+b.dataset.hi]; openStories(id, h.items.slice().reverse().map(x => ({id:'h' + x.k, cid:id, ts:x.ts, text:'', img:x.k, scene:x.scene}))); });
   $('#pfChat').onclick = () => { if(fromChat) history.back(); else openChat(id); };
   { const fb = $('#pfFullBtn'); if(fb) fb.onclick = e => { e.stopPropagation(); viewFull(c); }; const mf = $('#pfMakeFull'); if(mf) mf.onclick = e => { e.stopPropagation(); pfMakeFull(c); }; }   // 9.24–9.25

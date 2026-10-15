@@ -1508,7 +1508,7 @@ details.sdanger>summary{color:var(--err)}
 .angview{display:flex;gap:8px}.angview:empty{display:none}.angview img{width:30%;aspect-ratio:3/4;object-fit:cover;border-radius:10px}
 .crav textarea{width:100%;margin-top:8px;font-size:.82rem}
 .crav .chk{display:flex;gap:8px;align-items:flex-start;font-size:.82rem;margin-top:8px;font-weight:400}
-.pfHero .pfFull{position:absolute;right:12px;bottom:14px;z-index:2;padding:7px 13px;border-radius:99px;border:1px solid #ffffff33;background:#0009;color:#fff;font:inherit;font-size:.82rem;backdrop-filter:blur(10px)}
+.pfHero .pfFull{position:absolute;right:12px;top:calc(var(--safe-t) + 64px);bottom:auto;z-index:3;padding:7px 13px;border-radius:99px;border:1px solid #ffffff33;background:#0009;color:#fff;font:inherit;font-size:.82rem;backdrop-filter:blur(10px)}
 .viewer #vwFace[hidden]{display:none}
 /* ── 9.25: creatorul rafinat ── */
 .crquick{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
@@ -1533,6 +1533,8 @@ details.sdanger>summary{color:var(--err)}
 .crch{display:flex;flex-wrap:wrap;gap:4px}
 .crch button{padding:4px 9px;border-radius:99px;border:1px solid var(--line);background:transparent;color:var(--tx);font:inherit;font-size:.74rem}
 .crch button.on{background:var(--grad);border-color:transparent;color:#fff}
+/* 9.27: statusul din antetul chatului se vede întreg, pe rânduri, nu tăiat cu „…” */
+.chathead small .s1,.chathead small .s2{white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere}
 </style>
 </head>
 <body>
