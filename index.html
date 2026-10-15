@@ -1510,6 +1510,29 @@ details.sdanger>summary{color:var(--err)}
 .crav .chk{display:flex;gap:8px;align-items:flex-start;font-size:.82rem;margin-top:8px;font-weight:400}
 .pfHero .pfFull{position:absolute;right:12px;bottom:14px;z-index:2;padding:7px 13px;border-radius:99px;border:1px solid #ffffff33;background:#0009;color:#fff;font:inherit;font-size:.82rem;backdrop-filter:blur(10px)}
 .viewer #vwFace[hidden]{display:none}
+/* ── 9.25: creatorul rafinat ── */
+.crquick{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
+.crquick::-webkit-scrollbar{display:none}
+.crquick button{flex:none;padding:5px 10px;border-radius:99px;border:1px solid var(--line);background:var(--bg);color:var(--tx);font:inherit;font-size:.78rem}
+.crseg{display:flex;gap:4px;padding:3px;border-radius:12px;background:var(--bg);border:1px solid var(--line)}
+.crseg button{flex:1;min-width:0;padding:7px 4px;border-radius:9px;border:0;background:transparent;color:var(--tx2,var(--tx));font:inherit;font-size:.8rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.crseg button.on{background:var(--grad);color:#fff}
+.crzones{border-radius:14px;border:1px solid var(--line);padding:8px 10px}
+.crzones summary{font-weight:600;font-size:.88rem;cursor:pointer}
+#edZones{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+.crz label{display:block;font-size:.78rem;font-weight:700;margin:0 0 3px;color:var(--tx2,var(--tx))}
+.crz textarea{width:100%;font-size:.88rem;min-height:0}
+.crz.body{padding:8px;border-radius:12px;background:var(--bg)}
+.crrow{display:grid;grid-template-columns:84px 1fr;gap:6px;align-items:start;margin:8px 0}
+.crrow > span{font-size:.75rem;color:var(--tx3);padding-top:5px}
+.crrow input[type=range]{width:100%}
+.crrow b{grid-column:2;font-size:.78rem;font-weight:600}
+.crrow:first-child{grid-template-columns:84px 1fr auto auto;align-items:center}
+.crrow:first-child b{grid-column:auto}
+.crx{border:0;background:transparent;color:var(--tx3);font-size:.9rem;padding:2px 6px}
+.crch{display:flex;flex-wrap:wrap;gap:4px}
+.crch button{padding:4px 9px;border-radius:99px;border:1px solid var(--line);background:transparent;color:var(--tx);font:inherit;font-size:.74rem}
+.crch button.on{background:var(--grad);border-color:transparent;color:#fff}
 </style>
 </head>
 <body>
@@ -1608,24 +1631,30 @@ details.sdanger>summary{color:var(--err)}
         <button type="button" class="photo" id="edPhoto"><span><b>＋</b>Urcă o poză<br>AI-ul o descrie 1:1</span></button>
         <input type="file" id="edFile" accept="image/*" hidden>
         <div class="crea" id="edCrea">
-          <label for="edPrompt">✨ Sau descrie cum arată, iar AI-ul îi face poza</label>
-          <textarea id="edPrompt" rows="4" maxlength="2500" placeholder="ex. brunetă de 28 de ani, 1,70 m, atletică, păr lung ondulat, ochi verzi, unghii roșii, un inel argintiu, rochie verde de vară, sandale albe, pe o terasă la apus"></textarea>
-          <div class="chipset" id="edFrame"><button type="button" data-v="full">🧍 Corp întreg</button><button type="button" data-v="34">Trei sferturi</button><button type="button" data-v="portrait">Portret</button></div>
-          <div class="chipset" id="edStyle"><button type="button" data-v="photo">Foto realist</button><button type="button" data-v="anime">Anime</button><button type="button" data-v="illustration">Ilustrație</button><button type="button" data-v="3d">3D</button></div>
+          <label for="edPrompt">✨ Descrie cum arată, iar AI-ul îi face poza</label>
+          <textarea id="edPrompt" rows="3" maxlength="2500" placeholder="ex. brunetă de 28 de ani, 1,70 m, atletică, păr lung ondulat, ochi verzi, rochie verde de vară, pe o terasă la apus"></textarea>
+          <div class="crquick" id="edQuick"><button type="button" data-q="vârstă: ">🎂 vârstă</button><button type="button" data-q="înălțime: ">📏 înălțime</button><button type="button" data-q="ochi: ">👁️ ochi</button><button type="button" data-q="păr: ">💇 păr</button><button type="button" data-q="corp: ">🧍 corp</button><button type="button" data-q="unghii: ">💅 mâini</button><button type="button" data-q="ținută: ">👗 ținută</button><button type="button" data-q="încălțăminte: ">👟 încălțăminte</button><button type="button" data-q="loc: ">📍 loc</button></div>
+          <button type="button" class="btn sm" id="edEnrich">✨ Îmbogățește pe zone</button>
+          <details class="crzones" id="edZonesWrap"><summary>🧩 Pe zone: față, păr, corp, ținută… (editează orice)</summary>
+            <div id="edZones"></div>
+          </details>
+          <div class="hint" id="edZoneHint"></div>
+          <div class="crseg" id="edFrame"><button type="button" data-v="full">🧍 Corp întreg</button><button type="button" data-v="34">Trei sferturi</button><button type="button" data-v="portrait">Portret</button></div>
+          <div class="crseg" id="edStyle"><button type="button" data-v="photo">Foto</button><button type="button" data-v="anime">Anime</button><button type="button" data-v="illustration">Ilustrație</button><button type="button" data-v="3d">3D</button></div>
           <button type="button" class="btn pri crgo" id="edGen4">🎨 Generează 4 variante</button>
+          <button type="button" class="btn dan crgo" id="edStop" hidden>⏹ Oprește</button>
           <div class="crgrid" id="edVars"></div>
           <div class="crchosen" id="edChosen" hidden>
-            <div class="btns"><button type="button" class="btn sm" id="edViewChosen">🔍 Vezi mare</button><button type="button" class="btn sm" id="edAngles">📐 Fișă de personaj</button></div>
+            <div class="btns"><button type="button" class="btn sm" id="edViewChosen">🔍 Vezi mare</button><button type="button" class="btn sm" id="edMore">🔁 Mai multe ca asta</button></div>
+            <label class="chk"><input type="checkbox" id="edAutoAng"> 📐 Încă 2 unghiuri ale feței, automat (2 poze; repere pentru pozele din chat)</label>
             <div class="angview" id="edAngleView"></div>
-            <div class="hint">📐 Fișa face încă 2 unghiuri ale feței (trei sferturi și profil); la salvare devin repere pentru pozele din chat, ca să semene mai bine.</div>
             <label for="edAdjTxt">🪄 Ajustează: aceeași persoană, se schimbă doar ce scrii</label>
-            <div class="chipset adj" id="edAdjChips"><button type="button" data-adj="altă ținută">👗 Altă ținută</button><button type="button" data-adj="altă coafură">💇 Alt păr</button><button type="button" data-adj="mai înaltă, cu proporții firești">📏 Mai înaltă</button><button type="button" data-adj="mai scundă, cu proporții firești">📐 Mai scundă</button><button type="button" data-adj="altă poziție a corpului, la fel de naturală">🕺 Altă poziție</button><button type="button" data-adj="alt loc în fundal">🏙️ Alt loc</button><button type="button" data-adj="un zâmbet cald, natural">😊 Zâmbet</button></div>
+            <div class="chipset adj" id="edAdjChips"><button type="button" data-adj="altă ținută">👗 Altă ținută</button><button type="button" data-adj="altă coafură">💇 Alt păr</button><button type="button" data-adj="corp mai suplu, cu proporții firești">🪶 Mai suplă</button><button type="button" data-adj="corp mai plin, cu proporții firești">🍑 Mai plinuță</button><button type="button" data-adj="corp mai atletic, tonifiat">🏋️ Mai atletică</button><button type="button" data-adj="bust mai mare, natural">⬆️ Bust mai mare</button><button type="button" data-adj="bust mai mic, natural">⬇️ Bust mai mic</button><button type="button" data-adj="mai înaltă, cu proporții firești">📏 Mai înaltă</button><button type="button" data-adj="altă poziție a corpului, la fel de naturală">🕺 Altă poziție</button><button type="button" data-adj="alt loc în fundal">🏙️ Alt loc</button><button type="button" data-adj="un zâmbet cald, natural">😊 Zâmbet</button></div>
             <div class="adjrow"><input id="edAdjTxt" maxlength="200" placeholder="ex. rochie neagră scurtă și cizme"><button type="button" class="btn sm pri" id="edAdjGo">Aplică</button></div>
           </div>
           <div class="hint" id="edFullNow" hidden>🧍 Are deja o poză întreagă. <button type="button" class="btn sm" id="edFullView">Vezi</button></div>
-          <details class="crav"><summary>Avansat: promptul în engleză și verificări</summary>
-            <textarea id="edPromptEn" rows="5" placeholder="Se scrie singur din descrierea ta. Îl poți corecta; se reface când schimbi descrierea."></textarea>
-            <label class="chk"><input type="checkbox" id="edHands"> 🖐️ Verifică și mâinile, degetele și picioarele cu Claude (o cerere mică pentru toate variantele)</label>
+          <details class="crav"><summary>Avansat: promptul în engleză</summary>
+            <textarea id="edPromptEn" rows="5" readonly placeholder="Se scrie singur din descriere și din zone."></textarea>
           </details>
         </div>
         <div class="hint" id="edCreaOff" hidden>Pornește pozele din Setări → Poze ca AI-ul să-i poată face poza din descriere.</div>
@@ -1670,8 +1699,8 @@ details.sdanger>summary{color:var(--err)}
         <summary>Avansat: descrierea pentru imagini</summary>
         <label for="edLook">Aspect în engleză (pentru generatorul de poze)</label>
         <textarea id="edLook" rows="4"></textarea>
-        <label for="edStil">Stil</label>
-        <select id="edStil"><option value="photo">Fotografie realistă</option><option value="anime">Anime</option><option value="illustration">Ilustrație</option><option value="3d">3D</option></select>
+        <label for="edStil" hidden>Stil</label>
+        <select id="edStil" hidden><option value="photo">Fotografie realistă</option><option value="anime">Anime</option><option value="illustration">Ilustrație</option><option value="3d">3D</option></select>
       </details>
       <div class="btns" id="edDelWrap"><button type="button" class="btn dan" id="edDel">Șterge personajul</button></div>
     </div>
