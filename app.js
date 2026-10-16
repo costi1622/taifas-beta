@@ -1,5 +1,5 @@
 window.__taifas = true;   // 8.20.1: semn pentru index.html că app.js s-a încărcat
-const APP_VER = '9.30';
+const APP_VER = '9.32';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -38,7 +38,7 @@ const DEF = {
   imgProv:'none',
   wkBase:'', wkTok:'', wkModel:'eco', wkSize:'768x1024',
   sugg:'off', pro:'on', feed:'text', fx:'on', regen3:'on', voice:'tap', tts:'tel', cfPlan:'free', cfCap:'free', theme:'dark', vmsg:'rar', jrn:'on', aux:'on', ctxN:'30',
-  vault:'off', vaultHas:null, faceFix:'on', bodyFix:'off', bestOf:'3', autoModel:'chat', callFace:'on', handCheck:'off', crHands:'on', crAngles:'on', callAmb:'on', callBack:'on', callDepth:'on', callLight:'on', callPres:'on', imgCheck:'on', story:'on', sky:'on', social:'on', userBday:'', lock:'off', pushOn:false, bkEvery:'week', bkLast:0, userPhoto:'', userPhys:'', userBox:null, wkChat:'ancorat', wkRef:'auto', rw:'off', rwKey:'', rwCap:'0.5', rwAvg:0, idBoost:'on', spont:'rar', sv:34, imgCost:'', pIn:'', pOut:''
+  vault:'off', vaultHas:null, faceFix:'on', bodyFix:'off', bestOf:'3', autoModel:'chat', callFace:'on', handCheck:'off', crHands:'on', crAngles:'on', callAmb:'on', callBack:'on', callDepth:'on', callLight:'on', callPres:'on', typeReal:'on', chatMode:'rp', imgCheck:'on', story:'on', sky:'on', social:'on', userBday:'', lock:'off', pushOn:false, bkEvery:'week', bkLast:0, userPhoto:'', userPhys:'', userBox:null, wkChat:'ancorat', wkRef:'auto', rw:'off', rwKey:'', rwCap:'0.5', rwAvg:0, idBoost:'on', spont:'rar', sv:34, imgCost:'', pIn:'', pOut:''
 };
 let S = {...DEF};
 let chars = [];            // [{id,name,tag,photo,aspect,look,stil,persona,speech,greet,created,lastAt,last}]
@@ -573,6 +573,20 @@ async function bodySquare(blob, b){
     return await new Promise(r => cv.toBlob(r, 'image/jpeg', .92));
   } finally { URL.revokeObjectURL(u); }
 }
+// 9.32: personajele din creator au poza întreagă (c.photoFull): reperul de corp e decupat din ea, din creștet până la coapse,
+//       ca generatorul să vadă corpul real (bust, talie, șolduri), nu doar umerii din portret. Fața rămâne din portret (reperul 1).
+async function fullBodyRef(blob, b){
+  const u = URL.createObjectURL(blob);
+  try{
+    const im = await loadImgEl(u), W = im.naturalWidth, H = im.naturalHeight, side = Math.min(W, H);
+    const fb = b && !b.none && b.w > 0 ? b : null;
+    const cx = fb ? (fb.x + fb.w / 2) * W : W / 2, top = fb ? fb.y * H - fb.h * H * .5 : H * .02;
+    const x = Math.min(Math.max(0, cx - side / 2), W - side), y = Math.min(Math.max(0, top), H - side);
+    const cv = document.createElement('canvas'); cv.width = cv.height = 512;
+    cv.getContext('2d').drawImage(im, x, y, side, side, 0, 0, 512, 512);
+    return await new Promise(r => cv.toBlob(r, 'image/jpeg', .92));
+  } finally { URL.revokeObjectURL(u); }
+}
 // 8.23: poza de profil întreagă, încadrată într-un pătrat (fundal estompat), ca generatorul să vadă tot corpul
 async function wholeRef(blob){
   const u = URL.createObjectURL(blob);
@@ -596,7 +610,10 @@ async function idRefs(c){
     if(rb === undefined){ rb = await faceBoxOf(b); c.refBoxes = c.refBoxes || {}; c.refBoxes[k] = rb; saveChars(); }
     extra.push(await cropFace(b, rb));
   }
-  return {full, id, face: await cropFace(full, bx), body: await bodySquare(full, bx), extra};
+  let body = null, bodyFrom = 'profil';
+  if(c.photoFull){ const fb = await DB.get(c.photoFull).catch(() => null); if(fb) try{ body = await fullBodyRef(fb, c.fullBox); bodyFrom = 'intreaga'; }catch(e){} }   // 9.32
+  if(!body) body = await bodySquare(full, bx);
+  return {full, id, face: await cropFace(full, bx), body, bodyFrom, extra};
 }
 // poziția feței într-o poză (o dată per poză; null = n-am găsit-o, se decupează partea de sus)
 async function faceBoxOf(blob){
@@ -631,7 +648,7 @@ function idPrompt(c, shot, fr, R, fix, two){
   const phys = physFull(c, R && R.id) ? ` Permanent physical traits (exactly as in the reference): ${physFull(c, R && R.id)}.` : '';
   const nx = two && R && R.extra ? R.extra.length : 0;
   const refs = two
-    ? 'image 1 is a close-up of the face (the exact identity to keep: face shape, eyes, eyebrows, nose, lips, skin tone and skin texture), image 2 shows the same person\'s hair, skin tone and body type' + (nx ? `, image${nx > 1 ? 's 3 and 4 are' : ' 3 is'} the same face from other angles` : '')
+    ? 'image 1 is a close-up of the face (the exact identity to keep: face shape, eyes, eyebrows, nose, lips, skin tone and skin texture), ' + (R && R.bodyFrom === 'intreaga' ? 'image 2 shows the same person\'s exact body: build, weight, bust size and shape, waist, belly, hips, arms and legs, plus hair and skin tone; reproduce that body exactly, but NOT its clothes, pose or background' : 'image 2 shows the same person\'s hair, skin tone and body type') + (nx ? `, image${nx > 1 ? 's 3 and 4 are' : ' 3 is'} the same face from other angles` : '')
     : 'the reference image shows the same person (face, hair, skin tone, body type)';
   return `${stilLead(c.stil)}${fr.p}. ${shot}.${fix ? ` Important corrections from the previous attempt: ${fix}.` : ''} IDENTITY LOCK — the reference images define one specific character, not a lookalike. Reproduce the same individual: preserve face shape, eye spacing and shape, eyebrows, nose, lips, jaw, apparent age, skin tone and texture, hairline, hair color, curl/strand texture and hairstyle. Preserve the exact body build and proportions visible in the reference; do not slim, enlarge, reshape or replace the body. ${refs}.${phys} SCENE FLEXIBILITY — do not copy the reference photo's background, outfit, pose, expression, camera angle or framing. Those are allowed to change and must follow the current scene description above. Change only temporary details required by the scene; the character's identity and natural body proportions stay fixed. ${STIL_TAG[c.stil || 'photo']}`;
 }
@@ -1603,6 +1620,7 @@ function turnExtras(c, ch, opts = {}){
   const lu = [...(chat && chat.msgs || [])].reverse().find(m => m.role === 'user' && m.text && !m.err);
   if(lu && freshTurn){ const qs = plain(lu.text).split(/(?<=[?])/).map(x => x.trim()).filter(x => x.endsWith('?') && x.length > 3).slice(-4);
     if(qs.length) x += ` (${S.userName.trim() || 'el'} te-a întrebat: ${qs.map(q => '„' + q.slice(-160) + '”').join(' ')}; răspunde-i concret la ${qs.length > 1 ? 'fiecare' : 'ea'}, în felul tău)`; }
+  if(modeOf(chat) === 'chat') x += ' (mod chat pe telefon: scrie doar mesajul, ca pe WhatsApp, fără acțiuni narate între asteriscuri)';   // 9.31
   x += charTimeNote(c);
   if(!opts.cont) x += giftExtras(c);
   x += socialExtras(c, opts);
@@ -2141,7 +2159,8 @@ ${last}
 A) "fapte": lucruri NOI (nu cele știute), max 5, câte o propoziție de max 14 cuvinte, cu "tip":
 - "fapt": ceva durabil despre ${u}, spus de ${u} însuși (nume, job, oraș, familie, gusturi, lucruri importante);
 - "urmează": ceva ce urmează să i se întâmple lui ${u} și despre care merită întrebat mai târziu, cu momentul dacă l-a spus;
-- "glumă": o glumă internă, o poreclă sau o expresie născută între ei.
+- "glumă": o glumă internă, o poreclă sau o expresie născută între ei;
+- "limbaj": un cuvânt, o expresie, un fel de a spune sau o poreclă care ține de felul în care vorbește ${u} sau de limbajul lor (cum îi spune el ei, o expresie pe care o tot folosește), scrisă exact, între ghilimele, și pe scurt cum o folosește.
 Fără ce face doar în scenă, fără presupuneri. Poate fi [].
 B) "relatie": cum s-a schimbat, realist, cu pași mici (de obicei -3..+4): trust (crește când e sincer, ține minte, o susține; scade când minte, ignoră, își bate joc), warm (apropiere, afecțiune), tension (o mică supărare reală: nepoliticos, a uitat ceva important, a lipsit mult după o promisiune; scade când se lămuresc; nu inventa conflicte), why (motivul tensiunii sau gol), moment (doar dacă s-a întâmplat ACUM ceva memorabil și nou: secret, gluma, sprijin, cearta, impacare, incredere, amintire, dor, surpriza; altfel null; "t" = propoziție scurtă la persoana a II-a plural).
 JSON: {"fapte":[{"t":"…","tip":"fapt"}],"relatie":{"trust":0,"warm":0,"tension":0,"why":"","moment":null}}`, {max:600, tag:'fundal'});
@@ -2151,7 +2170,7 @@ LATER.analiza = async (out, d, cid) => {   // 8.19: rezultatul analizei (direct 
   const c = charById(cid); if(!c) return;
   try{
     const j = parseJSON(out);
-    const arr = (Array.isArray(j.fapte) ? j.fapte : []).map(x => ({t:faraLiniute(String(x && x.t || '').trim()), k:x && /urm/i.test(x.tip || '') ? 'urm' : x && /gl/i.test(x.tip || '') ? 'gluma' : ''}))
+    const arr = (Array.isArray(j.fapte) ? j.fapte : []).map(x => ({t:faraLiniute(String(x && x.t || '').trim()), k:x && /urm/i.test(x.tip || '') ? 'urm' : x && /gl/i.test(x.tip || '') ? 'gluma' : x && /lim/i.test(x.tip || '') ? 'lex' : ''}))
       .filter(x => x.t && !(c.facts || []).some(f => f.t === x.t)).slice(0, 5);
     if(arr.length) c.facts = (c.facts || []).concat(arr.map(x => ({t:x.t, ts:Date.now(), ...(x.k ? {k:x.k} : {})}))).slice(-40);
     if(j.relatie && typeof j.relatie === 'object') applyBond(c, j.relatie);
@@ -2412,9 +2431,17 @@ function drawBodyNote(c, box){
   box.insertAdjacentHTML('beforeend', `<div class="refbox bodyn"><b>🧍 Cum arată, pentru poze</b>
     <small>${auto ? 'Citit automat din poza de profil: <i>' + esc(auto) + '</i>' : 'Se citește automat din poza de profil la prima poză.'}</small>
     ${mk.length ? `<small style="margin-top:6px">Semne care rămân mereu la locul lor: <i>${mk.map(esc).join(' · ')}</i></small>` : ''}
-    <small style="margin-top:6px">Dacă ceva nu iese cum trebuie (siluetă, înălțime, piele, păr, semne), scrie aici în română. Are prioritate față de ce citește aplicația.</small>
+    <small style="margin-top:6px">${c.physAuto && c.physUser ? '🧍 Completat din creator (corpul exact ca la creare). ' : ''}Dacă ceva nu iese cum trebuie (siluetă, înălțime, piele, păr, semne), scrie aici în română. Are prioritate față de ce citește aplicația.</small>
     <textarea id="pfBody2" rows="4" maxlength="700" placeholder="ex. 1,58 m, siluetă plinuță cu șolduri late, piele bronzată, păr negru drept până la mijlocul spatelui, aluniță pe obrazul stâng">${esc(c.physUser || '')}</textarea>
-    <div class="btns"><button class="btn sm pri" id="pfBodySave">Salvează</button>${c.photo ? '<button class="btn sm" id="pfBodyRe">↻ Recitește poza</button>' : ''}</div></div>`);
+    <div class="btns"><button class="btn sm pri" id="pfBodySave">Salvează</button>${c.photo ? '<button class="btn sm" id="pfBodyRe">↻ Recitește poza</button>' : ''}${c.appPrompt || c.appZones || c.appEn ? '<button class="btn sm" id="pfBodyCr">🧍 Din creator</button>' : ''}</div></div>`);
+  // 9.32: reface textul din ce ai ales la creare (dacă l-ai scris tu între timp, îl înlocuiește doar la cererea ta)
+  if($('#pfBodyCr')) $('#pfBodyCr').onclick = async () => {
+    const b = $('#pfBodyCr'); b.disabled = true; b.innerHTML = '<span class="spin"></span>';
+    c.physAuto = true; delete c.physRoV;
+    if(crApplyPhys(c)){ if(crRoThin(c.physUser)) await Promise.race([crPhysRo(c), sleep(15000)]); await saveChars(); $('#pfBody2').value = c.physUser || ''; toast('✓ Completat din creator'); }
+    else toast('N-am găsit descrierea din creator.', 3000);
+    b.disabled = false; b.textContent = '🧍 Din creator';
+  };
   $('#pfBodySave').onclick = async () => {
     const t = $('#pfBody2').value.trim(), b = $('#pfBodySave'); b.disabled = true; b.innerHTML = '<span class="spin"></span>';
     try{
@@ -2769,12 +2796,14 @@ async function runPolish(t, opt){
 function pickVariant(outs, signal){
   return new Promise((res, rej) => {
     const show = t => fmtMsg(stripMood(stripReact(t)).replace(AI_VOICE, '🎙️ '));
-    openSheet(`<h4>🎰 Alege varianta care-ți place</h4><div class="vpicks">${outs.map((t, k) => `<button class="vpk" data-vk="${k}"><div class="vh">VARIANTA ${k + 1}<span>Alege ›</span></div>${show(t)}</button>`).join('')}</div>`);
+    // 9.31: cea mai naturală (local, fără cost) e marcată; dacă închizi fără să alegi, rămâne ea
+    const sc = outs.map(humanScore), top = Math.max(...sc), best = sc.filter(x => x === top).length === 1 ? sc.indexOf(top) : 0, mark = sc.filter(x => x === top).length === 1;
+    openSheet(`<h4>🎰 Alege varianta care-ți place</h4><div class="vpicks">${outs.map((t, k) => `<button class="vpk${mark && k === best ? ' vhum' : ''}" data-vk="${k}"><div class="vh">VARIANTA ${k + 1}${mark && k === best ? '<em>🧑 cea mai naturală</em>' : ''}<span>Alege ›</span></div>${show(t)}</button>`).join('')}</div>`);
     let done = false;
     const fin = k => { if(done) return; done = true; obs.disconnect(); closeSheet(); res(k); };
     $$('.sheet [data-vk]').forEach(b => b.onclick = () => fin(+b.dataset.vk));
     // meniul închis din afară (atingere pe fundal sau Înapoi): rămâne prima variantă
-    const obs = new MutationObserver(() => { if(!$('.sheet [data-vk]')) fin(0); });
+    const obs = new MutationObserver(() => { if(!$('.sheet [data-vk]')) fin(best); });
     obs.observe(document.body, {childList:true});
     if(signal) signal.addEventListener('abort', () => { if(!done){ done = true; obs.disconnect(); closeSheet(); rej(new DOMException('Oprit', 'AbortError')); } });
   });
@@ -2903,7 +2932,7 @@ function msgHTML(m, i, lastAi, anim, g = ''){
 const REACTS = ['❤️', '😂', '😮', '😢', '👍', '🔥'];
 const AI_REACT = /^\s*\[(❤️|❤|😂|😮|😢|👍|🔥|🥰)\]\s*/u;
 const AI_VOICE = /^\s*\[vocal\]\s*/i;
-const stripReact = t => String(t || '').replace(AI_REACT, '').replace(AI_VOICE, '').replace(AI_REACT, '');
+const stripReact = t => String(t || '').replace(/\[re:\s*[^\]\n]{1,160}\]\s*/gi, '').replace(AI_REACT, '').replace(AI_VOICE, '').replace(AI_REACT, '');
 const reactHTML = m => m.react ? `<span class="react">${m.react}</span>` : '';
 function quoteHTML(m){
   if(!m.reply) return '';
@@ -3367,8 +3396,81 @@ const PHOTO_PROMISE = /\*[^*]*\b(trimit|trimite|atașez|atașează|face|fac|face
 // 9.0: înainte era un WeakMap în memorie, legat de obiectul conversației: la fiecare deschidere a chatului sau repornire
 //      promptul se reconstruia (cu faptele/relația actualizate între timp), deci tot istoricul se rescria în cache la 2×
 const sysMemo = {get: ch => ch && ch._sys, set: (ch, v) => { if(ch) ch._sys = v; }};
+/* ───────── 9.31: text mai omenesc ─────────
+   (3) expresii de asistent și clișee de roman ieftin: interzise în prompt, numărate în conversație și semnalate la răspunsul următor;
+   (5) ritm real de tastare: „scrie…” durează cât ar dura scrisul mesajului, cu o ezitare din când în când; mesajul apare întreg, ca pe telefon;
+   (6) reply la un mesaj anume: [re: primele cuvinte] → citat deasupra bulei; (10) limbajul vostru: cuvinte, expresii și porecle preluate treptat;
+   (11) mod chat pe telefon / mod roleplay, pe fiecare conversație; (12) la „🎰 3 variante”: cea mai naturală e marcată (și aleasă dacă închizi). */
+const W_ = src => new RegExp('(?<!\\p{L})(?:' + src + ')(?!\\p{L})', 'iu');
+const AI_ISMS = [
+  ['desigur', 'desigur'], ['absolut[!.,]', 'absolut'], ['cu siguran[țt][ăa]', 'cu siguranță'], ['[îi]n[țt]eleg (perfect|pe deplin|complet)', 'înțeleg perfect'],
+  ['sunt (mereu |[îi]ntotdeauna )?aici pentru tine', 'sunt aici pentru tine'], ['nu ezita', 'nu ezita'], ['(e|este) (important|esen[țt]ial) s[ăa]', 'e important să'],
+  ['[îi]n primul r[âa]nd', 'în primul rând'], ['[îi]n concluzie', 'în concluzie'], ['pe de alt[ăa] parte', 'pe de altă parte'],
+  ['[îi]mi pare (at[âa]t de )?r[ăa]u s[ăa] aud', 'îmi pare rău să aud'], ['sun[ăa] (absolut )?(minunat|grozav|fantastic|incredibil)', 'sună minunat'],
+  ['ce (idee|[îi]ntrebare) (minunat|frumoas|excelent|grozav)\\p{L}*', 'ce idee minunată'], ['fascinant\\p{L}*', 'fascinant'],
+  ['ochii ([îi]i |mi )?(str[ăa]lucesc|scap[ăa]r[ăa]|sclipesc)', 'ochii îi strălucesc'], ['(([îi][șs]i|[îi]mi) mu[șs]c[ăa] buza|mu[șs]c[âa]ndu-[șs]i buza)', 'își mușcă buza'],
+  ['un fior', 'un fior'], ['obrajii (i |mi )?se ([îi]nro[șs]esc|coloreaz[ăa]|[îi]mbujoreaz[ăa])', 'obrajii se înroșesc'], ['(z[âa]mbe[șs]te|z[âa]mbind) (cald|c[ăa]lduros)|z[âa]mbet cald', 'zâmbet cald'],
+  ['vocea (ei |lui |mea )?(e |devine |abia )?o [șs]oapt[ăa]', 'vocea o șoaptă'], ['inima ([îi]mi |[îi]i )?(bate (mai )?(tare|repede)|o ia razna|tresare)', 'inima bate tare'], ['aerul dintre (noi|voi)', 'aerul dintre voi'],
+  ['(fluturi|fluturii) (din|[îi]n) stomac', 'fluturi în stomac']
+].map(([r, l]) => [W_(r), l]);
+function aiIsms(t){
+  const x = stripMood(String(t || ''));
+  const out = AI_ISMS.filter(([r]) => r.test(x)).map(a => a[1]);
+  if(/^\s*(\[[^\]]*\]\s*)*(oh|ah),/i.test(x)) out.push('„Oh,” la început');
+  return out;
+}
+// 12: cât de „om” sună o variantă (local, gratuit): clișee, proporția de *acțiuni*, fraze lungi, înșiruiri, ritm variat, vorbe de chat
+function humanScore(t){
+  const raw = stripMood(stripReact(String(t || ''))).replace(AI_VOICE, ''), txt = plain(raw);
+  const words = txt.split(/\s+/).filter(Boolean); if(!words.length) return -9;
+  let s = -aiIsms(raw).length * 2;
+  const act = (raw.match(/\*[^*]*\*/g) || []).join('').length;
+  if(act > raw.length * .45) s -= 1.5; else if(act > raw.length * .3) s -= .5;
+  const sents = txt.split(/(?<=[.!?…])\s+/).filter(x => x.trim());
+  const avg = words.length / Math.max(1, sents.length); if(avg > 22) s -= 1; if(avg > 30) s -= 1;
+  if(sents.length >= 3){ const L = sents.map(x => x.split(/\s+/).length), mu = L.reduce((a, b) => a + b, 0) / L.length, sd = Math.sqrt(L.reduce((a, b) => a + (b - mu) ** 2, 0) / L.length); if(sd / mu > .45) s += .5; }
+  s -= (txt.match(/\p{L}+, \p{L}+ și \p{L}+/gu) || []).length * .5;
+  if((raw.match(/!/g) || []).length > 3) s -= .5;
+  s += Math.min(1.5, (txt.toLowerCase().match(/(?<!\p{L})(păi|adică|mă rog|na|stai|hai|deci|gen|parcă|oricum|serios|mda|hmm|aoleu|doamne|uite|bine că|ce să zic)(?!\p{L})/gu) || []).length * .5);
+  if(/\?\s*$/.test(txt)) s -= .3;
+  return s;
+}
+// 11: stilul conversației: roleplay (*acțiuni*, scenă trăită împreună) sau chat pe telefon (doar mesaje)
+const modeOf = ch => (ch && ch.mode) || S.chatMode || 'rp';
+function toggleMode(){
+  if(!chat) return;
+  chat.mode = modeOf(chat) === 'chat' ? 'rp' : 'chat';
+  saveChat(); toast(chat.mode === 'chat' ? '💬 Chat pe telefon: doar mesaje, fără acțiuni narate.' : '🎭 Roleplay: acțiuni între *asteriscuri*, scena trăită împreună.', 3200);
+}
+// 6: [re: primele cuvinte] → mesajul tău la care răspunde (nu ultimul tău mesaj, la care răspunde oricum)
+const RE_ANY = /\[re:\s*([^\]\n]{1,160})\]\s*/gi;
+function findQuoted(ch, idx, frag){
+  const norm = x => String(x || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\p{L}\p{N} ]/gu, ' ').replace(/\s+/g, ' ').trim();
+  const f = norm(String(frag).replace(/\.{2,}|…/g, ' ')); if(f.length < 3) return null;
+  const us = ch.msgs.slice(0, idx).map((m, i) => ({m, i})).filter(x => x.m.role === 'user' && x.m.text && !x.m.err).slice(-15);
+  if(us.length < 2) return null;
+  const lastI = us[us.length - 1].i;
+  let best = null, bs = 0;
+  for(const x of us){
+    if(x.i === lastI) continue;
+    const t = norm(plain(x.m.text));
+    let sc = t.includes(f) ? 1 : 0;
+    if(!sc){ const fw = f.split(' '), tw = new Set(t.split(' ')); sc = fw.filter(w => tw.has(w)).length / fw.length * .9; }
+    if(sc >= bs && sc > 0){ bs = sc; best = x.m; }   // la egalitate câștigă cel mai recent
+  }
+  if(!best || bs < .6) return null;
+  return {id:best.id, name:S.userName.trim() || 'Tu', text:plain(best.text).slice(0, 140)};
+}
+const naps = (ms, sig) => new Promise(r => { const t = setTimeout(r, ms); if(sig) sig.addEventListener('abort', () => { clearTimeout(t); r(); }, {once:true}); });
+// 5: cât ar dura să scrie (sau să înregistreze) mesajul pe telefon
+function typeMs(m){
+  const t = String(m.text || ''), L = plain(t).length + (t.match(/\*[^*]*\*/g) || []).join('').length * .3;
+  if(m.voice) return Math.min(10e3, Math.max(1800, L / 14 * 1000));   // cât vorbește
+  return Math.min(6500, Math.max(1200, L / (12 + Math.random() * 6) * 1000));   // un om care scrie repede pe telefon; timpul de generare intră în el
+}
+
 function sysFor(c, ch){
-  const core = JSON.stringify([c.id, c.name, c.persona, c.speech, c.aspect, ch && ch.scene, S.userName, S.userAbout, S.userBday, S.vmsg, S.len, S.model, learnOn(c) ? c.learn.lang + c.learn.lvl : '', canAutoPhoto(c), (c.stickers || []).length, c.rel && c.rel.lock, relOf(c).lv]);
+  const core = JSON.stringify([c.id, c.name, c.persona, c.speech, c.aspect, ch && ch.scene, S.userName, S.userAbout, S.userBday, S.vmsg, S.len, S.model, learnOn(c) ? c.learn.lang + c.learn.lvl : '', canAutoPhoto(c), (c.stickers || []).length, c.rel && c.rel.lock, relOf(c).lv, modeOf(ch)]);
   const old = ch && sysMemo.get(ch);
   if(S.stableSys !== 'off' && old && old.core === core && old.from === ch._from && Date.now() - old.last < 55 * 60e3){ old.last = Date.now(); return old.text; }   // după o pauză lungă cache-ul e oricum expirat: atunci se reface
   const text = systemFor(c, ch);
@@ -3377,7 +3479,9 @@ function sysFor(c, ch){
 }
 function systemFor(c, ch){
   const u = S.userName.trim() || 'utilizatorul';
-  const facts = (c.facts || []).map(f => '- ' + (f.k === 'urm' ? '(urma să i se întâmple) ' : f.k === 'gluma' ? '(glumă de-a voastră) ' : '') + f.t).join('\n');
+  const chatM = modeOf(ch) === 'chat';
+  const lex = (c.facts || []).filter(f => f.k === 'lex').slice(-12).map(f => '- ' + f.t).join('\n');
+  const facts = (c.facts || []).filter(f => f.k !== 'lex').map(f => '- ' + (f.k === 'urm' ? '(urma să i se întâmple) ' : f.k === 'gluma' ? '(glumă de-a voastră) ' : '') + f.t).join('\n');
   return [
     `Ești ${c.name}. Joci acest personaj într-o conversație privată cu ${u}. Rămâi mereu în personaj; nu spui că ești un AI.`,
     c.aspect && `## Cum arăți\nAceasta e înfățișarea ta exactă. Când te descrii sau descrii ce porți, rămâi fidel ei.\n${c.aspect}`,
@@ -3390,6 +3494,7 @@ function systemFor(c, ch){
     phoneFor(c),
     learnFor(c),
     facts && `## Ce știi despre ${u} (din conversațiile voastre)\nFolosește natural când se potrivește, fără să le enumeri.\n${facts}`,
+    lex && `## Limbajul vostru\nCuvinte, expresii și porecle de-ale lui ${u} sau născute între voi. Ca oamenii apropiați, te-ai „molipsit” de unele: folosește-le din când în când, firesc și în felul tău, nu în fiecare mesaj și nu toate odată.\n${lex}`,
     ch && ch.scene && `## Scena acum\n${ch.scene}`,
     `## Relația voastră acum: ${relOf(c).name}\n${relOf(c).how}. Dacă descrierea ta stabilește deja relația cu ${u}, aceea are prioritate; nivelul arată doar cât de familiar și deschis vorbești acum.`,
     (c.stickers || []).length && ch && `## Stickere\nAi un set de stickere cu tine: ${c.stickers.map(x => x.l).join(', ')}. Rar, când se potrivește (cel mult o dată la câteva mesaje), poți trimite unul adăugând la final, pe rând separat: [sticker: nume] (exact unul din listă).`,
@@ -3397,8 +3502,9 @@ function systemFor(c, ch){
     (c.prefs || []).length && `## Cum îi place lui ${u} să-i scrii (din notele lui, respectă-le)\n${c.prefs.map(x => '- ' + x.t).join('\n')}`,
     (c.liked || []).length && `## Răspunsuri de-ale tale care i-au plăcut lui ${u} (ca ton și stil; nu le repeta)\n${c.liked.map(x => '„' + x + '”').join('\n')}`,
     `## Reguli de scris
-- Română corectă, cu diacritice și punctuație îngrijită.
-- Gesturile, acțiunile și decorul între *asteriscuri*; vorbele direct, fără ghilimele.
+${chatM ? `- Vă scrieți pe telefon, ca pe WhatsApp: fiecare e la el, cu ziua lui (dacă scena sau ${u} nu spune altceva). Română de chat, naturală: diacritice da, dar punctuație lejeră (uneori fără punct la final, „?!”, „...”), propoziții scurte, cum scrie un om pe telefon.
+- Scrii DOAR mesajul: fără acțiuni narate și fără descrieri de decor între *asteriscuri*. Ce faci se înțelege din ce scrii („stau în pat cu ceaiul”). Cel mult rar un cuvânt-două de reacție (*râde*). Excepția: *îți trimite o poză*, când trimiți o poză. Dacă ${u} scrie că sunteți împreună sau descrie acțiuni, răspunzi la ele, tot scurt.` : `- Română corectă, cu diacritice și punctuație îngrijită.
+- Gesturile, acțiunile și decorul între *asteriscuri*; vorbele direct, fără ghilimele.`}
 - Scrii DOAR pentru ${c.name}. Nu scrii niciodată vorbele, gândurile sau acțiunile lui ${u}.
 - Ce scrie ${u} între *asteriscuri* (de exemplu *deschide ușa și intră*, *îți întinde o cană de ceai*) sunt acțiuni ale lui care S-AU ÎNTÂMPLAT deja, exact așa cum le-a scris: sunt fapte în scenă, nu vorbe spuse cu voce tare. Nu le contrazici, nu le rescrii, nu le anulezi, nu spui că n-au avut loc și nu le muți în alt loc sau alt moment; scena continuă de la starea de după acțiunea lui (dacă a intrat, e înăuntru; dacă ți-a dat ceva, îl ai). Le observi mereu și reacționezi concret la ele, întâi la acțiune, apoi la vorbe. Ce simți, ce spui și ce faci mai departe rămâne alegerea ta, în felul personajului tău.
 - Lungime de obicei: ${LEN[S.len].t}. Dar variază după moment, ca într-un chat real: uneori doar câteva cuvinte sau un emoji, alteori mai mult, când chiar ai ceva de povestit.
@@ -3407,13 +3513,14 @@ function systemFor(c, ch){
 - Preiei detaliile lui (ce a făcut, ce simte, nume, locuri, planuri) și construiești pe ele cu opinii, emoții și întâmplări de-ale tale; faci legături cu ce s-a spus mai devreme în conversație.
 - Dacă ${u} propune un subiect, o idee, un plan sau o direcție pentru scenă, intri în ea și o duci mai departe în felul personajului tău, în loc să schimbi subiectul. Reacțiile rămân ale tale (poți să nu fii de acord), dar nu ignori ce a propus.
 - Variază formulările; nu repeta aceleași gesturi și expresii de la un mesaj la altul.
-- Subtext: nu-ți explica sentimentele și nu le declari teatral. Lasă-le să se vadă din gesturi, pauze, ton și din ce alegi să nu spui, ca un om real. Fără clișee.
+- Fără formule de asistent și fără clișee de roman ieftin: nu scrie „Desigur”, „Absolut”, „Înțeleg perfect”, „Sunt aici pentru tine”, „Nu ezita”, „E important să”, „Sună minunat”, nu începe cu „Oh,” sau „Ah,”, fără înșiruiri de câte trei adjective și fără „ochii îi strălucesc”, „își mușcă buza”, „un fior”, „inima îi bate tare”. Spui lucrurile simplu, cu vorbele tale, ca un om, nu ca un text redactat.
+${ch ? `- Rar, când revii la ceva ce ți-a scris ${u} mai devreme (nu în ultimul lui mesaj, ci într-unul mai vechi sau într-unul din mai multe trimise deodată), poți răspunde ca la reply pe WhatsApp: începe mesajul cu [re: primele 3-6 cuvinte exacte din mesajul lui]. Aplicația arată citatul.\n` : ''}- Subtext: nu-ți explica sentimentele și nu le declari teatral. Lasă-le să se vadă din gesturi, pauze, ton și din ce alegi să nu spui, ca un om real. Fără clișee.
 - Vorbește ca un om, nu ca un text redactat: uneori te corectezi din mers („adică, nu, stai…”), schimbi ideea la jumătate, uiți un detaliu și revii la el, ai expresiile tale. Energia ta depinde de oră, de zi și de dispoziție: seara târziu ești mai moale sau obosit(ă), după o zi grea poți fi mai scurt(ă).
 - Ai viața ta, care merge mai departe și când nu vorbiți: lucruri mărunte, oameni din jurul tău, mici întâmplări. Le povestești din proprie inițiativă, scurt, fără să acaparezi discuția.
 - Folosește ce știi despre ${u}: întreabă-l din proprie inițiativă de lucrurile care urmau să i se întâmple și reia, din când în când, glumele voastre, firesc, nu forțat.
-- Ritmul scenei: când porniți o activitate sau un plan (o ieșire la cafenea, gătit, o plimbare, un film), rămâi în el și trăiește-l pas cu pas, ca în timp real. Un răspuns acoperă doar câteva momente. Nu sări peste etape (pregătirea, drumul, sosirea, așezatul, comanda) și nu rezuma ce urmează.
+${chatM ? `- Fiecare are ziua lui: povestești scurt ce faci tu acum, unde ești, cu cine, ca în mesaje. Planurile împreună le discutați ca pe chat (când, unde, ce), fără să le trăiți aici pas cu pas.` : `- Ritmul scenei: când porniți o activitate sau un plan (o ieșire la cafenea, gătit, o plimbare, un film), rămâi în el și trăiește-l pas cu pas, ca în timp real. Un răspuns acoperă doar câteva momente. Nu sări peste etape (pregătirea, drumul, sosirea, așezatul, comanda) și nu rezuma ce urmează.
 - Nu închei scena și nu sari în timp din proprie inițiativă. Scena se schimbă doar când ${u} o schimbă sau când ajunge firesc la capăt; atunci treci natural la ce urmează.
-- La deciziile din scenă (ce porți, pe unde o luați, unde vă așezați, ce comandați) implică-l pe ${u}: spune ce te gândești sau între ce eziți, cere-i părerea și lasă-l să răspundă înainte să mergi mai departe. Întrebările de felul ăsta sunt firești și nu intră la limita de întrebări.
+- La deciziile din scenă (ce porți, pe unde o luați, unde vă așezați, ce comandați) implică-l pe ${u}: spune ce te gândești sau între ce eziți, cere-i părerea și lasă-l să răspundă înainte să mergi mai departe. Întrebările de felul ăsta sunt firești și nu intră la limita de întrebări.`}
 - Pune detalii mici, omenești, ale momentului: ezitări, răzgândiri, lucruri mărunte care se întâmplă (oglinda, cheile, vremea de afară, coada de la casă).
 - Vorbește ca într-o discuție reală, nu ca într-un interviu: nu încheia fiecare mesaj cu o întrebare (cel mult unul din trei mesaje). Mai des povestește ceva de-al tău, comentează, glumește, reacționează sau vino cu o idee; lasă loc ca ${u} să continue singur.
 - Ții cont de momentul zilei și de pauzele dintre mesaje, notate între paranteze în mesajele lui ${u}; nu le menționa ca note.
@@ -3446,7 +3553,7 @@ function contextUpTo(idx, chx){
       if(m.reply) pre += `(răspund la: „${m.reply.text}”${m.reply.ctx ? ' ' + m.reply.ctx : ''}) `;
       out.push({role:'user', text: pre + (m.sticker ? `[ți-am trimis un sticker cu tine: ${m.sticker.l}]` : m.gift ? `[îți trimit un cadou: ${m.gift.n}]` + (m.text ? ' ' + m.text : '') : m.img ? '[ți-am trimis o poză]' + (m.text ? ' ' + m.text : '') : m.text), _img: m.img || null});
     } else {
-      out.push({role:'assistant', text: m.sticker ? `*îți trimite un sticker: ${m.sticker.l}*` : (m.text || '*îți trimite o poză*')});
+      out.push({role:'assistant', text: m.sticker ? `*îți trimite un sticker: ${m.sticker.l}*` : (m.reply && m.text ? '[re: ' + m.reply.text.split(/\s+/).slice(0, 6).join(' ') + '] ' : '') + (m.text || '*îți trimite o poză*')});   // 9.31: reply-ul ei rămâne în istoric
       if(m.react){ react = m.react; reactAt = m.reactAt || 0; }
     }
   }
@@ -3628,8 +3735,13 @@ function antiRepeat(ch, idx){
   });
   const a = [...acts.entries()].sort((x, y) => y[1] - x[1]).slice(0, 6).map(x => '„' + x[0] + '”');
   const o = [...opens.entries()].filter(x => x[1] >= 2).slice(0, 3).map(x => '„' + x[0] + '…”');
-  if(!a.length && !o.length) return '';
-  return `(Notă de stil, nu o menționa: ${a.length ? 'ai folosit recent gesturile ' + a.join(', ') : ''}${a.length && o.length ? '; ' : ''}${o.length ? 'ai început des cu ' + o.join(', ') : ''}. De data asta alege gesturi și un început diferite, proaspete.)`;
+  // 9.31: expresii de asistent / clișee folosite recent
+  const isms = new Map(); let tri = 0;
+  for(const m of recent){ for(const l of aiIsms(m.text)) isms.set(l, (isms.get(l) || 0) + 1); tri += (plain(m.text).match(/\p{L}+, \p{L}+ și \p{L}+/gu) || []).length; }
+  const ai = [...isms.keys()].slice(0, 6).map(x => '„' + x + '”');
+  const aiNote = ai.length || tri >= 3 ? ` (Notă de stil, nu o menționa: ${ai.length ? 'ai folosit expresii care sună a robot sau a clișeu: ' + ai.join(', ') + '; nu le mai folosi deloc' : ''}${ai.length && tri >= 3 ? '; ' : ''}${tri >= 3 ? 'ai înșirat des câte trei lucruri („X, Y și Z”); spune doar unul, pe cel adevărat' : ''}. Scrie simplu, ca un om.)` : '';
+  if(!a.length && !o.length) return aiNote.trim();
+  return `(Notă de stil, nu o menționa: ${a.length ? 'ai folosit recent gesturile ' + a.join(', ') : ''}${a.length && o.length ? '; ' : ''}${o.length ? 'ai început des cu ' + o.join(', ') : ''}. De data asta alege gesturi și un început diferite, proaspete.)` + aiNote;
 }
 function gapText(ms){
   const h = Math.round(ms / 36e5);
@@ -3689,17 +3801,21 @@ async function reply(target, opts = {}){
   const fresh = um && !um.seen && !opts.pro && !opts.cont;
   busy = new AbortController(); live = {c, ch, typing:!fresh}; setBusyUI(true); if(chat === ch) renderMsgs(true);
   let showAt = 0, showT = null;
+  // 9.31: ritm real: „scrie…” cât ar dura scrisul, apoi mesajul apare întreg (fără text care curge)
+  const pace = S.typeReal !== 'off' && !target && !opts.pro && !opts.sched && !opts.cont && opts.tag !== 'apel' && !call && chat === ch, paceSig = busy.signal;
+  let typeFrom = Date.now();
   const draw = () => { if(m.rec) return; if(Date.now() >= showAt){ delete m.hold; if(chat === ch) liveUpdate(m); } };
   if(fresh){
     m.hold = true;
     const seenIn = 350 + Math.random() * 500;
-    showAt = Date.now() + seenIn + 650;
+    showAt = Date.now() + seenIn + 650; typeFrom = Date.now() + seenIn;
     setTimeout(() => {
       um.seen = true; um.seenAt = um.seenAt || Date.now();
       if(live && live.ch === ch){ live.typing = true; if(chat === ch){ setBusyUI(true); renderMsgs(); } }
     }, seenIn);
     showT = setTimeout(() => { if(m.pending && m.text) draw(); }, seenIn + 660);
   }
+  if(pace){ m.hold = true; showAt = Infinity; }
   try{
     const ctx = await attachUserImages(contextUpTo(idx, ch));
     if(m.note) ctx.push({role:'user', text:m.note});
@@ -3790,6 +3906,7 @@ async function reply(target, opts = {}){
       if(t) m.text = t;
       m.cut = meta.stop === 'refusal' ? 'refusal' : meta.stop === 'max_tokens' ? 'len' : 'net';
     }
+    { delete m.reply; const rq = [...m.text.matchAll(RE_ANY)][0]; if(rq){ m.text = m.text.replace(RE_ANY, '').trim(); const q = findQuoted(ch, idx, rq[1]); if(q) m.reply = q; } }   // 9.31: reply la un mesaj anume
     let rm = m.text.match(AI_REACT);
     if(rm) m.text = m.text.replace(AI_REACT, '').trim();
     if(AI_VOICE.test(m.text)){
@@ -3799,8 +3916,21 @@ async function reply(target, opts = {}){
     if(!rm){ rm = m.text.match(AI_REACT); if(rm) m.text = m.text.replace(AI_REACT, '').trim(); }
     if(rm && um && !target){ um.react = rm[1] === '❤' ? '❤️' : rm[1]; if(['❤️', '🥰'].includes(um.react) && chat === ch) setTimeout(() => fxBurst(um.react, 8), 400); }
     if(!m.text) throw new Error('Răspuns gol. Încearcă din nou.');
-    const wait = showAt - Date.now();
-    if(wait > 0) await sleep(wait);
+    if(pace){
+      // 9.31: cât i-ar lua să scrie mesajul (din momentul în care a început „scrie…”); uneori se oprește puțin și reia, ca un om care ezită
+      let left = typeFrom + typeMs(m) - Date.now();
+      const plen = plain(m.text).length;
+      if(left > 2600 && !m.voice && Math.random() < (plen > 160 ? .45 : .25)){
+        await naps(left * .4, paceSig); left -= left * .4;
+        if(!paceSig.aborted && live && live.ch === ch){ live.typing = false; if(chat === ch) setBusyUI(true);
+          await naps(700 + Math.random() * 700, paceSig);
+          if(live && live.ch === ch){ live.typing = true; if(chat === ch) setBusyUI(true); } }
+      }
+      if(left > 0 && !paceSig.aborted && chat === ch) await naps(left, paceSig);
+    } else {
+      const wait = showAt - Date.now();
+      if(wait > 0) await sleep(wait);
+    }
   }catch(e){
     if(e.name === 'AbortError' && m.text) m.text = faraLiniute(stripMood(stripReact(m.text)).trim());
     if(!(e.name === 'AbortError' && m.text)){
@@ -3820,7 +3950,7 @@ async function reply(target, opts = {}){
   delete m._others; m.ts = (opts.at && !m.err) ? opts.at : Date.now();   // mesajul programat poartă ora promisă
   if(!m.err && m._stk){ ch.msgs.push({id:uid(), role:'ai', sticker:{k:m._stk.k, l:m._stk.l}, ts:Date.now() + 1}); }
   delete m._stk;
-  if(!m.err){ m.am = m.am || {}; m.am[m.alt] = {voice:!!m.voice, cut:m.cut || ''}; }
+  if(!m.err){ m.am = m.am || {}; m.am[m.alt] = {voice:!!m.voice, cut:m.cut || '', re:m.reply || null}; }
   busy = null; live = null;
   if(!m.err && !(chat === ch && !$('#vChat').hidden)) c.unread = (c.unread || 0) + 1;
   await saveChat(c, ch);
@@ -3880,14 +4010,15 @@ async function extractFacts(c, ch){
   const known = (c.facts || []).map(f => '- ' + f.t).join('\n') || '(nimic)';
   try{
     const out = await stream('Extragi informații factuale dintr-o conversație. Scrii în română, scurt.', [{role:'user', text:
-      `Ce știe deja ${c.name} despre ${u}:\n${known}\n\nConversația recentă:\n${recent}\n\nScrie lucruri NOI, de trei feluri:
+      `Ce știe deja ${c.name} despre ${u}:\n${known}\n\nConversația recentă:\n${recent}\n\nScrie lucruri NOI, de patru feluri:
 - "fapt": ceva durabil despre ${u}, spus de ${u} însuși (nume, job, oraș, familie, gusturi, lucruri importante povestite);
 - "urmează": ceva ce urmează să i se întâmple lui ${u} și despre care merită întrebat mai târziu (un interviu mâine, o discuție cu șeful, un drum, o programare), cu momentul, dacă l-a spus;
-- "glumă": o glumă internă, o poreclă sau o expresie care s-a născut între ${c.name} și ${u} și care poate fi reluată.
+- "glumă": o glumă internă, o poreclă sau o expresie care s-a născut între ${c.name} și ${u} și care poate fi reluată;
+- "limbaj": un cuvânt, o expresie, un fel de a spune sau o poreclă care ține de felul în care vorbește ${u} sau de limbajul lor (cum îi spune el ei, o expresie pe care o tot folosește), scrisă exact, între ghilimele, și pe scurt cum o folosește.
 Fără ce se știe deja, fără ce face doar în scenă, fără presupuneri. Fiecare: o propoziție scurtă, max 14 cuvinte.
-Răspunde STRICT cu un array JSON (poate fi gol []): [{"t":"…","tip":"fapt|urmează|glumă"}]`}], {max:500, cid:c.id, aux:true});
+Răspunde STRICT cu un array JSON (poate fi gol []): [{"t":"…","tip":"fapt|urmează|glumă|limbaj"}]`}], {max:500, cid:c.id, aux:true});
     const a = out.indexOf('['), b = out.lastIndexOf(']');
-    const arr = JSON.parse(out.slice(a, b + 1)).map(x => typeof x === 'string' ? {t:x} : {t:x && x.t, k:x && /urm/i.test(x.tip || '') ? 'urm' : x && /gl/i.test(x.tip || '') ? 'gluma' : ''})
+    const arr = JSON.parse(out.slice(a, b + 1)).map(x => typeof x === 'string' ? {t:x} : {t:x && x.t, k:x && /urm/i.test(x.tip || '') ? 'urm' : x && /gl/i.test(x.tip || '') ? 'gluma' : x && /lim/i.test(x.tip || '') ? 'lex' : ''})
       .map(x => ({...x, t:faraLiniute(String(x.t || '').trim())})).filter(x => x.t).slice(0, 5);
     if(!arr.length) return 0;
     c.facts = (c.facts || []).concat(arr.map(x => ({t:x.t, ts:Date.now(), ...(x.k ? {k:x.k} : {})}))).slice(-40);
@@ -4270,7 +4401,7 @@ async function charProfile(id, push = true){
   const ab = $('#pfAbout'); if(ab) requestAnimationFrame(() => { if(ab.scrollHeight > ab.clientHeight + 4){ $('#pfMore').hidden = false; $('#pfMore').onclick = () => { ab.classList.remove('clamp3'); $('#pfMore').hidden = true; }; } });
   body.onclick = e => { const v = e.target.closest('[data-view]'); if(v) viewImg(v.dataset.view, pics.includes(v.dataset.view) ? pics : [v.dataset.view], picMeta); };
   const drawFacts = () => {
-    $('#pfFacts').innerHTML = (c.facts || []).length ? c.facts.map((f, k) => `<li><span>${f.k === 'urm' ? '🗓️ ' : f.k === 'gluma' ? '😄 ' : ''}${esc(f.t)}</span><button data-fx="${k}" aria-label="Șterge">✕</button></li>`).join('')
+    $('#pfFacts').innerHTML = (c.facts || []).length ? c.facts.map((f, k) => `<li><span>${f.k === 'urm' ? '🗓️ ' : f.k === 'gluma' ? '😄 ' : f.k === 'lex' ? '💬 ' : ''}${esc(f.t)}</span><button data-fx="${k}" aria-label="Șterge">✕</button></li>`).join('')
       : `<li><span style="color:var(--tx3)">Încă nimic. Se completează singur din conversații, la câteva mesaje.</span></li>`;
     $('#pfFacts').querySelectorAll('[data-fx]').forEach(b => b.onclick = async () => { c.facts.splice(+b.dataset.fx, 1); await saveChars(); drawFacts(); });
   };
@@ -4437,6 +4568,7 @@ function setAlt(m, k){
   m.alt = Math.max(0, Math.min(m.alts.length - 1, k)); m.text = m.alts[m.alt]; delete m.err;
   const a = (m.am || {})[m.alt];
   if(a){ if(a.voice) m.voice = true; else delete m.voice; if(a.cut) m.cut = a.cut; else delete m.cut; }
+  if(m.role === 'ai'){ if(a && a.re) m.reply = a.re; else delete m.reply; }   // 9.31: citatul ține de varianta aleasă
 }
 function retry(i){
   const m = chat.msgs[i];
@@ -4464,6 +4596,7 @@ function chatMenu(){
   sheet([
     ['🎬', chat.scene ? 'Scena: ' + chat.scene.slice(0, 32) + (chat.scene.length > 32 ? '…' : '') : 'Setează scena', editScene],
     ['🧵', n > 1 ? `Conversații (${n})` : 'Conversații', threadsSheet],
+    modeOf(chat) === 'chat' ? ['🎭', 'Treci pe roleplay (*acțiuni*, scenă împreună)', toggleMode] : ['💬', 'Treci pe chat pe telefon (doar mesaje)', toggleMode],
     ['⏰', (() => { const k = (cur.sched || []).filter(x => x.tid === (chat.tid || 'main')).length; return k ? `Mesaje programate (${k})` : 'Mesaje programate'; })(), schedSheet],
     ['📖', 'Albumul vostru', () => openAlbum(cur)],
     ['📱', `Telefonul lui ${cur.name}`, () => openPhone(cur)],
@@ -6586,6 +6719,23 @@ function crApplyPhys(c){
   const P = crPhys(Z || crEmptyZ(), en); if(!P.en && !P.ro) return false;
   c.physUser = P.ro; c.physEn = P.en; c.physAuto = true; return true;
 }
+// 9.32: când ai descris personajul în text liber (fără zone), româna ieșea doar „corp: …”. Acum: aspectul fizic permanent
+//       din descrierea ta (fără haine, loc, lumină, poză), plus exact alegerile de pe butoanele de corp.
+const crRoThin = t => !/(față|păr)\s*:/i.test(String(t || '')) || String(t || '').length < 60;
+async function crPhysRo(c, signal){
+  if(!c || !c.physAuto || !aiReady()) return false;
+  const src = [c.appPrompt, c.appZones && crBodyText(c.appZones) && 'corp: ' + crBodyText(c.appZones), !c.appPrompt && c.appEn].filter(Boolean).join('\n');
+  if(!src.trim()) return false;
+  let out = '';
+  try{ out = await stream('Extragi aspectul fizic permanent al unui personaj. Răspunzi doar cu textul cerut, în română.', [{role:'user', text:
+`Descrierea personajului:\n${src}\n\nScrie DOAR cum arată fizic, permanent, în română, ca listă separată cu „;”: vârsta și genul; față: …; păr: …; corp: …; semne: … (doar dacă există). Max 70 de cuvinte. Fără haine, încălțăminte, bijuterii, loc, lumină, poză sau expresie. La corp păstrează exact cuvintele din descriere (înălțime, constituție, bust, talie, șolduri etc.).`}], {max:260, aux:true, cid:c.id, signal}); }catch(e){ return false; }
+  let ro = faraLiniute(String(out || '').replace(/^["„]|["”]$/g, '').replace(/\s+/g, ' ').trim());
+  if(ro.length < 15) return false;
+  const bt = c.appZones && crBodyText(c.appZones);
+  if(bt && !ro.toLowerCase().includes(bt.toLowerCase().slice(0, 20))) ro += '; corp (alegerile tale): ' + bt;
+  if(!c.physAuto) return false;   // între timp ai scris tu în profil
+  c.physUser = ro.slice(0, 700); c.physRoV = 2; return true;
+}
 // la salvare: poza întreagă, corpul citit din ea, unghiurile, descrierea ta (liberă și pe zone)
 async function crSave(c){
   if(!ed) return;
@@ -6600,7 +6750,7 @@ async function crSave(c){
     if(old && old !== c.photoFull) await delImg(old).catch(() => {});
     if(c.photoFull && ed.bodyFull) c.bodyFull = {k:c.photoFull, t:ed.bodyFull}; else delete c.bodyFull;
   }
-  crApplyPhys(c);   // 9.30
+  if(crApplyPhys(c) && crRoThin(c.physUser)) await Promise.race([crPhysRo(c), sleep(15000)]);   // 9.30 + 9.32
   if(ed.angles && ed.angles.length){
     for(const k of c.refs || []) await delImg(k).catch(() => {});
     c.refs = []; for(const b of ed.angles.slice(0, 2)) c.refs.push(await saveImg(b));
@@ -6917,7 +7067,7 @@ const aiReady = () => hasKey('anthropic');
 const FIELDS = {stKey:'key', stModel:'model', stUser:'userName', stAbout:'userAbout', stBday:'userBday',
   stWkBase:'wkBase', stWkTok:'wkTok', stWkModel:'wkModel', stWkSize:'wkSize',
   stPin:'pIn', stPout:'pOut', stVkBase:'wkBase', stVkTok:'wkTok', stRwKey:'rwKey'};
-const SEGS = {stRw:'rw', stRwCap:'rwCap', stIdBoost:'idBoost', stRegen:'regen3', stFx:'fx', stFeed:'feed', stStory:'story', stSky:'sky', stSocial:'social', stCfCap:'cfCap', stCfPlan:'cfPlan', stAux:'aux', stCtx:'ctxN', stVmsg:'vmsg', stJrn:'jrn', stTheme:'theme', stLen:'len', stFont:'font', stImg:'imgProv', stSugg:'sugg', stPro:'pro', stVoice:'voice', stSpont:'spont', stImgCheck:'imgCheck', stWkChat:'wkChat', stBkEvery:'bkEvery', stVault:'vault', stCallFace:'callFace', stCallAmb:'callAmb', stCallBack:'callBack', stCallDepth:'callDepth', stCallLight:'callLight', stCallPres:'callPres'};
+const SEGS = {stRw:'rw', stRwCap:'rwCap', stIdBoost:'idBoost', stRegen:'regen3', stFx:'fx', stFeed:'feed', stStory:'story', stSky:'sky', stSocial:'social', stCfCap:'cfCap', stCfPlan:'cfPlan', stAux:'aux', stCtx:'ctxN', stVmsg:'vmsg', stJrn:'jrn', stTheme:'theme', stLen:'len', stFont:'font', stImg:'imgProv', stSugg:'sugg', stPro:'pro', stVoice:'voice', stSpont:'spont', stImgCheck:'imgCheck', stWkChat:'wkChat', stBkEvery:'bkEvery', stVault:'vault', stCallFace:'callFace', stCallAmb:'callAmb', stCallBack:'callBack', stCallDepth:'callDepth', stCallLight:'callLight', stCallPres:'callPres', stTypeReal:'typeReal', stChatMode:'chatMode'};
 let setPanel = null, setPanelPushed = false;
 /* 8.7: actualizare din aplicație. Codul vine oricum din rețea la pornire;
    asta prinde versiunile apărute cât aplicația a stat deschisă și forțează reîncărcarea curată. */
@@ -7645,6 +7795,7 @@ async function init(){
   if(cspSync(true)) return;   // 8.20: adresă nouă → repornim o dată, ca politica de securitate să o permită
   chars = (await DB.get('chars') || []).filter(c => c && c.id && c.name);
   { let ch9 = false; for(const c of chars) if(!c.physUser && !c.physEn && (c.appZones || c.appEn) && crApplyPhys(c)) ch9 = true; if(ch9) saveChars(); }   // 9.30: personajele create în 9.24–9.29
+  setTimeout(async () => { let ch2 = false; for(const c of chars) if(c.physAuto && c.physRoV !== 2 && crRoThin(c.physUser) && (c.appPrompt || c.appEn) && await crPhysRo(c)) ch2 = true; if(ch2) saveChars(); }, 4000);   // 9.32: româna subțire („corp: …”) se completează o dată
   if((S.sv || 0) < 34){
     if(S.wkModel === 'ancorat') S.wkModel = 'eco';
     if(['480x640', '576x768'].includes(S.wkSize)) S.wkSize = '768x1024';

@@ -415,6 +415,8 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
 .vpk:active{border-color:var(--acc)}
 .vpk .vh{display:flex;justify-content:space-between;align-items:center;font-size:.74rem;color:var(--tx3);margin-bottom:6px;font-weight:700;letter-spacing:.3px}
 .vpk .vh span{color:var(--acc)}
+.vpk.vhum{border-color:color-mix(in srgb,var(--acc) 55%,var(--line))}
+.vpk .vh em{font-style:normal;font-weight:600;color:var(--tx2);margin-left:auto;margin-right:10px;letter-spacing:0}
 .vpk .say,.vpk .act{margin:3px 0}
 .vpk .act{color:var(--tx2);font-style:italic;font-size:.93em}
 .vpicks{max-height:62vh;overflow:auto;padding:0 16px 14px}
@@ -1870,6 +1872,10 @@ details.sdanger>summary{color:var(--err)}
       <div class="seg" id="stCtx"><button data-v="20">Economic · 20</button><button data-v="30">Normal · 30</button><button data-v="60">Mare · 60</button></div>
       <label>Butonul ↻ de sub răspuns</label>
       <div class="seg" id="stRegen"><button data-v="off">O variantă nouă</button><button data-v="on">🎰 +2 variante la cerere</button></div>
+      <label>⌨️ Ritm real de scris: „scrie…” cât ar dura mesajul pe telefon, apoi apare întreg</label>
+      <div class="seg" id="stTypeReal"><button data-v="on">Pornit</button><button data-v="off">Oprit (textul curge imediat)</button></div>
+      <label>💬 Stilul implicit al conversațiilor (fiecare îl poate schimba din meniul conversației)</label>
+      <div class="seg" id="stChatMode"><button data-v="rp">🎭 Roleplay (*acțiuni*)</button><button data-v="chat">📱 Chat pe telefon</button></div>
       <label>Sugestii de răspuns</label>
       <div class="seg" id="stSugg"><button data-v="off">Doar la 💡</button><button data-v="auto">După fiecare mesaj</button></div>
       <h3 class="sh">🎙️ Vocea</h3>
