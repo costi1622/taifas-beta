@@ -1,5 +1,5 @@
 window.__taifas = true;   // 8.20.1: semn pentru index.html că app.js s-a încărcat
-const APP_VER = '9.34';
+const APP_VER = '9.36';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -38,7 +38,7 @@ const DEF = {
   imgProv:'none',
   wkBase:'', wkTok:'', wkModel:'eco', wkSize:'768x1024',
   sugg:'off', pro:'on', feed:'text', fx:'on', regen3:'on', voice:'tap', tts:'tel', cfPlan:'free', cfCap:'free', theme:'dark', vmsg:'rar', jrn:'on', aux:'on', ctxN:'30',
-  vault:'off', vaultHas:null, faceFix:'on', bodyFix:'off', bestOf:'3', autoModel:'chat', callFace:'on', handCheck:'off', crHands:'on', crAngles:'on', callAmb:'on', callBack:'on', callDepth:'on', callLight:'on', callPres:'on', typeReal:'on', chatMode:'rp', imgCheck:'on', story:'on', sky:'on', social:'on', userBday:'', lock:'off', pushOn:false, bkEvery:'week', bkLast:0, userPhoto:'', userPhys:'', userBox:null, wkChat:'ancorat', wkRef:'auto', rw:'off', rwKey:'', rwCap:'0.5', rwAvg:0, idBoost:'on', spont:'rar', sv:34, imgCost:'', pIn:'', pOut:''
+  vault:'off', vaultHas:null, faceFix:'on', bodyFix:'off', bestOf:'3', autoModel:'chat', callFace:'on', handCheck:'off', crHands:'on', crAngles:'on', callAmb:'on', callBack:'on', callDepth:'on', callLight:'on', callPres:'on', autoRefs:'on', autoFull:'on', typeReal:'on', chatMode:'rp', imgCheck:'on', story:'on', sky:'on', social:'on', userBday:'', lock:'off', pushOn:false, bkEvery:'week', bkLast:0, userPhoto:'', userPhys:'', userBox:null, wkChat:'ancorat', wkRef:'auto', rw:'off', rwKey:'', rwCap:'0.5', rwAvg:0, idBoost:'on', spont:'rar', sv:34, imgCost:'', pIn:'', pOut:''
 };
 let S = {...DEF};
 let chars = [];            // [{id,name,tag,photo,aspect,look,stil,persona,speech,greet,created,lastAt,last}]
@@ -884,26 +884,27 @@ const idLabel = d => d == null ? 'fața nu se vede' : d <= .4 ? 'aceeași persoa
 const faceFixOn = (c, opt = {}) => S.faceFix !== 'off' && S.imgProv === 'worker' && !!S.wkBase && !!c.photo && !opt.together && (c.stil || 'photo') === 'photo' && sceneModel(opt) === 'eco';
 const neurUsd = (model, size) => S.imgProv === 'worker' && S.cfPlan === 'paid' && neurToday >= 10000 ? (neurPerPhoto(model, size) || 0) * NEUR_USD : 0;
 const toBlob = (cv, q = .93) => new Promise(r => cv.toBlob(r, 'image/jpeg', q));
-async function facePass(c, blob, signal, model = 'eco', shot = '', why = 'retus'){
+async function facePass(c, blob, signal, model = 'eco', shot = '', why = 'retus', src = null){   // 9.35: `src` = altă poză de bază (editor: varianta aleasă)
   const u = URL.createObjectURL(blob); let im;
   try{ im = await loadImgEl(u); } finally { URL.revokeObjectURL(u); }
   const faces = await faceDescs(blob); if(!faces.length) return null;          // fața nu se vede (de spate, prea mică): poza rămâne așa
-  const ref = await refDescs(c).catch(() => []);
+  const ref = src ? (src.refD || []) : await refDescs(c).catch(() => []);
   const pick = ref.length ? faces.map(f => ({f, d:Math.min(...ref.map(r => fdist(f.d, r)))})).sort((a, b) => a.d - b.d)[0].f : faces.sort((a, b) => b.a - a.a)[0];
   const W = im.naturalWidth, H = im.naturalHeight, bx = pick.box;
   if(bx.w < 14 || bx.h < 14) return null;
   const side = Math.min(W, H, Math.max(bx.w, bx.h) * 2.1), cx = bx.x + bx.w / 2, cy = bx.y + bx.h * .46;
-  const x0 = Math.min(Math.max(0, cx - side / 2), W - side), y0 = Math.min(Math.max(0, cy - side / 2), H - side), K = 512, k = K / side;
+  const small = side < 300;   // 9.36: fața mică în cadru (poză întreagă): retușul lucrează pe 768 px, iar fața iese clară
+  const x0 = Math.min(Math.max(0, cx - side / 2), W - side), y0 = Math.min(Math.max(0, cy - side / 2), H - side), K = small ? 768 : 512, k = K / side;
   const cv0 = document.createElement('canvas'); cv0.width = cv0.height = K; cv0.getContext('2d').drawImage(im, x0, y0, side, side, 0, 0, K, K);
   const crop = await toBlob(cv0, .95);
   // fața personajului (+ unghiurile în plus din profil), ca repere
-  const prof = await DB.get(c.photo); if(!prof) return null;
-  let id = null; try{ id = await identityOf(c); }catch(e){}
-  const pface = await cropFace(prof, await profFaceBox(c, prof) || (id && !id.none ? id : null));
+  const prof = src ? src.prof : await DB.get(c.photo); if(!prof) return null;
+  let id = null; if(!src) try{ id = await identityOf(c); }catch(e){}
+  const pface = src ? await cropFace(prof, src.box || null) : await cropFace(prof, await profFaceBox(c, prof) || (id && !id.none ? id : null));
   const extra = [];
-  for(const key of (c.refs || []).slice(0, 2)){ const b2 = await DB.get(key).catch(() => null); if(b2) extra.push(await cropFace(b2, (c.refBoxes || {})[key] || null)); }
+  if(!src) for(const key of (c.refs || []).slice(0, 2)){ const b2 = await DB.get(key).catch(() => null); if(b2) extra.push(await cropFace(b2, (c.refBoxes || {})[key] || null)); }
   const faceMarks = id && id.marks ? id.marks.filter(m => /face|cheek|lip|nose|eye|brow|forehead|chin|jaw|temple|ear|mole|freckle|dimple/i.test(m)) : [];
-  const prompt = `Edit image 1. Replace ONLY the face of the person in image 1 with the exact face of the person in image 2${extra.length ? ' (images 3' + (extra.length > 1 ? ' and 4' : '') + ' show the same face from other angles)' : ''}: the same individual, with identical facial geometry, eye shape and spacing, eye color, eyebrows, nose, lips, jaw and chin, skin tone and skin texture${faceMarks.length ? ', and these marks in exactly the same place: ' + faceMarks.join('; ') : ''}${id && id.glasses ? ', wearing ' + id.glasses : ''}. Keep everything else from image 1 exactly as it is: head position and angle, gaze direction, facial expression, the light direction and color on the face, hair, background, framing, sharpness and photo grain. One seamless, photorealistic, unretouched phone photo.`;
+  const prompt = `Edit image 1. Replace ONLY the face of the person in image 1 with the exact face of the person in image 2${extra.length ? ' (images 3' + (extra.length > 1 ? ' and 4' : '') + ' show the same face from other angles)' : ''}: the same individual, with identical facial geometry, eye shape and spacing, eye color, eyebrows, nose, lips, jaw and chin, skin tone and skin texture${faceMarks.length ? ', and these marks in exactly the same place: ' + faceMarks.join('; ') : ''}${id && id.glasses ? ', wearing ' + id.glasses : ''}. Keep everything else from image 1 exactly as it is: head position and angle, gaze direction, facial expression, the light direction and color on the face, hair, background, framing${small ? '' : ', sharpness'} and photo grain.${small ? ' Image 1 is an enlarged low-resolution crop: render the face crisp and detailed, with natural photo sharpness, taking the fine facial details from image 2.' : ''} One seamless, photorealistic, unretouched phone photo.`;
   const ed = await genImage(prompt, crop, signal, pface, {model, force:{two:true}, size:K + 'x' + K, extra, quiet:true, why});
   const ue = URL.createObjectURL(ed); let ei;
   try{ ei = await loadImgEl(ue); } finally { URL.revokeObjectURL(ue); }
@@ -946,6 +947,125 @@ async function bodyPass(c, blob, signal, shot){
   const prompt = `Edit image 1. Change ONLY the body of the person in image 1 so that it is exactly the body of the person in image 2: ${bt}. The same weight and the same proportions of shoulders, arms, bust, waist, belly, hips, thighs and legs as in image 2; never slimmer, smaller or more idealized. Keep everything else from image 1 exactly: the face, head, hair and expression, the pose and position, the same clothes (same garments, colors and style, fitted naturally to this body), the room and background, the framing, the light and the photo grain. One seamless, photorealistic, unretouched phone photo.`;
   return await genImage(prompt, blob, signal, whole, {model:'eco', force:{two:true}, size, px1:Math.max(...size.split('x').map(Number)), quiet:true, why:'corp'});
 }
+/* 9.35: poza întreagă și variantele din creator ieșeau des cu „altă față” (fața e mică în cadru și generatorul o redesenează).
+   Acum, la o variantă care nu seamănă destul, fața e pusă din nou după poza de bază (același retuș ca la pozele din chat),
+   de cel mult 2 ori, și rămâne doar dacă telefonul măsoară că s-a apropiat. src: {c} (personaj salvat) sau {prof, box, refD}. */
+const FACE_OK = .45;
+async function fixFace(v, src, signal, onStep){
+  if(!v || v.st !== 'ok' || !v.blob || !src || !(src.refD && src.refD.length)) return false;
+  if(v.sameD != null && v.sameD < FACE_OK) return false;
+  const model = rwFor('ancorat') || S.wkChat === 'ancorat' ? 'ancorat' : 'eco';
+  const dist = async b => { const fs = await faceDescs(b).catch(() => []); return fs.length ? Math.min(...fs.map(f => Math.min(...src.refD.map(r => fdist(f.d, r))))) : 9; };
+  let best = v.blob, bd = v.sameD != null ? v.sameD : await dist(v.blob);
+  for(let k = 0; k < 2 && bd >= FACE_OK; k++){
+    if(onStep) onStep(k);
+    let y = null;
+    try{ y = await facePass(src.c, best, signal, model, '', 'retus', src.prof ? src : null); }catch(e){ if(e.name === 'AbortError') throw e; break; }
+    if(!y) break;
+    addUsage((src.c && src.c.id) || (ed && ed.id) || null, imgPrice(), 'img', null, 'profil');
+    const d = await dist(y);
+    if(d < bd - .01){ best = y; bd = d; }
+  }
+  if(best === v.blob) return false;
+  try{ if(best.type === 'image/png') best = await toJpeg(best, 2048, .92); }catch(e){}
+  v.blob = best; v.url = URL.createObjectURL(best); v.fixed = true;
+  v.chk = await crCheck(v); v.sameD = bd;
+  return true;
+}
+/* ───────── 9.36: identitatea pe tot: corp, păr, semne ─────────
+   (2) Silueta măsurată în telefon (gratuit): umerii și șoldurile din detectorul de poziție (MoveNet) + conturul persoanei
+       (segmentarea MediaPipe), lățimea la piept, talie și șolduri raportată la umeri; se compară cu poza întreagă. */
+async function bodySig(blob){
+  const u = URL.createObjectURL(blob);
+  try{
+    const im = await loadImgEl(u), W = im.naturalWidth, H = im.naturalHeight;
+    const kp = await crPose(im); if(!kp) return null;
+    const ok = i => kp[i] && kp[i][2] >= .3;
+    if(![5, 6, 11, 12].every(ok)) return null;   // fără umeri și șolduri vizibile nu se poate măsura
+    const S2 = Math.hypot(kp[5][0] - kp[6][0], kp[5][1] - kp[6][1]); if(S2 < W * .04) return null;
+    const mask = await segMask(im), at = (x, y) => { const mx = Math.max(0, Math.min(255, Math.round(x / W * 255))), my = Math.max(0, Math.min(255, Math.round(y / H * 255))); return mask[my * 256 + mx]; };
+    const shY = (kp[5][1] + kp[6][1]) / 2, hpY = (kp[11][1] + kp[12][1]) / 2, len = hpY - shY; if(len < H * .05) return null;
+    const cxAt = t => ((kp[5][0] + kp[6][0]) / 2) * (1 - t) + ((kp[11][0] + kp[12][0]) / 2) * t;
+    const width = t => { const y = shY + len * t, cx = cxAt(t), step = Math.max(1, W / 256); let l = cx, r = cx;
+      if(at(cx, y) < .5) return 0;
+      while(l > 0 && at(l - step, y) >= .5) l -= step; while(r < W - 1 && at(r + step, y) >= .5) r += step; return (r - l) / S2; };
+    const sig = [width(.3), width(.62), width(1.02)];
+    return sig.every(x => x > .3 && x < 4) ? {s:sig.map(x => Math.round(x * 1000) / 1000), len:Math.round(len / S2 * 1000) / 1000} : null;
+  }catch(e){ return null; } finally { URL.revokeObjectURL(u); }
+}
+async function refBodySig(c){
+  if(!c.photoFull) return null;
+  if(c.bodySig && c.bodySig.k === c.photoFull) return c.bodySig.v;
+  const b = await DB.get(c.photoFull).catch(() => null); if(!b) return null;
+  const v = await bodySig(b); c.bodySig = {k:c.photoFull, v}; saveChars(); return v;
+}
+// distanța siluetelor: diferența relativă medie (0 = identic; ~0,1 = puțin diferit; 0,25+ = alt corp)
+const bodyDist = (a, b) => !a || !b ? null : a.s.reduce((m, x, i) => m + Math.abs(x - b.s[i]) / Math.max(.3, b.s[i]), 0) / a.s.length;
+// (5) pozele din chat cu fața „sigur aceeași” (măsurată față de poza de profil ORIGINALĂ, nu față de alte repere) intră printre
+//     repere în locul unghiurilor automate mai puțin asemănătoare; reperele puse de tine nu se ating. Cel mult 2 (atâtea încap).
+const GOOD_REF = .38;
+async function profDesc(c){ const b = c.photo ? await DB.get(c.photo).catch(() => null) : null; if(!b) return null; const fs = await faceDescs(b).catch(() => []); return fs.length ? fs.sort((x, y) => y.a - x.a)[0].d : null; }
+async function maybeGoodRef(c, blob){
+  if(S.autoRefs === 'off' || !c || !c.photo || !blob) return false;
+  if((c.refs || []).length && !c.refsAuto) return false;    // repere puse de tine: rămân
+  const pd = await profDesc(c); if(!pd) return false;
+  const fs = await faceDescs(blob).catch(() => []); if(!fs.length) return false;
+  const f = fs.map(x => ({x, d:fdist(x.d, pd)})).sort((a, b) => a.d - b.d)[0]; if(f.d > GOOD_REF || f.x.box.w < 60) return false;
+  c.refD = c.refD || {};
+  const pool = [];
+  for(const k of c.refs || []){ let d = c.refD[k], dsc = null;
+    const b = await DB.get(k).catch(() => null); if(!b) continue;
+    const r = await faceDescs(b).catch(() => []); if(r.length){ dsc = r.sort((x, y) => y.a - x.a)[0].d; if(d == null) d = fdist(dsc, pd); }
+    pool.push({k, d:d == null ? .6 : d, dsc}); }
+  if(pool.some(q => q.dsc && fdist(q.dsc, f.x.d) < .18)) return false;   // aproape la fel cu un reper existent: nu aduce un unghi nou
+  if(pool.length >= 2){ const worst = pool.sort((a, b) => b.d - a.d)[0]; if(worst.d <= f.d + .02) return false;
+    c.refs.splice(c.refs.indexOf(worst.k), 1); delete c.refD[worst.k]; if(c.refBoxes) delete c.refBoxes[worst.k]; await delImg(worst.k).catch(() => {}); }
+  const k = await saveImg(blob);
+  c.refs = (c.refs || []).concat(k); c.refsAuto = true; c.refD[k] = Math.round(f.d * 1000) / 1000;
+  c.refBoxes = c.refBoxes || {}; c.refBoxes[k] = {x:f.x.box.x / f.x.W, y:f.x.box.y / f.x.H, w:f.x.box.w / f.x.W, h:f.x.box.h / f.x.H};
+  delete c.faceEmb; await saveChars(); return true;
+}
+// (6) personajele fără poză întreagă primesc una, o dată, în fundal, după o poză din chat (reperul de corp din 9.32)
+async function fullVariants(c, base, signal, draw = () => {}, n = 2){
+  let ref = null; try{ const fs = await faceDescs(base); if(fs.length) ref = fs.sort((a, b) => b.a - a.a)[0].d; }catch(e){}
+  const id = c.faceBox && c.faceBox.k === c.photo ? c.faceBox : null;
+  const body = [c.bodyFull && c.bodyFull.t, c.physEn, id && id.phys && (String(id.phys).match(/(?:^|; )body: ([^;]+)/) || [])[1]].filter(Boolean).join('; ');
+  const outfit = c.appZones && c.appZones.zones && c.appZones.zones.tinuta ? '' : 'the same clothes as in the photo, completed naturally down to the shoes';
+  const p = `Edit this photo into a full-body photo of the same person. ${CR_FRAMES.full.p}. Keep exactly the same face and identity, hairstyle, skin and age.${body ? ' Body: ' + body + '.' : ''} ${outfit ? 'Outfit: ' + outfit + '.' : ''} Natural relaxed standing pose in a fitting everyday place. ${CR_HANDS} ${STIL_TAG[c.stil || 'photo']}`;
+  const model = crModel(n, CR_FRAMES.full.size);
+  const vars = Array.from({length:n}, () => ({id:uid(), st:'gen', frame:'full', kind:'nou'})); draw(vars);
+  await Promise.allSettled(vars.map(async v => {
+    try{
+      let b = await genImage(p, base, signal, null, {model, size:CR_FRAMES.full.size, force:{two:false, px:1024}, p1:p, quiet:true, why:'profil'});
+      addUsage(c.id, imgPrice(), 'img', null, 'profil');
+      try{ if(b.type === 'image/png') b = await toJpeg(b, 2048, .92); }catch(e){}
+      v.blob = b; v.url = URL.createObjectURL(b); v.st = 'ok'; draw(vars);
+      v.chk = await crCheck(v); if(v.chk.d && ref) v.sameD = fdist(v.chk.d, ref); draw(vars);
+      if(ref && (v.sameD == null || v.sameD >= FACE_OK)){ v.fixing = true; draw(vars); try{ await fixFace(v, {c, refD:[ref]}, signal); } finally { v.fixing = false; draw(vars); } }   // 9.35
+    }catch(e){ v.st = 'err'; v.err = e.name === 'AbortError' ? 'oprit' : e.message; draw(vars); }
+  }));
+  return vars;
+}
+async function saveFull(c, v){
+  const old = c.photoFull;
+  c.photoFull = await saveImg(v.blob); c.fullBox = v.chk && v.chk.box || null; delete c.bodyFull; delete c.bodySig;
+  if(old && old !== c.photoFull) await delImg(old).catch(() => {});
+  await saveChars();
+  if(aiReady()) (async () => { try{ const k = c.photoFull, t = await crBodyRead(v.blob, c.id); if(c.photoFull === k){ c.bodyFull = {k, t}; await saveChars(); } }catch(e){} })();   // corpul citit din ea, în fundal
+}
+let autoFullBusy = false;
+async function autoFull(c){
+  if(S.autoFull === 'off' || autoFullBusy || !c || !c.photo || c.photoFull || c.autoFullTried || S.imgProv === 'none' || (c.stil && c.stil !== 'photo')) return false;
+  if(!rwFor(S.wkChat || S.wkModel) && capLeft() < (neurPerPhoto(S.wkChat || S.wkModel) || 5000) * 3) return false;   // nu consumă ultima parte din limita zilnică
+  autoFullBusy = true; c.autoFullTried = Date.now(); await saveChars();
+  try{
+    const base = await DB.get(c.photo); if(!base) return false;
+    const vars = (await fullVariants(c, base, null)).filter(v => v.st === 'ok' && v.chk && v.chk.faces === 1);
+    const pick = vars.filter(v => v.sameD != null && v.sameD < .5 && !(v.chk.miss || []).some(m => /picior|tăiat/.test(m))).sort((a, b) => a.sameD - b.sameD)[0];
+    if(pick && charById(c.id) && !c.photoFull){ await saveFull(c, pick); toast(`🧍 ${c.name} are acum și o poză întreagă (model pentru corp în pozele din chat). O vezi în profil.`, 4500); return true; }
+  }catch(e){} finally { autoFullBusy = false; }
+  return false;
+}
 // 8.23: retușul rămâne doar dacă telefonul măsoară că fața a ieșit mai aproape de poza de profil
 async function retouchBest(c, blob, signal, model, shot, why){
   const y = await facePass(c, blob, signal, model, shot, why); if(!y) return null;
@@ -959,17 +1079,27 @@ async function localFace(blob, c){ let m = null; try{ m = await idDistance(c, bl
 async function checkPhoto(c, blob, shot, signal, together, asked){
   pstage(signal, '🔍 Se uită dacă a ieșit bine', 97);
   const full = c.photo ? await DB.get(c.photo) : null; if(!full || !aiReady()) return null;
-  const out = await stream('You are a strict photo checker. Answer with JSON only.', [{role:'user', images:[await blobToB64(await toJpeg(full, 768, .85)), await blobToB64(await toJpeg(blob, 768, .85))], text:
-`Image 1 is the character's profile reference. Image 2 must depict that exact same individual in this scene: "${shot}". Identity is more important than artistic variation. Compare facial geometry, eye spacing, nose, lips, jaw, skin tone, hairline and hairstyle; if the body is visible in both images, also compare overall build and proportions. Do not penalize legitimate changes in clothing, pose, expression, lighting, camera angle or location when those follow the scene description.${together ? ' Image 2 must show exactly two people together in one natural photo (not a collage or split screen); score the character from image 1 for identity.' : ''}
+  // 9.36: și poza întreagă (corpul), părul și semnele din pașaport
+  const fb = c.photoFull && !together ? await DB.get(c.photoFull).catch(() => null) : null;
+  let id = null; try{ id = await identityOf(c); }catch(e){}
+  const marks = id && !id.none && Array.isArray(id.marks) ? id.marks.slice(0, 6) : [];
+  const imgs = [await blobToB64(await toJpeg(full, 768, .85)), await blobToB64(await toJpeg(blob, 768, .85))]; if(fb) imgs.push(await blobToB64(await toJpeg(fb, 768, .85)));
+  const out = await stream('You are a strict photo checker. Answer with JSON only.', [{role:'user', images:imgs, text:
+`${fb ? 'Image 3 is the same character\'s full-body reference: it defines the exact body (build, weight, bust, waist, belly, hips, arms, legs). ' : ''}Image 1 is the character's profile reference. Image 2 must depict that exact same individual in this scene: "${shot}". Identity is more important than artistic variation. Compare facial geometry, eye spacing, nose, lips, jaw, skin tone, hairline and hairstyle; if the body is visible in both images, also compare overall build and proportions. Do not penalize legitimate changes in clothing, pose, expression, lighting, camera angle or location when those follow the scene description.${together ? ' Image 2 must show exactly two people together in one natural photo (not a collage or split screen); score the character from image 1 for identity.' : ''}
 Score strictly from 0 to 10:
 - "face": is this unmistakably the same person, not merely a similar-looking person? 10 = strong match, 5 = noticeable identity drift, 0 = different person.
 - "scene": does the generated photo match the requested place, activity, clothing and pose?
-- "framing": does the camera framing match the requested selfie / mirror / full-body / close-up view?${asked && asked.length ? `
+- "framing": does the camera framing match the requested selfie / mirror / full-body / close-up view?
+- "body": is the body in image 2 the same body as in ${fb ? 'image 3' : 'image 1'} (build, weight, bust size, waist, hips, proportions)? Ignore clothing and pose. Use null if too little of the body is visible in image 2${fb ? '' : ' or in image 1'}.
+- "hair": same hair color, length and texture as image 1 (a different hairstyle is fine only if the scene asks for it)? null if the hair is not visible.${marks.length ? `
+- "marks": are these permanent marks visible in the right place when that area is visible: ${marks.join('; ')}? null if none of those areas is visible.` : ''}${asked && asked.length ? `
 - "asked": the user explicitly asked for these details: ${asked.map(a => '"' + a + '"').join(', ')}. 10 = every one is clearly visible in image 2, 0 = none; list the ones that are missing or wrong in "missing".` : ''}
-"fix": if face is below 8 or scene below 6 or framing below 5${asked && asked.length ? ' or asked below 8' : ''}, give ONE short concrete English correction prioritizing identity first, then ${asked && asked.length ? 'the missing requested details, then ' : ''}scene; otherwise "".
-JSON: {"face":0,"scene":0,"framing":0,${asked && asked.length ? '"asked":0,"missing":[],' : ''}"fix":""}`}], {max:220, signal, cid:c.id, aux:true, tag:'pozeai'});
+"fix": if face is below 8 or scene below 6 or framing below 5 or body below 7 or hair below 6${marks.length ? ' or marks below 6' : ''}${asked && asked.length ? ' or asked below 8' : ''}, give ONE short concrete English correction prioritizing identity first (face, then body: say exactly what differs, e.g. "fuller bust and wider hips as in the reference"), then hair${asked && asked.length ? ', then the missing requested details' : ''}, then scene; otherwise "".
+JSON: {"face":0,"scene":0,"framing":0,"body":0,"hair":0,${marks.length ? '"marks":0,' : ''}${asked && asked.length ? '"asked":0,"missing":[],' : ''}"fix":""}`}], {max:260, signal, cid:c.id, aux:true, tag:'pozeai'});
   const j = parseJSON(out), n = k => Math.max(0, Math.min(10, Math.round(+j[k] || 0)));
   const r = {face:n('face'), scene:n('scene'), framing:n('framing'), fix:String(j.fix || '').slice(0, 300)};
+  const nn = k => j[k] == null || j[k] === '' ? null : n(k);   // 9.36: null = nu se vede
+  r.body = nn('body'); r.hair = nn('hair'); if(marks.length) r.marks = nn('marks'); if(fb) r.bodyRef = 'intreaga';
   if(asked && asked.length){ r.asked = j.asked == null ? null : n('asked'); const miss = (Array.isArray(j.missing) ? j.missing : []).map(x => String(x).slice(0, 80)).filter(Boolean).slice(0, 6);
     if(miss.length){ r.missing = miss; if(!/as requested|requested/i.test(r.fix)) r.fix = ('Show exactly as requested: ' + miss.join(', ') + '. ' + r.fix).slice(0, 300); } }   // 9.33
   return r;
@@ -998,9 +1128,13 @@ async function bestScene(c, shot, signal, corr, opt = {}){
   if(!ok.length) throw rs[0].reason;
   pstage(signal, '🎯 Alege poza cea mai reușită', 93);
   for(const x of ok) x.fd = (await localFace(x.blob, c)).d;
-  ok.sort((a, b) => (a.fd ?? 9) - (b.fd ?? 9));
+  // 9.36: și silueta (piept, talie, șolduri) față de poza întreagă, măsurată în telefon; fața rămâne criteriul principal
+  const rb = framingOf(shot).k !== 'close' ? await refBodySig(c).catch(() => null) : null;
+  if(rb) for(const x of ok){ x.bd = bodyDist(await bodySig(x.blob), rb); }
+  const tot = x => (x.fd ?? .9) + (x.bd != null ? Math.min(.4, x.bd) * .6 : (rb ? .06 : 0));
+  ok.sort((a, b) => tot(a) - tot(b));
   if(ok.length > 1) addUsage(c.id, imgPrice() * (ok.length - 1), 'img', null, opt.tag || 'poze');   // prima e numărată de cine a cerut poza
-  const best = ok[0]; best.cands = ok.map(x => x.fd);
+  const best = ok[0]; best.cands = ok.map(x => x.fd); if(rb) best.bodyCands = ok.map(x => x.bd);
   return best;
 }
 // generează, retușează fața, verifică; dacă e cazul, încă un retuș (9B) sau o refacere completă; păstrează varianta mai bună
@@ -1038,13 +1172,13 @@ async function makeScenePhoto(c, shot, signal, opt = {}){
   let a = await gen(null, opt);
   if(S.imgCheck === 'off' || !aiReady()) return a;
   try{ a.check = await checkPhoto(c, a.blob, shot, signal, opt.together, opt.asked); }catch(e){ if(e.name === 'AbortError') throw e; return a; }
-  const bad = x => x && (x.face < 8 || x.scene < 6 || x.framing < 5 || (x.asked != null && x.asked < 8));   // 9.33: lipsește ce ai cerut → se reface
+  const bad = x => x && (x.face < 8 || x.scene < 6 || x.framing < 5 || (x.asked != null && x.asked < 8) || (x.body != null && x.body < 7) || (x.hair != null && x.hair < 6) || (x.marks != null && x.marks < 6));   // 9.36: și corpul, părul, semnele   // 9.33: lipsește ce ai cerut → se reface
   if(!bad(a.check) || (!rwFor(S.wkChat || S.wkModel) && capLeft() < (neurPerPhoto(S.wkChat || S.wkModel) || 5000))) return a;
   let b;
   try{ b = await gen(a.check.fix || 'follow the scene and keep the face of the reference', opt); addUsage(c.id, imgPrice(), 'img', null, opt.tag || 'poze'); }
   catch(e){ if(e.name === 'AbortError') throw e; return a; }
   try{ b.check = await checkPhoto(c, b.blob, shot, signal, opt.together, opt.asked); }catch(e){ if(e.name === 'AbortError') throw e; }
-  const sc = x => x ? x.face * 2 + x.scene + x.framing * .5 + (x.asked != null ? x.asked * 1.5 : 0) : 0;
+  const sc = x => x ? x.face * 2 + x.scene + x.framing * .5 + (x.asked != null ? x.asked * 1.5 : 0) + (x.body ?? 6) * 1.2 + (x.hair ?? 6) * .7 + (x.marks ?? 6) * .5 : 0;   // 9.36: „nu se vede” = neutru, nu 0
   const best = b.check && sc(b.check) > sc(a.check) ? b : a;
   best.retried = true;
   return best;
@@ -4502,7 +4636,7 @@ async function askPhoto(spont, target, mode, opt = {}){
     let shot, where = null, asked = [], together = !!(opt.together || (target && target.together)) && !!S.userPhoto;
     if(target && mode === 'same' && target.scene){ shot = target.scene; where = target.where || null; asked = target.asked || []; }
     else { const pl = await planShot(c, ch, {promised, exclude:m, signal:busy.signal, together}); shot = pl.shot; where = pl.where; together = pl.together; asked = pl.asked || []; shot = giftDetail(c, shot, where); }
-    let {prompt, blob, check, retried} = await makeScenePhoto(c, shot, busy.signal, {together, asked});
+    let {prompt, blob, check, retried, bd} = await makeScenePhoto(c, shot, busy.signal, {together, asked});
     try{ if(blob.type === 'image/png') blob = await toJpeg(blob, 2048, .92); }catch(e){}   // PNG → JPEG: de ~5 ori mai puțin spațiu
     const k = await saveImg(blob);
     clearInterval(pT); if(live && live.stage){ live.stage.t = '✅ Gata'; live.stage.pv = 100; const st = $('#msgs .picload .plst'); if(st) st.textContent = '✅ Gata'; pDraw(100); await new Promise(r => setTimeout(r, 420)); }
@@ -4516,6 +4650,10 @@ async function askPhoto(spont, target, mode, opt = {}){
     }
     m.img = k; m.prompt = prompt; m.scene = shot; if(where) m.where = where; if(asked.length) m.asked = asked; else delete m.asked; if(together) m.together = true; else delete m.together; if(check) m.check = check; else delete m.check;
     addUsage(c.id, imgPrice(), 'img');
+    if(bd != null) m.bd = Math.round(bd * 1000) / 1000; else delete m.bd;
+    // 9.36: o poză foarte reușită devine reper; personajul fără poză întreagă primește una (o dată, în fundal)
+    if(!together){ const okFace = !check || check.face == null || check.face >= 8; const bl = blob;
+      setTimeout(async () => { try{ if(okFace && await maybeGoodRef(c, bl)) toast('📌 Poza a ieșit foarte asemănătoare: a devenit reper pentru pozele următoare.', 3500); }catch(e){} autoFull(c); }, 1200); }
     if(S.imgProv === 'worker') setTimeout(() => loadNeurons(lastImgProv !== 'runware'), 1500);   // 9.20: poza a mers pe Runware → fără avertismente Cloudflare
   }catch(e){
     const msg = e.message || '';
@@ -4567,7 +4705,7 @@ function msgSheet(i){
   if(m.text && !me && learnOn(cur)) opts.push(['🔤', m.tr ? (m.trOn ? 'Ascunde traducerea' : 'Arată traducerea') : 'Tradu în română', () => translateMsg(m)]);
   if(m.text && !busy) opts.push(['✏️', me ? 'Editează și retrimite' : 'Editează', () => editMsg(i)]);
   if(m.img && !me && !busy && S.imgProv !== 'none'){ opts.push(['🎲', 'Altă variantă (aceeași scenă)', () => askPhoto(false, m, 'same')]); opts.push(['🔄', 'Altă poză (altă scenă)', () => askPhoto(false, m, 'new')]); }
-  if(m.img && m.scene && !me) opts.push(['📝', 'Ce scenă a ales', () => openSheet(`<h4>Scena pozei</h4><div class="pad">${m.where ? `<p class="wline">📍 ${esc([m.where.room && m.where.room !== 'other' ? (ROOM_RO[m.where.room] || m.where.room) : m.where.place, m.where.position].filter(Boolean).join(' · '))}${m.where.outfit ? '<br>👗 ' + esc(m.where.outfit) : ''}</p>` : ''}${m.asked && m.asked.length ? `<p class="wline">🙋 Ai cerut: ${esc(m.asked.join(' · '))}</p>` : ''}<p style="color:var(--tx2);line-height:1.5">${esc(m.scene)}</p>${m.check ? `<p class="hint">Verificare: ${m.check.d !== undefined ? '🧬 ' + (m.check.d != null ? idPct(m.check.d) + '% · ' + idLabel(m.check.d) : 'fața nu se vede') : 'seamănă ' + m.check.face + '/10'} · scena ${m.check.scene ?? '?'}/10 · încadrarea ${m.check.framing ?? '?'}/10${m.check.hair != null ? ' · părul ' + m.check.hair + '/10' : ''}${m.check.marks != null ? ' · semnele ' + m.check.marks + '/10' : ''}${m.check.body != null ? ' · corpul ' + m.check.body + '/10' : ''}${m.check.asked != null ? ' · ce ai cerut ' + m.check.asked + '/10' + (m.check.missing ? ' (lipsea: ' + esc(m.check.missing.join(', ')) + ')' : '') : ''}${m.check.expr != null ? ' · expresia ' + m.check.expr + '/10' : ''}${m.cands && m.cands.length > 1 ? '<br>🎯 aleasă din ' + m.cands.length + ': ' + m.cands.map(d => d == null ? '?' : idPct(d) + '%').join(' · ') : ''}</p>` : ''}</div>`)]);
+  if(m.img && m.scene && !me) opts.push(['📝', 'Ce scenă a ales', () => openSheet(`<h4>Scena pozei</h4><div class="pad">${m.where ? `<p class="wline">📍 ${esc([m.where.room && m.where.room !== 'other' ? (ROOM_RO[m.where.room] || m.where.room) : m.where.place, m.where.position].filter(Boolean).join(' · '))}${m.where.outfit ? '<br>👗 ' + esc(m.where.outfit) : ''}</p>` : ''}${m.asked && m.asked.length ? `<p class="wline">🙋 Ai cerut: ${esc(m.asked.join(' · '))}</p>` : ''}<p style="color:var(--tx2);line-height:1.5">${esc(m.scene)}</p>${m.check ? `<p class="hint">Verificare: ${m.check.d !== undefined ? '🧬 ' + (m.check.d != null ? idPct(m.check.d) + '% · ' + idLabel(m.check.d) : 'fața nu se vede') : 'seamănă ' + m.check.face + '/10'} · scena ${m.check.scene ?? '?'}/10 · încadrarea ${m.check.framing ?? '?'}/10${m.check.hair != null ? ' · părul ' + m.check.hair + '/10' : ''}${m.check.marks != null ? ' · semnele ' + m.check.marks + '/10' : ''}${m.check.body != null ? ' · corpul ' + m.check.body + '/10' : ''}${m.check.asked != null ? ' · ce ai cerut ' + m.check.asked + '/10' + (m.check.missing ? ' (lipsea: ' + esc(m.check.missing.join(', ')) + ')' : '') : ''}${m.check.expr != null ? ' · expresia ' + m.check.expr + '/10' : ''}${m.bd != null ? '<br>🧍 silueta (telefon): ' + Math.max(0, Math.round(100 - m.bd * 250)) + '% față de poza întreagă' : ''}${m.cands && m.cands.length > 1 ? '<br>🎯 aleasă din ' + m.cands.length + ': ' + m.cands.map(d => d == null ? '?' : idPct(d) + '%').join(' · ') : ''}</p>` : ''}</div>`)]);
   if(m.img) opts.push(['💾', 'Salvează poza în telefon', () => saveImage(m.img)]);
   if(m.img && canShareFiles()) opts.push(['↗️', 'Trimite poza în altă aplicație', () => shareImage(m.img)]);
   if(m.img && !me) opts.push(['🖼️', 'Fă-o poză de profil', async () => {
@@ -6549,7 +6687,7 @@ function crBadge(v){
   if(v.st === 'gen') return '<span class="crb wait"><span class="spin"></span></span>';
   if(v.st === 'err') return `<span class="crb bad">⚠️ ${esc((v.err || 'eroare').slice(0, 40))}</span>`;
   const k = v.chk; if(!k) return '<span class="crb wait">verific…</span>';
-  const same = v.sameD != null ? (v.sameD < .5 ? '<span class="crb ok">👤 aceeași față</span>' : '<span class="crb bad">👤 altă față</span>') : '';
+  const same = v.fixing ? '<span class="crb">✨ potrivesc fața…</span>' : v.sameD != null ? (v.sameD < .5 ? `<span class="crb ok">👤 aceeași față${v.fixed ? ' ✨' : ''}</span>` : '<span class="crb bad">👤 altă față</span>') : '';
   const mt = k.match != null ? `<span class="crb ${k.match >= 8 ? 'ok' : k.match <= 5 ? 'bad' : ''}" title="${esc(k.missDesc || '')}">🎯 ${k.match}/10${k.missDesc && k.match < 9 ? ' · ' + esc(k.missDesc) : ''}</span>` : '';   // 9.28: cât se potrivește cu descrierea
   return (v.best ? '<span class="crb star">⭐ recomandată</span>' : '') + mt + (k.miss.length ? `<span class="crb bad">⚠️ ${esc(k.miss.slice(0, 2).join(', '))}</span>` : `<span class="crb ok">✓ ${v.frame === 'full' ? 'corp întreg' : v.frame === '34' ? 'trei sferturi' : 'portret'}</span>`) + same;
 
@@ -6561,7 +6699,7 @@ function crRender(){
   box.innerHTML = R.vars.map((v, i) => `<figure class="crv${i === R.chosen ? ' on' : ''}${v.st === 'ok' ? '' : ' ' + v.st}" data-i="${i}">
       ${v.url ? `<img src="${v.url}" alt="" data-cv="${i}">` : '<div class="crph"></div>'}
       <figcaption>${CR_KIND[v.kind] ? `<span class="crb">${CR_KIND[v.kind]}</span>` : ''}${crBadge(v)}</figcaption>
-      ${v.st === 'ok' ? `<button type="button" class="btn sm${i === R.chosen ? ' pri' : ''}" data-ch="${i}">${i === R.chosen ? '✓ Aleasă' : 'Alege'}</button>` : ''}</figure>`).join('');
+      ${v.st === 'ok' && !v.fixing ? `<button type="button" class="btn sm${i === R.chosen ? ' pri' : ''}" data-ch="${i}">${i === R.chosen ? '✓ Aleasă' : 'Alege'}</button>` : ''}</figure>`).join('');
   $('#edChosen').hidden = R.chosen < 0 || !R.vars[R.chosen] || R.vars[R.chosen].st !== 'ok';
 }
 function crView(i){
@@ -6752,6 +6890,16 @@ async function crFromChosen(E, R, v, p, n, kind, signal, msg, want, refBlob){
   await Promise.allSettled(fresh.map(x => crMake(E, run, x, () => genImage(p, refBlob || v.blob, signal, null, {model, size:FR.size, force:{two:false, px:1024}, p1:p, quiet:true, why:'profil'}))));
   if(ed !== E || signal.aborted) return;
   for(const x of fresh) if(x.chk && x.chk.d && v.chk && v.chk.d) x.sameD = fdist(x.chk.d, v.chk.d);
+  // 9.35: variantele cu „altă față”: fața pusă din nou după varianta aleasă (sau poza ta)
+  if(v.chk && v.chk.d){
+    const bad = fresh.filter(x => x.st === 'ok' && (x.sameD == null || x.sameD >= FACE_OK));
+    if(bad.length){
+      setEdStatus(`<span class="spin"></span> Potrivesc fața la ${bad.length === 1 ? 'o variantă' : bad.length + ' variante'} (aceeași persoană)…`);
+      const src = {prof:v.blob, box:v.chk.box, refD:[v.chk.d]};
+      await Promise.allSettled(bad.map(async x => { x.fixing = true; crRender(); try{ await fixFace(x, src, signal); } finally { x.fixing = false; if(ed === E) crRender(); } }));
+      if(ed !== E || signal.aborted) return;
+    }
+  }
   await crAfterBatch(E, fresh);
 }
 // fișa de personaj: încă 2 unghiuri ale aceleiași fețe → repere pentru pozele din chat (`c.refs`); automat după „Alege”
@@ -6855,30 +7003,11 @@ async function pfMakeFull(c){
     const pv = e.target.closest('[data-pv]'); if(pv){ const v = st.vars[+pv.dataset.pv], ok = st.vars.filter(x => x.st === 'ok'); const face = {}; for(const x of ok) if(x.chk && x.chk.box) face[x.url] = x.chk.box; viewImg(v.url, ok.map(x => x.url), null, {face}); return; }
     const pc = e.target.closest('[data-pc]'); if(!pc || st.saving) return; st.saving = true; st.ac.abort();
     const v = st.vars[+pc.dataset.pc]; pc.disabled = true; pc.innerHTML = '<span class="spin"></span>';
-    const old = c.photoFull;
-    c.photoFull = await saveImg(v.blob); c.fullBox = v.chk && v.chk.box || null; delete c.bodyFull;
-    if(old && old !== c.photoFull) await delImg(old).catch(() => {});
-    await saveChars(); closeSheet(); toast('🧍 Poza întreagă e salvată.');
+    await saveFull(c, v); closeSheet(); toast('🧍 Poza întreagă e salvată.');
     if(profId === c.id) charProfile(c.id, false);
-    if(aiReady()) try{ const t = await crBodyRead(v.blob, c.id); if(c.photoFull) { c.bodyFull = {k:c.photoFull, t}; await saveChars(); } }catch(e){}
   });
-  const draw = () => { if(!grid.isConnected) return; grid.innerHTML = st.vars.map((v, i) => `<figure class="crv${v.st === 'ok' ? '' : ' ' + v.st}">${v.url ? `<img src="${v.url}" alt="" data-pv="${i}">` : '<div class="crph"></div>'}<figcaption>${crBadge(v)}</figcaption>${v.st === 'ok' ? `<button type="button" class="btn sm" data-pc="${i}">Alege</button>` : ''}</figure>`).join(''); };
-  let ref = null; try{ const fs = await faceDescs(base); if(fs.length) ref = fs.sort((a, b) => b.a - a.a)[0].d; }catch(e){}
-  const id = c.faceBox && c.faceBox.k === c.photo ? c.faceBox : null;
-  const body = [c.bodyFull && c.bodyFull.t, c.physEn, id && id.phys && (String(id.phys).match(/(?:^|; )body: ([^;]+)/) || [])[1]].filter(Boolean).join('; ');
-  const outfit = c.appZones && c.appZones.zones && c.appZones.zones.tinuta ? '' : 'the same clothes as in the photo, completed naturally down to the shoes';
-  const p = `Edit this photo into a full-body photo of the same person. ${CR_FRAMES.full.p}. Keep exactly the same face and identity, hairstyle, skin and age.${body ? ' Body: ' + body + '.' : ''} ${outfit ? 'Outfit: ' + outfit + '.' : ''} Natural relaxed standing pose in a fitting everyday place. ${CR_HANDS} ${STIL_TAG[c.stil || 'photo']}`;
-  const model = crModel(2, CR_FRAMES.full.size);
-  st.vars = [0, 1].map(() => ({id:uid(), st:'gen', frame:'full', kind:'nou'})); draw();
-  await Promise.allSettled(st.vars.map(async v => {
-    try{
-      let b = await genImage(p, base, st.ac.signal, null, {model, size:CR_FRAMES.full.size, force:{two:false, px:1024}, p1:p, quiet:true, why:'profil'});
-      addUsage(c.id, imgPrice(), 'img', null, 'profil');
-      try{ if(b.type === 'image/png') b = await toJpeg(b, 2048, .92); }catch(e){}
-      v.blob = b; v.url = URL.createObjectURL(b); v.st = 'ok'; draw();
-      v.chk = await crCheck(v); if(v.chk.d && ref) v.sameD = fdist(v.chk.d, ref); draw();
-    }catch(e){ v.st = 'err'; v.err = e.name === 'AbortError' ? 'oprit' : e.message; draw(); }
-  }));
+  const draw = () => { if(!grid.isConnected) return; grid.innerHTML = st.vars.map((v, i) => `<figure class="crv${v.st === 'ok' ? '' : ' ' + v.st}">${v.url ? `<img src="${v.url}" alt="" data-pv="${i}">` : '<div class="crph"></div>'}<figcaption>${crBadge(v)}</figcaption>${v.st === 'ok' && !v.fixing ? `<button type="button" class="btn sm" data-pc="${i}">Alege</button>` : ''}</figure>`).join(''); };
+  st.vars = await fullVariants(c, base, st.ac.signal, vs => { st.vars = vs; draw(); });   // 9.36: același cod și pentru poza întreagă automată
   if(!grid.isConnected) return;
   const ok = st.vars.filter(v => v.st === 'ok');
   msg.textContent = ok.length ? 'Atinge una ca s-o vezi mare, apoi „Alege”. Poza de profil rămâne aceeași.' : 'N-a ieșit nicio variantă. Mai încearcă.';
@@ -7154,7 +7283,7 @@ const aiReady = () => hasKey('anthropic');
 const FIELDS = {stKey:'key', stModel:'model', stUser:'userName', stAbout:'userAbout', stBday:'userBday',
   stWkBase:'wkBase', stWkTok:'wkTok', stWkModel:'wkModel', stWkSize:'wkSize',
   stPin:'pIn', stPout:'pOut', stVkBase:'wkBase', stVkTok:'wkTok', stRwKey:'rwKey'};
-const SEGS = {stRw:'rw', stRwCap:'rwCap', stIdBoost:'idBoost', stRegen:'regen3', stFx:'fx', stFeed:'feed', stStory:'story', stSky:'sky', stSocial:'social', stCfCap:'cfCap', stCfPlan:'cfPlan', stAux:'aux', stCtx:'ctxN', stVmsg:'vmsg', stJrn:'jrn', stTheme:'theme', stLen:'len', stFont:'font', stImg:'imgProv', stSugg:'sugg', stPro:'pro', stVoice:'voice', stSpont:'spont', stImgCheck:'imgCheck', stWkChat:'wkChat', stBkEvery:'bkEvery', stVault:'vault', stCallFace:'callFace', stCallAmb:'callAmb', stCallBack:'callBack', stCallDepth:'callDepth', stCallLight:'callLight', stCallPres:'callPres', stTypeReal:'typeReal', stChatMode:'chatMode'};
+const SEGS = {stRw:'rw', stRwCap:'rwCap', stIdBoost:'idBoost', stRegen:'regen3', stFx:'fx', stFeed:'feed', stStory:'story', stSky:'sky', stSocial:'social', stCfCap:'cfCap', stCfPlan:'cfPlan', stAux:'aux', stCtx:'ctxN', stVmsg:'vmsg', stJrn:'jrn', stTheme:'theme', stLen:'len', stFont:'font', stImg:'imgProv', stSugg:'sugg', stPro:'pro', stVoice:'voice', stSpont:'spont', stImgCheck:'imgCheck', stWkChat:'wkChat', stBkEvery:'bkEvery', stVault:'vault', stCallFace:'callFace', stCallAmb:'callAmb', stCallBack:'callBack', stCallDepth:'callDepth', stCallLight:'callLight', stCallPres:'callPres', stTypeReal:'typeReal', stAutoRefs:'autoRefs', stAutoFull:'autoFull', stChatMode:'chatMode'};
 let setPanel = null, setPanelPushed = false;
 /* 8.7: actualizare din aplicație. Codul vine oricum din rețea la pornire;
    asta prinde versiunile apărute cât aplicația a stat deschisă și forțează reîncărcarea curată. */
