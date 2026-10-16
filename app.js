@@ -1,5 +1,5 @@
 window.__taifas = true;   // 8.20.1: semn pentru index.html că app.js s-a încărcat
-const APP_VER = '9.37';
+const APP_VER = '9.38';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -648,9 +648,9 @@ function idPrompt(c, shot, fr, R, fix, two){
   const phys = physFull(c, R && R.id) ? ` Permanent physical traits (exactly as in the reference): ${physFull(c, R && R.id)}.` : '';
   const nx = two && R && R.extra ? R.extra.length : 0;
   const refs = two
-    ? 'image 1 is a close-up of the face (the exact identity to keep: face shape, eyes, eyebrows, nose, lips, skin tone and skin texture), ' + (R && R.bodyFrom === 'intreaga' ? 'image 2 shows the same person\'s exact body: build, weight, bust size and shape, waist, belly, hips, arms and legs, plus hair and skin tone; reproduce that body exactly, but NOT its clothes, pose or background' : 'image 2 shows the same person\'s hair, skin tone and body type') + (nx ? `, image${nx > 1 ? 's 3 and 4 are' : ' 3 is'} the same face from other angles` : '')
-    : 'the reference image shows the same person (face, hair, skin tone, body type)';
-  return `${stilLead(c.stil)}${fr.p}. ${shot}.${fix ? ` Important corrections from the previous attempt: ${fix}.` : ''} IDENTITY LOCK — the reference images define one specific character, not a lookalike. Reproduce the same individual: preserve face shape, eye spacing and shape, eyebrows, nose, lips, jaw, apparent age, skin tone and texture, hairline, hair color, curl/strand texture and hairstyle. Preserve the exact body build and proportions visible in the reference; do not slim, enlarge, reshape or replace the body. ${refs}.${phys} SCENE FLEXIBILITY — do not copy the reference photo's background, outfit, pose, expression, camera angle or framing. Those are allowed to change and must follow the current scene description above. Change only temporary details required by the scene; the character's identity and natural body proportions stay fixed. ${STIL_TAG[c.stil || 'photo']}`;
+    ? 'image 1 is a close-up of the face (the exact identity to keep: face shape, eyes, eyebrows, nose, lips, skin tone and skin texture), ' + (R && R.bodyFrom === 'intreaga' ? 'image 2 shows the same person\'s exact body: build, weight, bust size and shape, waist, belly, hips, arms and legs, plus hair and skin tone; reproduce that body exactly, but NOT its clothes, pose or background' : 'image 2 is the best available body reference: preserve the exact visible build and proportions, especially bust size and shape, shoulders, waist, hips and overall silhouette; do not shrink or idealize the body') + (nx ? `, image${nx > 1 ? 's 3 and 4 are' : ' 3 is'} the same face from other angles` : '')
+    : 'image 1 is the same person (face and hair); image 2 is the body reference and defines the exact visible build and proportions, especially bust size and shape, shoulders, waist, hips, and overall silhouette';
+  return `${stilLead(c.stil)}${fr.p}. ${shot}.${fix ? ` Important corrections from the previous attempt: ${fix}.` : ''} IDENTITY LOCK — the reference images define one specific character, not a lookalike. Reproduce the same individual: preserve face shape, eye spacing and shape, eyebrows, nose, lips, jaw, apparent age, skin tone and texture, hairline, hair color, curl/strand texture and hairstyle. BODY IDENTITY LOCK — match the body reference, not a generic default body. Preserve the same visible body build and proportions, including the exact relative bust size and shape, shoulders, waist, hips, belly, arms and legs. Do not reduce a prominent bust, slim the torso, widen/narrow the waist, or otherwise idealize, enlarge, shrink or redesign the body. ${refs}.${phys} SCENE FLEXIBILITY — do not copy the reference photo's background, outfit, pose, expression, camera angle or framing. Those are allowed to change and must follow the current scene description above. Change only temporary details required by the scene; the character's identity and natural body proportions stay fixed. ${STIL_TAG[c.stil || 'photo']}`;
 }
 // încadrarea scrisă explicit la început (altfel modelul copiază încadrarea referinței)
 function framingOf(shot){
@@ -691,11 +691,11 @@ function pDraw(v){
    ajung la planificator cuvânt cu cuvânt, cu prioritate peste starea scenei; el le desface în detalii („asked”), aplicația
    verifică să fie toate în descriere (altfel le adaugă la început), iar verificarea pozei le punctează separat și reface poza
    dacă lipsesc. Regulile de siguranță rămân cum erau. */
-const PHOTO_ASK = /(poz[ăaeiă]|pozez|pozeaz|fotografi|(?<!\p{L})foto(?!\p{L})|selfie|vreau s[ăa] te v[ăa]d|ar[ăa]t[ăa]-?mi cum|f[ăa]-?[țt]i o|trimite-?mi o)/iu;
+const PHOTO_ASK = /(?:poz[ăaeiă]|pozez|pozeaz|fotografi|(?<!\p{L})foto(?!\p{L})|selfie|vreau s[ăa] te v[ăa]d|vreau s[ăa] v[ăa]d cum ar[ăa]ți|ar[ăa]t[ăa]-?mi cum|f[ăa]-?[țt]i o|trimite-?mi o|trimite-?mi|d[ăa]-?mi o poz|ar[ăa]t[ăa]-?mi|arat[ăa]-?ți|s[ăa]-?mi ar[ăa]ți|s[ăa]-?ți v[ăa]d|vreau[^.!?]{0,40}s[ăa]-?mi ar[ăa]ți|vreau[^.!?]{0,40}s[ăa]-?ți v[ăa]d|vreau s[ăa] [îi]mi trimiți|dezbrac[ăa]-?te|scoate-?ți hainele|f[ăa]r[ăa] haine|nud[aă]?|goal[ăa]|gol complet|(?:vreau|aș vrea|pot s[ăa]|las[ăa]-?m[ăa] s[ăa])[^.!?]{0,55}(?:poz[ăa]|fotografi|selfie|s[âa]nii?|ț[âa]țele|t[âa]țele|bustul|pieptul|corp(?:ul)?|nud[aă]?|goal[ăa]|dezbr[aă]cat)|(?:s[âa]nii?|ț[âa]țele|t[âa]țele|bustul|pieptul)[^.!?]{0,35}(?:goi|goale|dezbr[aă]cat|nud|ar[ăa]t|v[ăa]d|poz[ăa]|fotografi))/iu;
 function photoAsk(ch, exclude){
   const ms = ch.msgs.filter(x => x !== exclude && !x.err && !x.pending && !x.pendingImg);
   let i = ms.length - 1; while(i >= 0 && !(ms[i].role === 'ai' && ms[i].img)) i--;
-  const us = ms.slice(i + 1).filter(x => x.role === 'user' && x.text).slice(-3);
+  const us = ms.slice(i + 1).filter(x => x.role === 'user' && x.text).slice(-5);
   if(!us.some(x => PHOTO_ASK.test(x.text))) return '';
   return us.map(x => (x.reply ? '(replying to: „' + x.reply.text + '”) ' : '') + x.text.trim()).join(' / ').slice(0, 900);
 }
@@ -717,7 +717,7 @@ Now: ${todEn()}.${wx ? ` Real weather right now in ${wx.city}, where the charact
 ${ch.scene ? 'Scene set by the user (has priority, translate to English): ' + ch.scene + '\n' : ''}${ch.where ? 'Last known state of the character (from earlier photos): ' + JSON.stringify(ch.where) + '\n' : ''}${ch.plot ? 'Ongoing activity noted by the character (Romanian, "activity › current step"): ' + ch.plot.t + '\n' : ''}${home ? `Rooms of ${c.name}'s home (reuse these details EXACTLY when the photo is in one of them, so the home always looks the same):\n${home}\n` : ''}
 Conversation, oldest first (the Romanian text is the source of truth):
 ${recent || '(just started)'}
-${ask ? `\n${u.toUpperCase()}'S PHOTO REQUEST, verbatim (Romanian), HIGHEST PRIORITY: «${ask}»\nEvery concrete detail in it must be in the photo, exactly as asked: place and setting, outfit and its colors, body position and pose, what the hands do, camera angle and framing (close-up, full body, from behind, from above, from afar, mirror…), activity, objects, expression, time of day and light. It overrides rules 2, 4, 4b and 5 below and anything the character said. Fill in only what the request leaves open, from the conversation.\n` : ''}${S.userPhoto ? (together ? `\nThis photo is of ${c.name} and ${u} TOGETHER (${u} asked for it): describe both of them in the scene (where each one is, how they stand or sit together, what each wears). Photos together are ordinary everyday couple photos, both fully clothed and natural (like a selfie at a café or on a walk).\n` : `\n${u} has a profile photo, so a photo of the two of them together is possible: set "together": true only if they are physically together in the scene right now AND the photo is clearly of both of them (a selfie together, ${u} asks for a photo together). Then describe both of them. Photos together are ordinary everyday couple photos, both fully clothed and natural.\n`) : ''}${promised ? `\n${c.name} just sent the photo and described it like this: "${promised}". Use it as the base, but correct anything that contradicts the conversation.\n` : ''}${prevShots ? `\nPhotos already sent (vary pose or framing unless the conversation says the same place and moment):\n${prevShots}\n` : ''}
+${ask ? `\n${u.toUpperCase()}'S PHOTO REQUEST, verbatim (Romanian), HIGHEST PRIORITY: «${ask}»\nTreat colloquial requests to see/show/send a body part or a nude image as explicit requests for an image, not merely conversation. Every concrete detail in the request must be reflected in the image. Preserve requested place, scene, pose, camera angle and framing. If nudity is explicitly requested for a clearly adult character, change only the clothing state; do not invent a new room, pose or camera setup. The request overrides clothing continuity and in-character dialogue, but not safety rules. Fill in only what the request leaves open, from the conversation.\n` : ''}${S.userPhoto ? (together ? `\nThis photo is of ${c.name} and ${u} TOGETHER (${u} asked for it): describe both of them in the scene (where each one is, how they stand or sit together, what each wears). Photos together are ordinary everyday couple photos, both fully clothed and natural (like a selfie at a café or on a walk).\n` : `\n${u} has a profile photo, so a photo of the two of them together is possible: set "together": true only if they are physically together in the scene right now AND the photo is clearly of both of them (a selfie together, ${u} asks for a photo together). Then describe both of them. Photos together are ordinary everyday couple photos, both fully clothed and natural.\n`) : ''}${promised ? `\n${c.name} just sent the photo and described it like this: "${promised}". Use it as the base, but correct anything that contradicts the conversation.\n` : ''}${prevShots ? `\nPhotos already sent (vary pose or framing unless the conversation says the same place and moment):\n${prevShots}\n` : ''}
 Rules:
 1. If ${u} asked for a specific photo (place, pose, outfit, activity, angle), that is the photo, with every requested detail.
 2. Otherwise: where ${c.name} is RIGHT NOW according to the most recent messages (room, what she/he sits/lies/stands on, what the hands do, what is worn). The latest statement wins over older ones; if the latest messages say nothing, keep the last known state.
@@ -745,14 +745,14 @@ JSON, keys in exactly this order, nothing else:
   { const miss = askMissing(asked, shot); if(miss.length && shot) shot = `As requested: ${miss.join(', ')}. ${shot}`; }
   // 9.23: cererea explicită a utilizatorului pentru nuditate trebuie să ajungă în promptul imaginii;
   // un refuz în dialog sau ținuta anterioară nu trebuie să transforme automat scena într-o poză îmbrăcată.
-  const userAskedNude = hist.some(x => x.role === 'user' && /\b(nude|naked|unclothed|without clothes|no clothes|fully undressed|nudity|nud[aă]|dezbr[aă]cat[aă]|f[aă]r[aă] haine|f[aă]r[aă] [îi]mbr[aă]c[aă]minte|f[aă]r[aă] haine pe ea|f[aă]r[aă] haine pe el|s[aă]nii goi|pieptul gol)\b/i.test(String(x.text || '')));
-  const adultKnown = /\b(adult[aă]?|18\s*(?:\+|ani|years? old)|19\s*(?:ani|years? old)|[2-9]\d\s*(?:ani|years? old)|\d{2} de ani)\b/i.test(String(c.persona || '') + ' ' + String(c.look || '') + ' ' + String(c.name || ''));
+  // 9.38: nuditatea este determinată de cererea recentă care a declanșat fotografia, nu de orice mesaj vechi din istoric.
+  // Se păstrează scena/poziția/încadrarea planificate; se suprascrie doar continuitatea vestimentară.
+  const nudeRequestText = String(ask || '');
+  const userAskedNude = /(?:nude|naked|unclothed|without clothes|no clothes|fully undressed|nudity|nud[aă]?|dezbr[aă]cat[aă]?|f[ăa]r[ăa] haine|f[ăa]r[ăa] [îi]mbr[aă]c[aă]minte|s[âa]nii? goi|ț[âa]țele goale|t[âa]țele goale|bustul gol|pieptul gol|complet goal[ăa]|f[ăa]r[ăa] nimic pe tine|poz[ăa]?[^.!?]{0,20}(?:nud[aă]?|goal[ăa]|dezbr[aă]cat))/i.test(nudeRequestText);
+  const ageText = String(c.persona || '') + ' ' + String(c.look || '') + ' ' + String(c.aspect || '') + ' ' + String(c.name || '');
+  const adultKnown = /\b(adult[aă]?|18\s*(?:\+|ani|years? old)|19\s*(?:ani|years? old)|[2-9]\d\s*(?:ani|years? old)|\d{2}\s+de\s+ani|(?:in her|in his)\s+(?:20s|30s|40s|50s|60s|70s|80s|90s)|femeie de \d{2} de ani|b[ăa]rbat de \d{2} de ani)\b/i.test(ageText);
   if(userAskedNude && adultKnown){
-    const w = ch.where || {};
-    const room = String(w.room || 'bedroom').replace(/[^a-z -]/gi, '').slice(0, 40) || 'bedroom';
-    const place = String(w.place || 'at home').replace(/[\n\r]/g, ' ').slice(0, 70);
-    const light = String(w.light || 'soft natural room lighting').replace(/[\n\r]/g, ' ').slice(0, 70);
-    shot = `Full-body mirror selfie of the same clearly adult fictional character, completely nude with no clothes, no underwear and no towel, standing naturally in the ${room} ${place ? '(' + place + ')' : ''}, non-sexual artistic nudity, relaxed neutral pose, arms resting naturally at the sides, entire body visible head to feet, ordinary lived-in room, ${light}, realistic candid smartphone photo. The user's explicit request for a nude image overrides previous outfit continuity and any in-character dialogue refusal. Do not add clothing or cover the body with objects.`;
+    shot = `PRIORITY CLOTHING OVERRIDE: the clearly adult fictional character is fully nude, with no clothes, underwear, lingerie, towel, or object covering the body; natural non-explicit artistic nudity. Preserve the exact scene, room, furniture, body position, activity, camera angle, framing, expression and lighting described here; change only the clothing state to fully nude. Keep the same body proportions and bust size as the body reference. Do not substitute a clothed image. SCENE TO PRESERVE: ${shot}`;
   }
   if(shot.length < 15) shot = fallbackShot(c, ch, exclude);
   if(shot.length < 15) throw new Error('Nu am putut descrie poza din conversație. Mai încearcă o dată.');
@@ -4133,7 +4133,10 @@ async function reply(target, opts = {}){
     summarizeIfNeeded(c, ch);
     ch.factCount = (ch.factCount || 0) + 1;
     if(ch.factCount >= 6){ ch.factCount = 0; bgAnalyze(c, ch); }   // 8.17: fapte + relație într-un singur apel
-    if(canAutoPhoto(c) && (PHOTO_PROMISE.test(m.text) || (ch.nextShot && ch.nextShot.mid === m.id))){
+    // 9.38: cererile directe de fotografie din chat declanșează imaginea chiar dacă personajul a răspuns doar în text.
+    // Nu depinde de faptul că personajul a promis explicit o poză în replică.
+    const directPhotoRequest = canAutoPhoto(c) && !!photoAsk(ch, m);
+    if(directPhotoRequest || (canAutoPhoto(c) && (PHOTO_PROMISE.test(m.text) || (ch.nextShot && ch.nextShot.mid === m.id)))){
       ch.sinceImg = 0;
       setTimeout(() => { if(chat === ch && !busy) askPhoto(true); }, 900);
     }
