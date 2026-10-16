@@ -1,5 +1,5 @@
 window.__taifas = true;   // 8.20.1: semn pentru index.html că app.js s-a încărcat
-const APP_VER = '9.29';
+const APP_VER = '9.30';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -443,6 +443,10 @@ const STIL_TAG = {
   anime:'high quality anime illustration, clean lineart, soft cel shading, detailed eyes, no text',
   illustration:'polished digital illustration, painterly lighting, detailed face, no text',
   '3d':'high quality 3d render, soft global illumination, detailed face, no text'};
+// 9.30: stilul spus din prima frază (la final, după „photo…”, generatorul îl ignora): doar pentru stilurile non-foto
+const STIL_LEAD = {anime:'Anime-style illustration, NOT a photograph, drawn in anime style: ', illustration:'Painted digital illustration, NOT a photograph, artwork style: ', '3d':'3D-rendered CGI character image (stylized 3D animation render), NOT a photograph: '};
+const stilLead = st => STIL_LEAD[st] || '';
+const stilFrame = (st, p) => STIL_LEAD[st] ? String(p).replace(/\bphoto(graph)?\b/gi, 'image').replace(/\bselfie\b/gi, 'self-portrait') : p;
 // adresa Worker-ului: adaugă https:// și /v1 dacă lipsesc (fără https://, cererea pleca spre site-ul aplicației → 405)
 function wkUrl(){
   let u = String(S.wkBase || '').trim().replace(/\s+/g, '');
@@ -629,7 +633,7 @@ function idPrompt(c, shot, fr, R, fix, two){
   const refs = two
     ? 'image 1 is a close-up of the face (the exact identity to keep: face shape, eyes, eyebrows, nose, lips, skin tone and skin texture), image 2 shows the same person\'s hair, skin tone and body type' + (nx ? `, image${nx > 1 ? 's 3 and 4 are' : ' 3 is'} the same face from other angles` : '')
     : 'the reference image shows the same person (face, hair, skin tone, body type)';
-  return `${fr.p}. ${shot}.${fix ? ` Important corrections from the previous attempt: ${fix}.` : ''} IDENTITY LOCK — the reference images define one specific character, not a lookalike. Reproduce the same individual: preserve face shape, eye spacing and shape, eyebrows, nose, lips, jaw, apparent age, skin tone and texture, hairline, hair color, curl/strand texture and hairstyle. Preserve the exact body build and proportions visible in the reference; do not slim, enlarge, reshape or replace the body. ${refs}.${phys} SCENE FLEXIBILITY — do not copy the reference photo's background, outfit, pose, expression, camera angle or framing. Those are allowed to change and must follow the current scene description above. Change only temporary details required by the scene; the character's identity and natural body proportions stay fixed. ${STIL_TAG[c.stil || 'photo']}`;
+  return `${stilLead(c.stil)}${fr.p}. ${shot}.${fix ? ` Important corrections from the previous attempt: ${fix}.` : ''} IDENTITY LOCK — the reference images define one specific character, not a lookalike. Reproduce the same individual: preserve face shape, eye spacing and shape, eyebrows, nose, lips, jaw, apparent age, skin tone and texture, hairline, hair color, curl/strand texture and hairstyle. Preserve the exact body build and proportions visible in the reference; do not slim, enlarge, reshape or replace the body. ${refs}.${phys} SCENE FLEXIBILITY — do not copy the reference photo's background, outfit, pose, expression, camera angle or framing. Those are allowed to change and must follow the current scene description above. Change only temporary details required by the scene; the character's identity and natural body proportions stay fixed. ${STIL_TAG[c.stil || 'photo']}`;
 }
 // încadrarea scrisă explicit la început (altfel modelul copiază încadrarea referinței)
 function framingOf(shot){
@@ -2409,12 +2413,12 @@ function drawBodyNote(c, box){
     <small>${auto ? 'Citit automat din poza de profil: <i>' + esc(auto) + '</i>' : 'Se citește automat din poza de profil la prima poză.'}</small>
     ${mk.length ? `<small style="margin-top:6px">Semne care rămân mereu la locul lor: <i>${mk.map(esc).join(' · ')}</i></small>` : ''}
     <small style="margin-top:6px">Dacă ceva nu iese cum trebuie (siluetă, înălțime, piele, păr, semne), scrie aici în română. Are prioritate față de ce citește aplicația.</small>
-    <textarea id="pfBody2" rows="3" maxlength="400" placeholder="ex. 1,58 m, siluetă plinuță cu șolduri late, piele bronzată, păr negru drept până la mijlocul spatelui, aluniță pe obrazul stâng">${esc(c.physUser || '')}</textarea>
+    <textarea id="pfBody2" rows="4" maxlength="700" placeholder="ex. 1,58 m, siluetă plinuță cu șolduri late, piele bronzată, păr negru drept până la mijlocul spatelui, aluniță pe obrazul stâng">${esc(c.physUser || '')}</textarea>
     <div class="btns"><button class="btn sm pri" id="pfBodySave">Salvează</button>${c.photo ? '<button class="btn sm" id="pfBodyRe">↻ Recitește poza</button>' : ''}</div></div>`);
   $('#pfBodySave').onclick = async () => {
     const t = $('#pfBody2').value.trim(), b = $('#pfBodySave'); b.disabled = true; b.innerHTML = '<span class="spin"></span>';
     try{
-      c.physUser = t; c.physEn = '';
+      c.physUser = t; c.physEn = ''; c.physAuto = false;   // 9.30: scris de tine: nu mai e suprascris din creator
       if(t) c.physEn = aiReady() ? faraLiniute((await stream('You translate physical descriptions for an image generator. Answer with the English translation only.', [{role:'user', text:'Translate to concise, neutral English (comma-separated traits, keep every detail, no additions):\n' + t}], {max:250, aux:true, cid:c.id})).trim()).slice(0, 500) : t;
       await saveChars(); toast('✓ Salvat: se folosește la următoarele poze');
     }catch(e){ toast('N-am putut salva: ' + e.message, 3500); }
@@ -2457,23 +2461,23 @@ function drawAv(c){
 async function genAvatars(c){
   if(busy){ toast('Așteaptă să termine răspunsul.'); return; }
   const b = $('#avGen'); if(b){ b.disabled = true; b.innerHTML = '<span class="spin"></span> 0/6'; }
-  const photo = c.photo, ref = await DB.get(photo); if(!ref){ toast('Nu găsesc poza de profil.'); if(b){ b.disabled = false; b.textContent = '✨ Generează cele 6 variante'; } return; }
-  // 9.26: aceeași calitate ca la creator: modelul de la „Fidelitatea feței” (9B dacă încape), poza de profil ca reper la 1024 px,
-  //       fiecare variantă verificată în telefon să fie aceeași față (o reîncercare dacă nu e)
-  let refD = null; try{ const fs = await faceDescs(ref); if(fs.length) refD = fs.sort((x, y) => y.a - x.a)[0].d; }catch(e){}
-  const model = crModel(6, '768x1024');
+  const photo = c.photo; if(!photo || !(await DB.get(photo))){ toast('Nu găsesc poza de profil.'); if(b){ b.disabled = false; b.textContent = '✨ Generează cele 6 variante'; } return; }
+  // 9.30: avatarele trec prin același motor ca pozele din chat (scenePhoto: fața decupată + poza de profil + unghiurile + fișa
+  //       „Cum arată, pentru poze”, poză de telefon reală, fără înfrumusețare); fiecare e măsurată în telefon față de personaj
+  //       și se păstrează cea mai apropiată din cel mult 3 încercări (se oprește la prima sub 0,42)
   const avs = {...(c.avs || {})}; let ok = 0;
   for(const [k, , desc] of AV_V){
-    if(c.photo !== photo) break;   // poza de profil s-a schimbat între timp
+    if(c.photo !== photo) break;
     try{
-      const prompt = `A new head-and-shoulders portrait photo of the same person as in the reference image (keep the face, hair and identity exactly). ${desc}. Framing like a profile picture. ${STIL_TAG[c.stil || 'photo']}`;
+      const shot = `close-up selfie, head and shoulders, the face large and sharp, ${desc}, natural real moment, looking at the camera`;
       let bl = null, bd = 9;
-      for(let t = 0; t < 2; t++){
-        let x = await genImage(prompt, ref, null, null, {model, size:'768x1024', force:{two:false, px:1024}, p1:prompt, quiet:true, why:'profil'});
+      for(let t = 0; t < 3; t++){
+        const r = await scenePhoto(c, shot, null, t ? 'keep exactly the face of the reference: same face shape, eyes, nose, lips, skin and age' : '', {why:'profil'});
         addUsage(c.id, imgPrice(), 'img', null, 'profil');
-        let d = 0; if(refD){ try{ const fs = await faceDescs(x); d = fs.length ? Math.min(...fs.map(f => fdist(f.d, refD))) : 1; }catch(e){ d = 0; } }
-        if(d < bd){ bl = x; bd = d; }
-        if(d < .5) break;
+        const d = (await localFace(r.blob, c)).d;
+        if(d == null){ if(!bl){ bl = r.blob; } break; }
+        if(d < bd){ bl = r.blob; bd = d; }
+        if(d < .42) break;
       }
       try{ if(bl.type === 'image/png') bl = await toJpeg(bl, 1024, .9); }catch(e){}
       const old = avs[k]; avs[k] = await saveImg(bl); if(old) delImg(old).catch(() => {});
@@ -6226,7 +6230,7 @@ function crCompose(P, Z){
 const crTextKey = () => JSON.stringify([$('#edPrompt').value.trim(), ed.cr.z.zones]);
 const crAllText = () => [$('#edPrompt').value, ...Object.values(ed.cr.z.zones)].join(' ');
 const crKey = () => JSON.stringify([$('#edPrompt').value.trim(), ed.cr.z]);
-const crPrompt = (en, frame, mix) => `${CR_FRAMES[frame].p}. ${en}${mix ? ' ' + mix : ''} ${frame === 'portrait' ? '' : CR_HANDS + ' '}${STIL_TAG[crStil()]}`;
+const crPrompt = (en, frame, mix) => `${stilLead(crStil())}${stilFrame(crStil(), CR_FRAMES[frame].p)}. ${en}${mix ? ' ' + (STIL_LEAD[crStil()] ? mix.replace('real-looking ', '') : mix) : ''} ${frame === 'portrait' ? '' : CR_HANDS + ' '}${STIL_TAG[crStil()]}`;
 function crInit(c){
   const Z = c && c.appZones && c.appZones.zones ? {zones:{...crEmptyZ().zones, ...c.appZones.zones}, body:{...crEmptyZ().body, ...c.appZones.body}} : crEmptyZ();
   ed.cr = {frame:(c && c.frame) || 'full', vars:[], chosen:-1, run:0, busy:false, z:Z, en:(c && c.appEn) || '', enFor:'', manual:false, parts:null, partsFor:''};
@@ -6428,7 +6432,7 @@ async function crChoose(i){
   if(done && ed && S.crAngles !== 'off') crAngles();
 }
 async function crPortraitFrom(E, v){
-  const p = `Edit this exact photo into a close-up portrait of the same person: head and shoulders, the face large and sharp in the frame, looking at the camera, natural expression. Keep the same face and identity, the same hairstyle, skin, makeup, clothes and the same place and light. ${STIL_TAG[crStil()]}`;
+  const p = `${stilLead(crStil())}Edit this exact photo into a close-up portrait of the same person: head and shoulders, the face large and sharp in the frame, looking at the camera, natural expression. Keep the same face and identity, the same hairstyle, skin, makeup, clothes and the same place and light. ${STIL_TAG[crStil()]}`;
   const model = crModel(2, '768x1024'), signal = E.cr && E.cr.ac ? E.cr.ac.signal : null;
   for(let k = 0; k < 2; k++){
     try{
@@ -6507,7 +6511,7 @@ function crAdjust(){
     }
     const keepHair = /(păr|par\b|coaf|breton|hair)/i.test(ro) ? '' : ', the same hairstyle and hair color';
     const FR = CR_FRAMES[v.frame];
-    const p = `The reference image is a close-up of a specific person's face: keep exactly this face and identity (face shape, eyes, nose, lips, skin tone and skin texture, age)${keepHair}. Create a NEW photo of this same person. ${FR.p}. ${desc}${en ? ` Requested change, apply it clearly and visibly: ${en}.` : ''} The body, the outfit and the place must follow this description exactly, even where they differ from the reference. ${v.frame === 'portrait' ? '' : CR_HANDS + ' '}${STIL_TAG[crStil()]}`;
+    const p = `${stilLead(crStil())}The reference image is a close-up of a specific person's face: keep exactly this face and identity (face shape, eyes, nose, lips, skin tone and skin texture, age)${keepHair}. Create a NEW ${STIL_LEAD[crStil()] ? 'image' : 'photo'} of this same person. ${stilFrame(crStil(), FR.p)}. ${desc}${en ? ` Requested change, apply it clearly and visibly: ${en}.` : ''} The body, the outfit and the place must follow this description exactly, even where they differ from the reference. ${v.frame === 'portrait' ? '' : CR_HANDS + ' '}${STIL_TAG[crStil()]}`;
     // reperul: doar fața (decupată din varianta aleasă), ca generatorul să nu copieze corpul și ținuta vechi
     let face = null; try{ face = v.chk && v.chk.box ? await cropFace(v.blob, v.chk.box) : null; }catch(e){}
     if(!face) face = await crCropPortrait(v.blob, v.chk && v.chk.box);
@@ -6519,7 +6523,7 @@ function crMore(){
   const R = ed && ed.cr, v = R && R.vars[R.chosen]; if(!v || v.st !== 'ok'){ toast('Alege întâi o variantă.'); return; }
   crRun('Variantele', async (E, R2, signal) => {
     const FR = CR_FRAMES[v.frame];
-    const p = `Edit this exact photo: the same person with an identical face, identity, hairstyle, body and outfit, in the same place and light, with a natural small variation: a slightly different pose, angle and expression. Keep the framing: ${FR.p}. ${v.frame === 'portrait' ? '' : CR_HANDS + ' '}${STIL_TAG[crStil()]}`;
+    const p = `${stilLead(crStil())}Edit this exact photo: the same person with an identical face, identity, hairstyle, body and outfit, in the same place and light, with a natural small variation: a slightly different pose, angle and expression. Keep the framing: ${FR.p}. ${v.frame === 'portrait' ? '' : CR_HANDS + ' '}${STIL_TAG[crStil()]}`;
     await crFromChosen(E, R2, v, p, 4, 'mai', signal, 'Fac încă 4 variante ca aceasta…');
   });
 }
@@ -6542,7 +6546,7 @@ function crAngles(){
     const st = STIL_TAG[crStil()], model = crModel(4, '768x1024');
     const views = ['a three-quarter view: the head turned about 40 degrees to the person\'s left, eyes towards the camera', 'a side profile view: the head turned 90 degrees to the person\'s right, looking straight ahead'];
     const outs = await Promise.all(views.map(async vw => {
-      const p = `Edit this exact photo: the same person, photographed from ${vw}. Head and shoulders, plain softly blurred background, even soft light. Keep the exact same face and identity, hairstyle, skin and age. ${st}`;
+      const p = `${stilLead(crStil())}Edit this exact photo: the same person, photographed from ${vw}. Head and shoulders, plain softly blurred background, even soft light. Keep the exact same face and identity, hairstyle, skin and age. ${st}`;
       for(let t = 0; t < 2; t++){
         try{
           let b = await genImage(p, base, signal, null, {model, size:'768x1024', force:{two:false, px:1024}, p1:p, quiet:true, why:'profil'});
@@ -6565,6 +6569,23 @@ function crAngles(){
 }
 // ai poze generate și nesalvate: întreabă înainte să ieși din editor
 const edDirty = () => !!(ed && ed.cr && (ed.cr.busy || ed.cr.vars.some(v => v.st === 'ok') || ed.angles));
+// 9.30: din creator → „Cum arată, pentru poze” (`physUser` în română, `physEn` în engleză, cu prioritate în pozele din chat);
+//       corpul întâi și cu cuvintele exacte de pe butoane (primele cuvinte din `physEn` ajung chiar la începutul promptului)
+function crPhys(Z, en){
+  const z = (Z && Z.zones) || {}, ro = [z.gen, z.fata && 'față: ' + z.fata, z.par && 'păr: ' + z.par, crBodyText(Z) && 'corp: ' + crBodyText(Z), z.maini && 'detalii: ' + z.maini].filter(x => x && String(x).trim()).join('; ');
+  const lab = k => { const m = String(en || '').match(new RegExp('(?:^|\\.\\s)' + k + ':\\s*([^]*?)(?=\\.\\s+[A-Z][a-z]+:|\\.$|$)')); return m ? m[1].trim() : ''; };
+  const subj = String(en || '').split(/\.\s/)[0];
+  let body = lab('Body'); if(!body) body = crBodyEn(Z);
+  const out = [body && 'Body: ' + body, subj && !/^(Body|Face|Hair|Hands|Outfit|Shoes|Pose|Setting|Light):/.test(subj) && subj, lab('Face') && 'Face: ' + lab('Face'), lab('Hair') && 'Hair: ' + lab('Hair'), lab('Hands') && 'Hands: ' + lab('Hands')].filter(Boolean).join('. ');
+  return {ro:faraLiniute(ro).slice(0, 700), en:out.slice(0, 700)};
+}
+function crApplyPhys(c){
+  if(!c || (c.physUser && !c.physAuto)) return false;   // ce ai scris tu în profil rămâne
+  const Z = c.appZones, en = c.appEn || '';
+  if(!Z && !en) return false;
+  const P = crPhys(Z || crEmptyZ(), en); if(!P.en && !P.ro) return false;
+  c.physUser = P.ro; c.physEn = P.en; c.physAuto = true; return true;
+}
 // la salvare: poza întreagă, corpul citit din ea, unghiurile, descrierea ta (liberă și pe zone)
 async function crSave(c){
   if(!ed) return;
@@ -6579,6 +6600,7 @@ async function crSave(c){
     if(old && old !== c.photoFull) await delImg(old).catch(() => {});
     if(c.photoFull && ed.bodyFull) c.bodyFull = {k:c.photoFull, t:ed.bodyFull}; else delete c.bodyFull;
   }
+  crApplyPhys(c);   // 9.30
   if(ed.angles && ed.angles.length){
     for(const k of c.refs || []) await delImg(k).catch(() => {});
     c.refs = []; for(const b of ed.angles.slice(0, 2)) c.refs.push(await saveImg(b));
@@ -7622,6 +7644,7 @@ async function init(){
   onlyOurProviders();   // 9.19: la fiecare pornire (și după o restaurare dintr-un backup vechi)
   if(cspSync(true)) return;   // 8.20: adresă nouă → repornim o dată, ca politica de securitate să o permită
   chars = (await DB.get('chars') || []).filter(c => c && c.id && c.name);
+  { let ch9 = false; for(const c of chars) if(!c.physUser && !c.physEn && (c.appZones || c.appEn) && crApplyPhys(c)) ch9 = true; if(ch9) saveChars(); }   // 9.30: personajele create în 9.24–9.29
   if((S.sv || 0) < 34){
     if(S.wkModel === 'ancorat') S.wkModel = 'eco';
     if(['480x640', '576x768'].includes(S.wkSize)) S.wkSize = '768x1024';
