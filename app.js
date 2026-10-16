@@ -1,5 +1,5 @@
 window.__taifas = true;   // 8.20.1: semn pentru index.html că app.js s-a încărcat
-const APP_VER = '9.28';
+const APP_VER = '9.29';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -6213,18 +6213,23 @@ async function crEnFrom(Z, ro){
 ${notes}
 Translate faithfully into concise, neutral English, keeping every detail. The person is always a clearly adult person (21 or older). Leave a field empty if the notes say nothing about it.
 JSON: {"subject":"gender and apparent age, skin tone","face":"","hair":"","body":"","hands":"","outfit":"","shoes":"","pose":"","place":"","light":""}`, 900);
-  const f = k => String(j[k] || '').trim().replace(/[.\s]+$/, '');
-  if(!f('subject') && !f('face') && !f('body') && !f('hair')) throw new Error('n-am putut pregăti promptul; mai încearcă');
-  const be = crBodyEn(Z), body = [be, f('body')].filter(Boolean).join(', ');
+  const P = {}; for(const k of ['subject', 'face', 'hair', 'body', 'hands', 'outfit', 'shoes', 'pose', 'place', 'light']) P[k] = String(j[k] || '').trim().replace(/[.\s]+$/, '');
+  if(!P.subject && !P.face && !P.body && !P.hair) throw new Error('n-am putut pregăti promptul; mai încearcă');
+  return P;
+}
+// 9.29: compunerea promptului din părțile traduse + corpul exact de pe butoane (fără altă cerere la AI când se schimbă doar corpul)
+function crCompose(P, Z){
+  const f = k => P[k] || '', be = crBodyEn(Z), body = [be, f('body')].filter(Boolean).join(', ');
   return [f('subject') && `${f('subject')}.`, body && `Body: ${body}.`, f('face') && `Face: ${f('face')}.`, f('hair') && `Hair: ${f('hair')}.`, f('hands') && `Hands: ${f('hands')}.`,
     f('outfit') && `Outfit: ${f('outfit')}.`, f('shoes') && `Shoes: ${f('shoes')}.`, `Pose: ${f('pose') || 'natural relaxed standing pose'}.`, f('place') && `Setting: ${f('place')}.`, f('light') && `Light: ${f('light')}.`].filter(Boolean).join(' ');
 }
+const crTextKey = () => JSON.stringify([$('#edPrompt').value.trim(), ed.cr.z.zones]);
 const crAllText = () => [$('#edPrompt').value, ...Object.values(ed.cr.z.zones)].join(' ');
 const crKey = () => JSON.stringify([$('#edPrompt').value.trim(), ed.cr.z]);
 const crPrompt = (en, frame, mix) => `${CR_FRAMES[frame].p}. ${en}${mix ? ' ' + mix : ''} ${frame === 'portrait' ? '' : CR_HANDS + ' '}${STIL_TAG[crStil()]}`;
 function crInit(c){
   const Z = c && c.appZones && c.appZones.zones ? {zones:{...crEmptyZ().zones, ...c.appZones.zones}, body:{...crEmptyZ().body, ...c.appZones.body}} : crEmptyZ();
-  ed.cr = {frame:(c && c.frame) || 'full', vars:[], chosen:-1, run:0, busy:false, z:Z, en:(c && c.appEn) || '', enFor:'', manual:false};
+  ed.cr = {frame:(c && c.frame) || 'full', vars:[], chosen:-1, run:0, busy:false, z:Z, en:(c && c.appEn) || '', enFor:'', manual:false, parts:null, partsFor:''};
   $('#edPrompt').value = (c && c.appPrompt) || ''; $('#edPromptEn').value = ed.cr.en;
   if(c && c.appEn){ ed.cr.enFor = crKey(); ed.cr.manual = !!c.appEnManual; }
   $('#edAutoAng').checked = S.crAngles !== 'off';
@@ -6274,7 +6279,12 @@ function crGenerate(){
     const key = crKey();
     if(R.manual && key !== R.enFor){ R.manual = false; toast('Ai schimbat descrierea: promptul în engleză s-a refăcut din ea.', 3500); }
     if(R.manual) R.en = $('#edPromptEn').value.trim();
-    else if(key !== R.enFor || !R.en){ setEdStatus('<span class="spin"></span> Pregătesc promptul…'); R.en = await crEnFrom(R.z, ro); R.enFor = key; if(ed !== E) return; $('#edPromptEn').value = R.en; }
+    else if(key !== R.enFor || !R.en){
+      // 9.29: textul (descriere, zone) se traduce doar când se schimbă; corpul se recompune local
+      const tk = crTextKey();
+      if(!R.parts || R.partsFor !== tk){ setEdStatus('<span class="spin"></span> Pregătesc promptul…'); R.parts = await crEnFrom(R.z, ro); R.partsFor = tk; if(ed !== E) return; }
+      R.en = crCompose(R.parts, R.z); R.enFor = key; $('#edPromptEn').value = R.en;
+    }
     if(CR_MINOR.test(R.en)){ setEdStatus('Personajele din Taifas sunt adulte. Corectează vârsta.', 'err'); return; }
     const frame = R.frame, FR = CR_FRAMES[frame], model = crModel(4, FR.size), run = ++R.run;
     for(const v of R.vars) if(!v.keep && v.url) URL.revokeObjectURL(v.url);
@@ -6464,16 +6474,44 @@ async function crReadBack(E, v){
   }catch(e){}
 }
 // „🪄 Ajustează”: poza aleasă devine referința, se schimbă doar ce ceri
+// 9.29: „🪄 Ajustează” refăcut. Înainte: „editează exact poza, totul rămâne la fel, schimbă doar…” cu poza întreagă ca reper,
+//       iar modelul întorcea practic aceeași poză (mai ales la corp). Acum: (1) butoanele de corp schimbă chiar alegerile din zona Corp
+//       (bustul urcă / coboară o treaptă, silueta, +6 cm); (2) variantele se generează din nou, cu FAȚA aleasă ca reper de identitate
+//       (decupată, ca reperul să nu mai „țină” corpul vechi), iar corpul și schimbarea cerută sunt scrise explicit în prompt
+const CR_STEP = (Z, k, d) => { const o = CR_BODY.find(x => x[0] === k)[2], i = o.indexOf(Z.body[k]); Z.body[k] = o[Math.max(0, Math.min(o.length - 1, (i < 0 ? (k === 'bust' ? 2 : 0) : i) + d))]; };
+const CR_ADJ_OPS = [
+  ['bust mai mare, natural', Z => CR_STEP(Z, 'bust', 1)], ['bust mai mic, natural', Z => CR_STEP(Z, 'bust', -1)],
+  ['corp mai suplu, cu proporții firești', Z => { Z.body.build = Z.body.build === 'suplă' ? 'slabă' : 'suplă'; }],
+  ['corp mai plin, cu proporții firești', Z => { Z.body.build = Z.body.build === 'plinuță' ? 'plină' : 'plinuță'; }],
+  ['corp mai atletic, tonifiat', Z => { Z.body.build = 'atletică'; if(!Z.body.belly || /rotunjit/.test(Z.body.belly)) Z.body.belly = 'tonifiat'; }],
+  ['mai înaltă, cu proporții firești', Z => { Z.body.h = Math.min(195, (+Z.body.h || 168) + 6); }]];
 function crAdjust(){
   const R = ed && ed.cr, v = R && R.vars[R.chosen]; if(!v || v.st !== 'ok'){ toast('Alege întâi o variantă.'); return; }
-  const ro = $('#edAdjTxt').value.trim(); if(!ro){ toast('Scrie sau alege ce schimbi.'); return; }
+  let ro = $('#edAdjTxt').value.trim(); if(!ro){ toast('Scrie sau alege ce schimbi.'); return; }
   if(CR_MINOR.test(ro)){ setEdStatus('Personajele din Taifas sunt adulte.', 'err'); return; }
   crRun('Ajustarea', async (E, R2, signal) => {
     setEdStatus('<span class="spin"></span> Pregătesc ajustarea…');
-    const en = (await stream('You translate short photo-edit requests into English for an image editor. Answer with the English instruction only.', [{role:'user', text:'Translate faithfully, concise, neutral: ' + ro}], {max:120, aux:true})).trim().replace(/^["“]|["”]$/g, '');
-    const FR = CR_FRAMES[v.frame], keepHair = /(păr|par\b|coaf|hair)/i.test(ro) ? '' : ', the same hairstyle';
-    const p = `Edit this exact photo. Keep the same person: identical face and identity, the same skin${keepHair}. Change ONLY this: ${en}. Keep the framing: ${FR.p}. Everything that is not mentioned stays exactly as it is. ${v.frame === 'portrait' ? '' : CR_HANDS + ' '}${STIL_TAG[crStil()]}`;
-    await crFromChosen(E, R2, v, p, 2, 'aj', signal, 'Fac 2 variante ajustate (aceeași persoană)…', ro);
+    // 1. schimbările de corp de pe butoane trec în zona Corp (se văd pe butoane și rămân pentru generările următoare)
+    let bodyChanged = false;
+    for(const [k, fn] of CR_ADJ_OPS) if(ro.includes(k)){ fn(R2.z); bodyChanged = true; ro = ro.split(k).join(' '); }
+    ro = ro.replace(/\s*,\s*(,\s*)+/g, ', ').replace(/^[\s,]+|[\s,]+$/g, '').trim();
+    if(bodyChanged){ crDrawBody(); crZoneChanged(); $('#edZonesWrap').open = true; }
+    // 2. schimbarea scrisă (ținută, păr, poziție, loc…) se traduce
+    const en = ro ? (await stream('You translate short photo-edit requests into English for an image generator. Answer with the English instruction only.', [{role:'user', text:'Translate faithfully, concise, neutral: ' + ro}], {max:120, aux:true, signal})).trim().replace(/^["“]|["”]$/g, '') : '';
+    // 3. descrierea întreagă, cu corpul nou
+    let desc;
+    if(R2.manual) desc = $('#edPromptEn').value.trim() + (bodyChanged ? ` Body (this overrides the body above): ${crBodyEn(R2.z)}.` : '');
+    else {
+      if(!R2.parts){ R2.parts = await crEnFrom(R2.z, $('#edPrompt').value.trim()); R2.partsFor = crTextKey(); }
+      desc = crCompose(R2.parts, R2.z); R2.en = desc; R2.enFor = crKey(); $('#edPromptEn').value = desc;
+    }
+    const keepHair = /(păr|par\b|coaf|breton|hair)/i.test(ro) ? '' : ', the same hairstyle and hair color';
+    const FR = CR_FRAMES[v.frame];
+    const p = `The reference image is a close-up of a specific person's face: keep exactly this face and identity (face shape, eyes, nose, lips, skin tone and skin texture, age)${keepHair}. Create a NEW photo of this same person. ${FR.p}. ${desc}${en ? ` Requested change, apply it clearly and visibly: ${en}.` : ''} The body, the outfit and the place must follow this description exactly, even where they differ from the reference. ${v.frame === 'portrait' ? '' : CR_HANDS + ' '}${STIL_TAG[crStil()]}`;
+    // reperul: doar fața (decupată din varianta aleasă), ca generatorul să nu copieze corpul și ținuta vechi
+    let face = null; try{ face = v.chk && v.chk.box ? await cropFace(v.blob, v.chk.box) : null; }catch(e){}
+    if(!face) face = await crCropPortrait(v.blob, v.chk && v.chk.box);
+    await crFromChosen(E, R2, v, p, 2, 'aj', signal, bodyChanged ? 'Fac 2 variante cu corpul schimbat (aceeași față)…' : 'Fac 2 variante ajustate (aceeași față)…', $('#edAdjTxt').value.trim(), face);
   });
 }
 // „🔁 Mai multe ca asta”: încă 4 variante ale aceleiași persoane, cu mici diferențe de poziție și expresie
@@ -6485,12 +6523,12 @@ function crMore(){
     await crFromChosen(E, R2, v, p, 4, 'mai', signal, 'Fac încă 4 variante ca aceasta…');
   });
 }
-async function crFromChosen(E, R, v, p, n, kind, signal, msg, want){
+async function crFromChosen(E, R, v, p, n, kind, signal, msg, want, refBlob){
   const FR = CR_FRAMES[v.frame], model = crModel(n, FR.size), run = ++R.run;
   const fresh = Array.from({length:n}, () => ({id:uid(), st:'gen', frame:v.frame, prompt:p, kind, want:want || ''}));
   R.vars = fresh.concat(R.vars); R.chosen = R.vars.indexOf(v); crRender();
   setEdStatus('<span class="spin"></span> ' + msg);
-  await Promise.allSettled(fresh.map(x => crMake(E, run, x, () => genImage(p, v.blob, signal, null, {model, size:FR.size, force:{two:false, px:1024}, p1:p, quiet:true, why:'profil'}))));
+  await Promise.allSettled(fresh.map(x => crMake(E, run, x, () => genImage(p, refBlob || v.blob, signal, null, {model, size:FR.size, force:{two:false, px:1024}, p1:p, quiet:true, why:'profil'}))));
   if(ed !== E || signal.aborted) return;
   for(const x of fresh) if(x.chk && x.chk.d && v.chk && v.chk.d) x.sameD = fdist(x.chk.d, v.chk.d);
   await crAfterBatch(E, fresh);
