@@ -1634,6 +1634,12 @@ details.sdanger>summary{color:var(--err)}
       <div class="sec">
         <button type="button" class="photo" id="edPhoto"><span><b>＋</b>Urcă o poză<br>AI-ul o descrie 1:1</span></button>
         <input type="file" id="edFile" accept="image/*" hidden>
+        <div class="crea own" id="edOwn" hidden>
+          <label>📷 Din poza ta</label>
+          <div class="hint">Poza ta se citește pe zone și pe butoanele de corp (doar ce se vede). Corectezi ce nu e bine; la salvare intră în „Cum arată, pentru poze” și în pozele din chat, ca la creator.</div>
+          <div class="btns"><button type="button" class="btn sm" id="edOwnRead">🔎 Citește poza pe zone</button><button type="button" class="btn sm pri" id="edOwnAdj">🪄 Ajustează corpul pe poza ta</button></div>
+          <div id="edOwnSlot"></div>
+        </div>
         <div class="crea" id="edCrea">
           <label for="edPrompt">✨ Descrie cum arată, iar AI-ul îi face poza</label>
           <textarea id="edPrompt" rows="3" maxlength="2500" placeholder="ex. brunetă de 28 de ani, 1,70 m, atletică, păr lung ondulat, ochi verzi, rochie verde de vară, pe o terasă la apus"></textarea>
