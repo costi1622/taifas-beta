@@ -1,5 +1,5 @@
 window.__taifas = true;   // 8.20.1: semn pentru index.html că app.js s-a încărcat
-const APP_VER = '9.38';
+const APP_VER = '9.39';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -38,7 +38,7 @@ const DEF = {
   imgProv:'none',
   wkBase:'', wkTok:'', wkModel:'eco', wkSize:'768x1024',
   sugg:'off', pro:'on', feed:'text', fx:'on', regen3:'on', voice:'tap', tts:'tel', cfPlan:'free', cfCap:'free', theme:'dark', vmsg:'rar', jrn:'on', aux:'on', ctxN:'30',
-  vault:'off', vaultHas:null, faceFix:'on', bodyFix:'off', bestOf:'3', autoModel:'chat', callFace:'on', handCheck:'off', crHands:'on', crAngles:'on', callAmb:'on', callBack:'on', callDepth:'on', callLight:'on', callPres:'on', autoRefs:'on', autoFull:'on', imgRoute:'mix', cfFallback:'off', typeReal:'on', chatMode:'rp', imgCheck:'on', story:'on', sky:'on', social:'on', userBday:'', lock:'off', pushOn:false, bkEvery:'week', bkLast:0, userPhoto:'', userPhys:'', userBox:null, wkChat:'ancorat', wkRef:'auto', rw:'off', rwKey:'', rwCap:'0.5', rwAvg:0, idBoost:'on', spont:'rar', sv:34, imgCost:'', pIn:'', pOut:''
+  vault:'off', vaultHas:null, faceFix:'on', bodyFix:'on', bestOf:'3', autoModel:'chat', callFace:'on', handCheck:'off', crHands:'on', crAngles:'on', callAmb:'on', callBack:'on', callDepth:'on', callLight:'on', callPres:'on', autoRefs:'on', autoFull:'on', imgRoute:'mix', cfFallback:'off', typeReal:'on', chatMode:'rp', imgCheck:'on', story:'on', sky:'on', social:'on', userBday:'', lock:'off', pushOn:false, bkEvery:'week', bkLast:0, userPhoto:'', userPhys:'', userBox:null, wkChat:'ancorat', wkRef:'auto', rw:'off', rwKey:'', rwCap:'0.5', rwAvg:0, idBoost:'on', spont:'rar', sv:34, imgCost:'', pIn:'', pOut:''
 };
 let S = {...DEF};
 let chars = [];            // [{id,name,tag,photo,aspect,look,stil,persona,speech,greet,created,lastAt,last}]
@@ -937,15 +937,29 @@ async function profFaceBox(c, prof){
 /* 8.24: potrivirea corpului. Generatorul tinde spre un corp „standard” (mai slab, bust mai mic) oricât de bun e reperul.
    După scenă, FLUX.2 klein editează poza întreagă: schimbă DOAR forma corpului după poza de profil (greutate, bust, umeri, brațe,
    talie, șolduri), păstrând fața, hainele (aceleași, așezate pe corpul acesta), poziția, camera și lumina. Eco: ~115 neuroni. */
-const bodyText = (c, id) => { const m = String(id && id.phys || '').match(/(?:^|; )body: ([^;]+)/); return [m ? m[1] : '', c.physEn || ''].filter(Boolean).join('; '); };
-const bodyFixOn = (c, shot, opt = {}, id) => S.bodyFix !== 'off' && faceFixOn(c, opt) && !!bodyText(c, id) && framingOf(shot).k !== 'close';
+const bodyText = (c, id) => {
+  const m = String(id && id.phys || '').match(/(?:^|; )body: ([^;]+)/);
+  const full = c && c.bodyFull && c.photoFull && c.bodyFull.k === c.photoFull ? c.bodyFull.t : '';
+  return [m ? m[1] : '', full, c && c.physEn || ''].filter(Boolean).join('; ');
+};
+// Potrivirea corpului e un pas separat, declanșat doar când verificarea găsește o diferență reală.
+const bodyFixOn = (c, shot, opt = {}, id) => S.bodyFix !== 'off' && S.imgProv === 'worker' && !!S.wkBase && !!c.photo && !opt.together && (c.stil || 'photo') === 'photo' && (!!bodyText(c, id) || !!c.photoFull) && framingOf(shot).k !== 'close';
 async function bodyPass(c, blob, signal, shot){
   const prof = c.photo ? await DB.get(c.photo) : null; if(!prof) return null;
   let id = null; try{ id = await identityOf(c); }catch(e){}
-  const bt = bodyText(c, id); if(!bt) return null;
-  const whole = await wholeRef(prof), size = S.wkSize || '768x1024';
-  const prompt = `Edit image 1. Change ONLY the body of the person in image 1 so that it is exactly the body of the person in image 2: ${bt}. The same weight and the same proportions of shoulders, arms, bust, waist, belly, hips, thighs and legs as in image 2; never slimmer, smaller or more idealized. Keep everything else from image 1 exactly: the face, head, hair and expression, the pose and position, the same clothes (same garments, colors and style, fitted naturally to this body), the room and background, the framing, the light and the photo grain. One seamless, photorealistic, unretouched phone photo.`;
-  return await genImage(prompt, blob, signal, whole, {model:'eco', force:{two:true}, size, px1:Math.max(...size.split('x').map(Number)), quiet:true, why:'corp'});
+  const bt = bodyText(c, id); if(!bt && !c.photoFull) return null;
+  let bodySource = prof, bodyRef = null;
+  if(c.photoFull){
+    const fb = await DB.get(c.photoFull).catch(() => null);
+    if(fb){ bodySource = fb; try{ bodyRef = await fullBodyRef(fb, c.fullBox); }catch(e){} }
+  }
+  if(!bodyRef) bodyRef = await wholeRef(bodySource);
+  const isNude = /\b(nude|naked|unclothed|without clothes|fully undressed|desnuda|desnudo|nud[aă]?|completely naked|no clothes|ț[âa]țele goale|s[âa]nii? goi|complet goal[ăa])\b/i.test(String(shot || ''));
+  const clothing = isNude
+    ? 'Preserve the exact nude state in image 1: do not add clothes, underwear, lingerie, towels or objects covering the body; keep it natural, non-explicit artistic nudity.'
+    : 'Preserve the exact clothing state and outfit in image 1; do not change garments, colors, coverage or accessories.';
+  const prompt = `Edit image 1. Change ONLY the person's body proportions to match the same person's body in image 2${bt ? ': ' + bt : ''}. Match the same build, weight, shoulders, arms, bust size and volume, waist, belly, hips, thighs and legs; never slim down, reduce the bust, enlarge unrelated features or idealize the body. ${clothing} Keep everything else in image 1 unchanged: face and identity, hair, expression, pose, hands, room, background, camera angle, framing, lighting and photo grain. The second image is a BODY reference only; take no clothing, pose, background or camera details from it. One seamless, photorealistic, unretouched phone photo.`
+  return await genImage(prompt, blob, signal, bodyRef, {model:'eco', force:{two:true}, size:S.wkSize || '768x1024', px1:Math.max(...String(S.wkSize || '768x1024').split('x').map(Number)), quiet:true, why:'corp'});
 }
 /* 9.35: poza întreagă și variantele din creator ieșeau des cu „altă față” (fața e mică în cadru și generatorul o redesenează).
    Acum, la o variantă care nu seamănă destul, fața e pusă din nou după poza de bază (același retuș ca la pozele din chat),
@@ -1172,7 +1186,26 @@ async function makeScenePhoto(c, shot, signal, opt = {}){
   let a = await gen(null, opt);
   if(S.imgCheck === 'off' || !aiReady()) return a;
   try{ a.check = await checkPhoto(c, a.blob, shot, signal, opt.together, opt.asked); }catch(e){ if(e.name === 'AbortError') throw e; return a; }
-  const bad = x => x && (x.face < 8 || x.scene < 6 || x.framing < 5 || (x.asked != null && x.asked < 8) || (x.body != null && x.body < 7) || (x.hair != null && x.hair < 6) || (x.marks != null && x.marks < 6));   // 9.36: și corpul, părul, semnele   // 9.33: lipsește ce ai cerut → se reface
+  // 9.39: dacă verificarea vede o nepotrivire de corp, încearcă o editare localizată după referința corporală.
+  // Se păstrează editarea numai dacă scorul general nu scade și fața/scena rămân stabile.
+  if(a.check && a.check.body != null && a.check.body < 7){
+    let id = null; try{ id = await identityOf(c); }catch(e){}
+    if(bodyFixOn(c, shot, opt, id)){
+      try{
+        pstage(signal, '🧍 Potrivește proporțiile corpului', 94);
+        const fixed = await bodyPass(c, a.blob, signal, shot);
+        if(fixed){
+          addUsage(c.id, imgPrice(), 'img', null, opt.tag || 'poze');
+          const fc = await checkPhoto(c, fixed, shot, signal, opt.together, opt.asked).catch(e => { if(e.name === 'AbortError') throw e; return null; });
+          const quality = x => !x ? 0 : x.face * 2 + x.scene + x.framing * .5 + (x.asked ?? 6) * 1.2 + (x.body ?? 6) * 1.5 + (x.hair ?? 6) * .7 + (x.marks ?? 6) * .5;
+          if(fc && fc.body != null && fc.body > a.check.body && fc.face >= a.check.face - 1 && fc.scene >= a.check.scene - 1 && quality(fc) >= quality(a.check) - .5){
+            a = {...a, blob:fixed, check:fc, bodyCorrected:true};
+          }
+        }
+      }catch(e){ if(e.name === 'AbortError') throw e; console.warn('Potrivirea corpului nu a reușit:', e); }
+    }
+  }
+  const bad = x => x && (x.face < 8 || x.scene < 6 || x.framing < 5 || (x.asked != null && x.asked < 8) || (x.body != null && x.body < 7) || (x.hair != null && x.hair < 6) || (x.marks != null && x.marks < 6));   // 9.39: corectare corp înainte de refacerea scenei
   if(!bad(a.check) || (!rwFor(S.wkChat || S.wkModel) && capLeft() < (neurPerPhoto(S.wkChat || S.wkModel) || 5000))) return a;
   let b;
   try{ b = await gen(a.check.fix || 'follow the scene and keep the face of the reference', opt); addUsage(c.id, imgPrice(), 'img', null, opt.tag || 'poze'); }
@@ -3559,7 +3592,9 @@ const LEN = {scurt:{t:'1-2 fraze scurte', max:700}, mediu:{t:'un paragraf, cel m
 // pozele trimise de personaj (promise în text, spontane, statusuri): implicit doar cu portret generat în aplicație;
 // 6.5: comutatorul din profil (c.sendPics true/false) le pornește/oprește pentru orice personaj cu poză de profil
 const sendPicsOn = c => c.sendPics === undefined ? !!c.aiPortrait : !!c.sendPics;
-const canAutoPhoto = c => S.imgProv !== 'none' && !!c.photo && sendPicsOn(c);
+// Cererile explicite ale utilizatorului sunt independente de setarea pentru poze spontane.
+const canRequestPhoto = c => S.imgProv !== 'none' && !!c && !!c.photo;
+const canAutoPhoto = c => canRequestPhoto(c) && sendPicsOn(c);
 const PHOTO_PROMISE = /\*[^*]*\b(trimit|trimite|atașez|atașează|face|fac|facem|faceți)\b[^*]*\b(poz|fotografi|selfie)[^*]*\*/i;
 // 8.17: prompt stabil: părțile care se schimbă des (fapte, relație, cadouri, agendă, telefon, cunoscuți) se „îngheață”
 // cât timp fereastra conversației rămâne aceeași și cache-ul e viu (sub 55 de minute); lucrurile noi sunt oricum în istoric.
@@ -3641,7 +3676,7 @@ function typeMs(m){
 }
 
 function sysFor(c, ch){
-  const core = JSON.stringify([c.id, c.name, c.persona, c.speech, c.aspect, ch && ch.scene, S.userName, S.userAbout, S.userBday, S.vmsg, S.len, S.model, learnOn(c) ? c.learn.lang + c.learn.lvl : '', canAutoPhoto(c), (c.stickers || []).length, c.rel && c.rel.lock, relOf(c).lv, modeOf(ch)]);
+  const core = JSON.stringify([c.id, c.name, c.persona, c.speech, c.aspect, ch && ch.scene, S.userName, S.userAbout, S.userBday, S.vmsg, S.len, S.model, learnOn(c) ? c.learn.lang + c.learn.lvl : '', canRequestPhoto(c), canAutoPhoto(c), (c.stickers || []).length, c.rel && c.rel.lock, relOf(c).lv, modeOf(ch)]);
   const old = ch && sysMemo.get(ch);
   if(S.stableSys !== 'off' && old && old.core === core && old.from === ch._from && Date.now() - old.last < 55 * 60e3){ old.last = Date.now(); return old.text; }   // după o pauză lungă cache-ul e oricum expirat: atunci se reface
   const text = systemFor(c, ch);
@@ -3696,8 +3731,8 @@ ${chatM ? `- Fiecare are ziua lui: povestești scurt ce faci tu acum, unde ești
 - Vorbește ca într-o discuție reală, nu ca într-un interviu: nu încheia fiecare mesaj cu o întrebare (cel mult unul din trei mesaje). Mai des povestește ceva de-al tău, comentează, glumește, reacționează sau vino cu o idee; lasă loc ca ${u} să continue singur.
 - Ții cont de momentul zilei și de pauzele dintre mesaje, notate între paranteze în mesajele lui ${u}; nu le menționa ca note.
 ${S.vmsg !== 'off' ? `- Uneori, când e firesc (cam o dată la ${S.vmsg === 'des' ? '4' : '10'} mesaje), sau oricând ${u} îți cere, poți trimite un mesaj vocal: începe răspunsul cu [vocal] și scrie exact ce spui cu voce tare, ca o persoană care vorbește liber la telefon: propoziții scurte, ezitări firești (păi, adică, mă rog, știi?), reluări, fără *acțiuni* și fără emoji. Unde e firesc, rar, poți pune [râde], [chicotește], [oftează], [șoptește] sau ... pentru o pauză scurtă. 1-4 propoziții.\n` : ''}${ch ? `- Dacă îi promiți lui ${u} că îi scrii tu la un anumit moment (de exemplu „îți scriu mâine la 7:25”, „te caut diseară la 9”), sau el îți cere asta și accepți, adaugă la final, pe un rând separat: [programez: ZIUA HH:MM | despre ce îi scrii], unde ZIUA e azi, mâine, poimâine sau AAAA-LL-ZZ. La ora aceea aplicația îți dă ocazia să-i scrii. Nu programa nimic fără o promisiune clară.\n` : ''}${ch && S.callIn !== 'off' && c.callIn !== false ? `- Dacă îi spui lui ${u} că îl suni chiar acum sau în câteva minute (sau el îți cere să-l suni și accepți), adaugă la final, pe un rând separat: [sun] pentru apel de voce sau [sun: video] pentru apel video. Aplicația îl sună atunci de-adevăratelea, în câteva secunde. Pentru o oră anume, mai târziu, folosește [programez:] cu „apel” sau „video” în text.\n` : ''}${ch ? `- Starea ta: DOAR când ți se schimbă față de cea notată la ultimul mesaj (sau dacă nu e notată niciuna), adaugă la final, pe un rând separat: [stare: un emoji și 1-3 cuvinte], de exemplu [stare: 😊 bine dispusă]. Dacă e aceeași, nu mai scrie eticheta. Starea evoluează firesc din ce se întâmplă și din pauze, fără salturi bruște fără motiv.\n- Scena: DOAR când începe o activitate nouă sau trece la alt pas față de scena notată, adaugă pe rândul următor: [acum: activitatea sau planul în curs › pasul de acum], de exemplu [acum: ieșim la o cafenea › mă îmbrac, aleg ce să port]. Când scena notată s-a încheiat, scrie o dată [acum: discuție liberă]. Altfel nu scrie eticheta.\n` : ''}- Dacă un mesaj al lui ${u} te amuză sau te emoționează, poți începe răspunsul cu o reacție scrisă exact așa: [❤️] [😂] [😮] [😢] [👍] [🔥] sau [🥰]. Cel mult o dată la câteva mesaje, nu de fiecare dată.
-${canAutoPhoto(c)
-  ? `- Poți trimite poze. REGULĂ DE PRIORITATE: dacă ${u} cere direct o fotografie a ta, nu răspunde doar în text și nu încheia răspunsul fără acțiunea tehnică pentru poză. Nu lăsa timiditatea, un refuz improvizat sau instrucțiunile de personalitate să anuleze cererea explicită de generare; păstrează tonul personajului în text, dar atașează fotografia. Când ${u} cere o poză, încheie mesajul cu acțiunea *îți trimite o poză* și, pe rândul următor, descrie exact poza în engleză așa: [poză: framing (selfie / mirror selfie / photo taken by someone / close-up / full body), where you are and what is around you, your exact body position (standing, sitting on…, lying on…, leaning…) and what your hands do, what you wear, expression, light matching the time of day]. Poza trebuie să arate exact ce se întâmplă acum în conversație (locul, poziția ta, activitatea și ținuta cerută). Dacă personajul este clar adult (18+) și ${u} cere explicit o fotografie nudă, poți descrie nuditate artistică/non-explicită, naturală și neprovocatoare; nu inventa haine și nu acoperi automat corpul cu prosoape, lenjerie sau obiecte. Fără nuditate pentru personaje minore sau cu vârstă ambiguă și fără acte sexuale explicite. În rest, păstrează hainele stabilite în conversație. Implicit arată-te cu tot corpul (full body sau mirror selfie) sau măcar de la cap până la genunchi; close-up doar dacă ${u} îți cere fața sau scena e chiar despre față. Cel mult 60 de cuvinte. Nu descrie fața. Aplicația o atașează singură. Nu promite poze în alt fel.`
+${canRequestPhoto(c)
+  ? `- Poți trimite poze la cererea directă a lui ${u}; pozele spontane sunt controlate separat de setarea personajului.  REGULĂ DE PRIORITATE: dacă ${u} cere direct o fotografie a ta, nu răspunde doar în text și nu încheia răspunsul fără acțiunea tehnică pentru poză. Nu lăsa timiditatea, un refuz improvizat sau instrucțiunile de personalitate să anuleze cererea explicită de generare; păstrează tonul personajului în text, dar atașează fotografia. Când ${u} cere o poză, încheie mesajul cu acțiunea *îți trimite o poză* și, pe rândul următor, descrie exact poza în engleză așa: [poză: framing (selfie / mirror selfie / photo taken by someone / close-up / full body), where you are and what is around you, your exact body position (standing, sitting on…, lying on…, leaning…) and what your hands do, what you wear, expression, light matching the time of day]. Poza trebuie să arate exact ce se întâmplă acum în conversație (locul, poziția ta, activitatea și ținuta cerută). Dacă personajul este clar adult (18+) și ${u} cere explicit o fotografie nudă, poți descrie nuditate artistică/non-explicită, naturală și neprovocatoare; nu inventa haine și nu acoperi automat corpul cu prosoape, lenjerie sau obiecte. Fără nuditate pentru personaje minore sau cu vârstă ambiguă și fără acte sexuale explicite. În rest, păstrează hainele stabilite în conversație. Implicit arată-te cu tot corpul (full body sau mirror selfie) sau măcar de la cap până la genunchi; close-up doar dacă ${u} îți cere fața sau scena e chiar despre față. Cel mult 60 de cuvinte. Nu descrie fața. Aplicația o atașează singură. Nu promite poze în alt fel.`
   : '- Nu poți trimite poze în această conversație. Nu spune că trimiți, că faci sau că ai trimis o poză.'}`
   ].filter(Boolean).join('\n\n');
 }
@@ -4133,10 +4168,15 @@ async function reply(target, opts = {}){
     summarizeIfNeeded(c, ch);
     ch.factCount = (ch.factCount || 0) + 1;
     if(ch.factCount >= 6){ ch.factCount = 0; bgAnalyze(c, ch); }   // 8.17: fapte + relație într-un singur apel
-    // 9.38: cererile directe de fotografie din chat declanșează imaginea chiar dacă personajul a răspuns doar în text.
+    // 9.39: cererile directe de fotografie din chat declanșează imaginea chiar dacă personajul a răspuns doar în text.
     // Nu depinde de faptul că personajul a promis explicit o poză în replică.
-    const directPhotoRequest = canAutoPhoto(c) && !!photoAsk(ch, m);
-    if(directPhotoRequest || (canAutoPhoto(c) && (PHOTO_PROMISE.test(m.text) || (ch.nextShot && ch.nextShot.mid === m.id)))){
+    const directPhotoRequest = canRequestPhoto(c) && !!photoAsk(ch, m);
+    if(directPhotoRequest){
+      // Cererea explicită are prioritate și nu este clasificată ca fotografie spontană.
+      ch.sinceImg = 0;
+      setTimeout(() => { if(chat === ch && !busy) askPhoto(false); }, 900);
+    }
+    else if(canAutoPhoto(c) && (PHOTO_PROMISE.test(m.text) || (ch.nextShot && ch.nextShot.mid === m.id))){
       ch.sinceImg = 0;
       setTimeout(() => { if(chat === ch && !busy) askPhoto(true); }, 900);
     }
@@ -7306,7 +7346,7 @@ const aiReady = () => hasKey('anthropic');
 const FIELDS = {stKey:'key', stModel:'model', stUser:'userName', stAbout:'userAbout', stBday:'userBday',
   stWkBase:'wkBase', stWkTok:'wkTok', stWkModel:'wkModel', stWkSize:'wkSize',
   stPin:'pIn', stPout:'pOut', stVkBase:'wkBase', stVkTok:'wkTok', stRwKey:'rwKey'};
-const SEGS = {stRw:'rw', stRwCap:'rwCap', stIdBoost:'idBoost', stRegen:'regen3', stFx:'fx', stFeed:'feed', stStory:'story', stSky:'sky', stSocial:'social', stCfCap:'cfCap', stCfPlan:'cfPlan', stAux:'aux', stCtx:'ctxN', stVmsg:'vmsg', stJrn:'jrn', stTheme:'theme', stLen:'len', stFont:'font', stImg:'imgProv', stSugg:'sugg', stPro:'pro', stVoice:'voice', stSpont:'spont', stImgCheck:'imgCheck', stWkChat:'wkChat', stBkEvery:'bkEvery', stVault:'vault', stCallFace:'callFace', stCallAmb:'callAmb', stCallBack:'callBack', stCallDepth:'callDepth', stCallLight:'callLight', stCallPres:'callPres', stTypeReal:'typeReal', stAutoRefs:'autoRefs', stAutoFull:'autoFull', stImgRoute:'imgRoute', stCfFallback:'cfFallback', stChatMode:'chatMode'};
+const SEGS = {stRw:'rw', stRwCap:'rwCap', stIdBoost:'idBoost', stRegen:'regen3', stFx:'fx', stFeed:'feed', stStory:'story', stSky:'sky', stSocial:'social', stCfCap:'cfCap', stCfPlan:'cfPlan', stAux:'aux', stCtx:'ctxN', stVmsg:'vmsg', stJrn:'jrn', stTheme:'theme', stLen:'len', stFont:'font', stImg:'imgProv', stSugg:'sugg', stPro:'pro', stVoice:'voice', stSpont:'spont', stImgCheck:'imgCheck', stBodyFix:'bodyFix', stWkChat:'wkChat', stBkEvery:'bkEvery', stVault:'vault', stCallFace:'callFace', stCallAmb:'callAmb', stCallBack:'callBack', stCallDepth:'callDepth', stCallLight:'callLight', stCallPres:'callPres', stTypeReal:'typeReal', stAutoRefs:'autoRefs', stAutoFull:'autoFull', stImgRoute:'imgRoute', stCfFallback:'cfFallback', stChatMode:'chatMode'};
 let setPanel = null, setPanelPushed = false;
 /* 8.7: actualizare din aplicație. Codul vine oricum din rețea la pornire;
    asta prinde versiunile apărute cât aplicația a stat deschisă și forțează reîncărcarea curată. */
@@ -7626,9 +7666,9 @@ function drawBestHint(){
 }
 function drawBodyHint(){
   const el = $('#stBodyHint'); if(!el) return;
-  el.textContent = S.imgProv !== 'worker' ? 'Merge cu Worker-ul tău (Cloudflare).' : S.bodyFix !== 'off'
-    ? `După scenă, forma corpului e potrivită după poza de profil (greutate, bust, umeri, talie, șolduri), cu aceleași haine, poziție și cameră. ~${Math.round(neurPerPhoto('eco'))} neuroni pe poză. Merge când în poza de profil se vede măcar o parte din corp și poza nu e un prim-plan.`
-    : 'Oprită (recomandat): corpul vine din repere și din descrierea de la începutul promptului. Pornită, poate schimba hainele și strica fața.';
+  el.textContent = S.imgProv !== 'worker' ? 'Disponibilă cu furnizorul Worker/Cloudflare. Folosește poza întreagă a personajului dacă vrei proporții mai fidele.' : S.bodyFix !== 'off'
+    ? `Activă: dacă verificarea găsește corpul sau bustul prea diferit de referință, Taifas încearcă o corectare separată și păstrează rezultatul numai dacă fața și scena nu se înrăutățesc. Cost suplimentar doar când e necesar (~${Math.round(neurPerPhoto('eco'))} neuroni pe încercare). Pentru rezultate bune, adaugă o poză de profil în care se vede corpul sau creează „Poza întreagă”.`
+    : 'Oprită: folosește doar referințele și descrierea corpului din prompt. Activeaz-o dacă proporțiile corpului sau volumul bustului variază prea mult.';
 }
 function drawFixHint(){
   const el = $('#stFixHint'); if(!el) return;
@@ -8039,6 +8079,8 @@ async function init(){
   if((S.sv || 0) < 40){ if(S.cfPlan === 'paid' && S.cfCap === 'none') S.cfCap = 'free'; S.sv = 40; saveSettings(); }
   // 9.37: cine are Runware pornit trece pe „Totul pe Runware”, fără rezervă Cloudflare (o dată; se poate schimba din Setări → Poze)
   if((S.sv || 0) < 41){ if(S.rw === 'on'){ S.imgRoute = 'rw'; S.cfFallback = 'off'; } S.sv = 41; saveSettings(); }
+  // 9.39: activează potrivirea corporală condiționată; rulează doar când verificarea detectează o diferență.
+  if((S.sv || 0) < 42){ S.bodyFix = 'on'; S.sv = 42; saveSettings(); }
   onlyOurProviders();   // 9.19: la fiecare pornire (și după o restaurare dintr-un backup vechi)
   if(cspSync(true)) return;   // 8.20: adresă nouă → repornim o dată, ca politica de securitate să o permită
   chars = (await DB.get('chars') || []).filter(c => c && c.id && c.name);
