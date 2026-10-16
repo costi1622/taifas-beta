@@ -1,5 +1,5 @@
 window.__taifas = true;   // 8.20.1: semn pentru index.html că app.js s-a încărcat
-const APP_VER = '9.36';
+const APP_VER = '9.37';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -38,7 +38,7 @@ const DEF = {
   imgProv:'none',
   wkBase:'', wkTok:'', wkModel:'eco', wkSize:'768x1024',
   sugg:'off', pro:'on', feed:'text', fx:'on', regen3:'on', voice:'tap', tts:'tel', cfPlan:'free', cfCap:'free', theme:'dark', vmsg:'rar', jrn:'on', aux:'on', ctxN:'30',
-  vault:'off', vaultHas:null, faceFix:'on', bodyFix:'off', bestOf:'3', autoModel:'chat', callFace:'on', handCheck:'off', crHands:'on', crAngles:'on', callAmb:'on', callBack:'on', callDepth:'on', callLight:'on', callPres:'on', autoRefs:'on', autoFull:'on', typeReal:'on', chatMode:'rp', imgCheck:'on', story:'on', sky:'on', social:'on', userBday:'', lock:'off', pushOn:false, bkEvery:'week', bkLast:0, userPhoto:'', userPhys:'', userBox:null, wkChat:'ancorat', wkRef:'auto', rw:'off', rwKey:'', rwCap:'0.5', rwAvg:0, idBoost:'on', spont:'rar', sv:34, imgCost:'', pIn:'', pOut:''
+  vault:'off', vaultHas:null, faceFix:'on', bodyFix:'off', bestOf:'3', autoModel:'chat', callFace:'on', handCheck:'off', crHands:'on', crAngles:'on', callAmb:'on', callBack:'on', callDepth:'on', callLight:'on', callPres:'on', autoRefs:'on', autoFull:'on', imgRoute:'mix', cfFallback:'off', typeReal:'on', chatMode:'rp', imgCheck:'on', story:'on', sky:'on', social:'on', userBday:'', lock:'off', pushOn:false, bkEvery:'week', bkLast:0, userPhoto:'', userPhys:'', userBox:null, wkChat:'ancorat', wkRef:'auto', rw:'off', rwKey:'', rwCap:'0.5', rwAvg:0, idBoost:'on', spont:'rar', sv:34, imgCost:'', pIn:'', pOut:''
 };
 let S = {...DEF};
 let chars = [];            // [{id,name,tag,photo,aspect,look,stil,persona,speech,greet,created,lastAt,last}]
@@ -1195,9 +1195,15 @@ async function genImage(prompt, ref, signal, ref2, opt = {}){
   if(prov === 'worker'){
     const model = opt.model || S.wkModel || 'eco';
     // 9.18: „Fidel · 9B” prin Runware (același model, aceleași repere, același prompt); la eroare sau plafon, cade pe Cloudflare
+    const allR = allRw() && !opt.cf;
     if(!opt.cf && (opt.rw ? rwReady() : rwFor(model))){
       try{ return await rwImage(prompt, ref, ref2, opt, signal, model); }
-      catch(e){ if(e.name === 'AbortError' || opt.rw) throw e; rwFailed(e); }
+      catch(e){ if(e.name === 'AbortError' || opt.rw) throw e; rwFailed(e); if(allR && !(await cfFreeOk(model, opt.size))) throw e; }
+    } else if(allR && !(await cfFreeOk(model, opt.size))){
+      // 9.37: fără Runware (plafon atins / cheie lipsă) și fără rezervă gratuită: poza se oprește, nu merge pe Cloudflare
+      const capHit = rwReady() && rwCapLeft() < rwPer();
+      const e = new Error(capHit ? `Ai atins plafonul zilnic Runware (${usd(rwDay().usd)} azi). Pozele revin mâine, sau mărește plafonul din Setări → Poze.` : 'Runware nu e gata: verifică cheia RUNWARE_KEY din Worker (Setări → Poze).');
+      e.cap = true; throw e;
     }
     if(!S.wkBase) throw new Error('Lipsește adresa Worker-ului în Setări → Poze.');
     await checkCap(model, opt.size);
@@ -1262,10 +1268,20 @@ function rwDay(){ const d = new Date().toISOString().slice(0, 10); if(!S.rwBy ||
 const rwPer = () => S.rwAvg > 0 ? S.rwAvg : .004;                       // estimare până la primele poze reale
 const rwCapLeft = () => (RW_CAP[S.rwCap] ?? .5) - rwDay().usd;
 const rwPaused = () => rwFails >= 3 && Date.now() - rwFailT < 10 * 60e3;   // 3 erori la rând: 10 minute pe Cloudflare, apoi încearcă iar
-const rwFor = model => S.rw === 'on' && S.imgProv === 'worker' && model === 'ancorat' && rwReady() && !rwPaused() && rwCapLeft() >= rwPer();
+/* 9.37: „Totul pe Runware” (S.imgRoute = 'rw'): orice poză (și Eco: avatare, retușuri, expresii, creator, stories) merge pe Runware,
+   cu FLUX.2 klein 9B, iar Cloudflare Workers AI (neuronii) nu mai e folosit deloc, în afară de rezerva aleasă de tine
+   (S.cfFallback = 'free': doar cât intră în cei 10.000 de neuroni gratuiți de azi). Worker-ul rămâne doar intermediar (cheile, notificările). */
+const allRw = () => S.imgRoute === 'rw' && S.rw === 'on' && S.imgProv === 'worker';
+const rwFor = model => S.rw === 'on' && S.imgProv === 'worker' && (model === 'ancorat' || S.imgRoute === 'rw') && rwReady() && (S.imgRoute === 'rw' || !rwPaused()) && rwCapLeft() >= rwPer();
+// rezerva pe Cloudflare, doar în cota gratuită de azi (cu cât rămâne după estimarea poziei)
+async function cfFreeOk(model, size){
+  if(S.cfFallback !== 'free' || !S.wkBase) return false;
+  try{ await fetchNeurons(); }catch(e){}
+  neurCalc(); return 10000 - neurToday >= (neurPerPhoto(model, size) || 5000);
+}
 function rwFailed(e){
   rwFails++; rwFailT = Date.now();
-  if(Date.now() - rwToastT > 5 * 60e3){ rwToastT = Date.now(); toast('⚡ ' + String(e.message).slice(0, 140) + ' Poza merge pe Cloudflare.', 6000); }
+  if(Date.now() - rwToastT > 5 * 60e3){ rwToastT = Date.now(); toast('⚡ ' + String(e.message).slice(0, 140) + (allRw() ? (S.cfFallback === 'free' ? ' Încerc pe Cloudflare, doar în cota gratuită.' : ' Pozele sunt doar pe Runware (rezerva Cloudflare e oprită).') : ' Poza merge pe Cloudflare.'), 6000); }
 }
 function rwSize(size){ return String(size || S.wkSize || '768x1024').split('x').map(v => Math.min(2048, Math.max(128, Math.round((parseInt(v, 10) || 1024) / 16) * 16))); }
 async function rwImage(prompt, ref, ref2, opt, signal, model){
@@ -1317,7 +1333,7 @@ function drawRw(){
   if(S.rw !== 'on'){ h.innerHTML = `Cloudflare: ~${Math.round(cf).toLocaleString('ro-RO')} neuroni pe poză 9B (cam ${Math.floor(10000 / cf)} pe zi gratuit, apoi ~${usd(cf * NEUR_USD)} pe poză). Runware rulează același model, de câteva ori mai ieftin.`; }
   else {
     const n = S.idBoost !== 'off' ? 4 : 1;
-    h.innerHTML = `Același model ca pe Cloudflare. ${S.rwAvg > 0 ? `Cost real: <b>${usd4(S.rwAvg)}</b> pe imagine` : 'Estimat ~$0,002–0,004 pe imagine'}${n > 1 ? ` (~${usd4(rwPer() * n)} pe poză cu identitate maximă)` : ''}. Dacă Runware nu răspunde sau atingi plafonul, poza se face pe Cloudflare.`
+    h.innerHTML = `Același model ca pe Cloudflare. ${S.rwAvg > 0 ? `Cost real: <b>${usd4(S.rwAvg)}</b> pe imagine` : 'Estimat ~$0,002–0,004 pe imagine'}${n > 1 ? ` (~${usd4(rwPer() * n)} pe poză cu identitate maximă)` : ''}. ${S.rwPhoto && S.rwPhoto.n ? `<br>💵 O poză din chat te costă în medie <b>${usd4(S.rwPhoto.avg)}</b> (~${S.rwPhoto.gens.toFixed(1).replace('.', ',')} generări: variante, retuș, refaceri; din ${S.rwPhoto.n} poze).` : ''}<br>${S.imgRoute === 'rw' ? (S.cfFallback === 'free' ? 'Totul pe Runware. Dacă Runware nu răspunde sau atingi plafonul, poza se face pe Cloudflare doar cât intră în cota gratuită de azi (fără cost).' : 'Totul pe Runware. Dacă Runware nu răspunde sau atingi plafonul, poza se oprește cu un mesaj; Cloudflare nu mai e folosit deloc pentru poze.') : 'Doar pozele 9B merg pe Runware. Eco (avatare, retușuri, expresii) și pozele de rezervă se fac pe Cloudflare.'}`
       + (rwDirect() ? '' : !S.wkBase ? '<br>⚠️ Pune adresa Worker-ului sau cheia Runware în telefon.' : '<br>Cheia: secretul <b>RUNWARE_KEY</b> din Worker.');
     const day = rwDay(), cap = RW_CAP[S.rwCap] ?? .5, pc = Number.isFinite(cap) ? Math.min(100, day.usd / cap * 100) : 0;
     $('#stRwDay').innerHTML = `Azi pe Runware: <b>${usd(day.usd)}</b> · ${day.n} ${day.n === 1 ? 'imagine' : 'imagini'}${Number.isFinite(cap) ? ' · plafon $' + cap.toFixed(2).replace('.', ',') + `<div class="bar"><i style="width:${pc}%"></i></div>` : ' · fără plafon'}`
@@ -2646,7 +2662,7 @@ async function genAvatars(c){
   // 9.30: avatarele trec prin același motor ca pozele din chat (scenePhoto: fața decupată + poza de profil + unghiurile + fișa
   //       „Cum arată, pentru poze”, poză de telefon reală, fără înfrumusețare); fiecare e măsurată în telefon față de personaj
   //       și se păstrează cea mai apropiată din cel mult 3 încercări (se oprește la prima sub 0,42)
-  const avs = {...(c.avs || {})}; let ok = 0;
+  const avs = {...(c.avs || {})}; let ok = 0; const rw0 = rwDay().usd;
   for(const [k, , desc] of AV_V){
     if(c.photo !== photo) break;
     try{
@@ -2667,7 +2683,8 @@ async function genAvatars(c){
       if(b && document.body.contains(b)) b.innerHTML = `<span class="spin"></span> ${ok}/6`;
     }catch(e){ toast('O variantă n-a mers: ' + e.message, 3500); if(e.cap) break; }
   }
-  if(ok){ c.avLive = true; await saveChars(); toast(`🖼️ ${ok} variante gata. Avatarul viu e pornit.`); }
+  const spent = rwDay().usd - rw0;   // 9.37
+  if(ok){ c.avLive = true; await saveChars(); toast(`🖼️ ${ok} variante gata. Avatarul viu e pornit.${spent > 0 ? ' Cost Runware: ' + usd4(spent) + '.' : ''}`, 4500); }
   avRefresh(c);
 }
 // 9.26: după avatarele vii (sau pornit/oprit): profilul întreg, Acasă și antetul chatului arată imediat poza de acum
@@ -4629,6 +4646,7 @@ async function askPhoto(spont, target, mode, opt = {}){
   }
   busy = new AbortController(); live = {c, ch, photo:true, stage:{t:'✨ Se pregătește', p:8, pv:0}}; setBusyUI(true);
   $('#sugg').innerHTML = '';
+  const rw0 = rwDay().usd, rwN0 = rwDay().n;   // 9.37: cât a costat poza asta pe Runware (toate generările ei)
   const pT = setInterval(pTick, 120);
   try{
     const promised = !target && spont && ch.nextShot ? ch.nextShot.t : '';      // descrierea scrisă chiar de personaj când a trimis poza
@@ -4651,6 +4669,8 @@ async function askPhoto(spont, target, mode, opt = {}){
     m.img = k; m.prompt = prompt; m.scene = shot; if(where) m.where = where; if(asked.length) m.asked = asked; else delete m.asked; if(together) m.together = true; else delete m.together; if(check) m.check = check; else delete m.check;
     addUsage(c.id, imgPrice(), 'img');
     if(bd != null) m.bd = Math.round(bd * 1000) / 1000; else delete m.bd;
+    { const day = rwDay(), sp = day.usd - rw0, gn = day.n - rwN0;
+      if(sp > 0 && gn > 0){ m.rwCost = Math.round(sp * 1e5) / 1e5; m.rwGens = gn; const P = S.rwPhoto || {n:0, avg:0, gens:0}; P.avg = P.n ? P.avg * .8 + sp * .2 : sp; P.gens = P.n ? P.gens * .8 + gn * .2 : gn; P.n++; S.rwPhoto = P; saveSettings(); } }
     // 9.36: o poză foarte reușită devine reper; personajul fără poză întreagă primește una (o dată, în fundal)
     if(!together){ const okFace = !check || check.face == null || check.face >= 8; const bl = blob;
       setTimeout(async () => { try{ if(okFace && await maybeGoodRef(c, bl)) toast('📌 Poza a ieșit foarte asemănătoare: a devenit reper pentru pozele următoare.', 3500); }catch(e){} autoFull(c); }, 1200); }
@@ -4705,7 +4725,7 @@ function msgSheet(i){
   if(m.text && !me && learnOn(cur)) opts.push(['🔤', m.tr ? (m.trOn ? 'Ascunde traducerea' : 'Arată traducerea') : 'Tradu în română', () => translateMsg(m)]);
   if(m.text && !busy) opts.push(['✏️', me ? 'Editează și retrimite' : 'Editează', () => editMsg(i)]);
   if(m.img && !me && !busy && S.imgProv !== 'none'){ opts.push(['🎲', 'Altă variantă (aceeași scenă)', () => askPhoto(false, m, 'same')]); opts.push(['🔄', 'Altă poză (altă scenă)', () => askPhoto(false, m, 'new')]); }
-  if(m.img && m.scene && !me) opts.push(['📝', 'Ce scenă a ales', () => openSheet(`<h4>Scena pozei</h4><div class="pad">${m.where ? `<p class="wline">📍 ${esc([m.where.room && m.where.room !== 'other' ? (ROOM_RO[m.where.room] || m.where.room) : m.where.place, m.where.position].filter(Boolean).join(' · '))}${m.where.outfit ? '<br>👗 ' + esc(m.where.outfit) : ''}</p>` : ''}${m.asked && m.asked.length ? `<p class="wline">🙋 Ai cerut: ${esc(m.asked.join(' · '))}</p>` : ''}<p style="color:var(--tx2);line-height:1.5">${esc(m.scene)}</p>${m.check ? `<p class="hint">Verificare: ${m.check.d !== undefined ? '🧬 ' + (m.check.d != null ? idPct(m.check.d) + '% · ' + idLabel(m.check.d) : 'fața nu se vede') : 'seamănă ' + m.check.face + '/10'} · scena ${m.check.scene ?? '?'}/10 · încadrarea ${m.check.framing ?? '?'}/10${m.check.hair != null ? ' · părul ' + m.check.hair + '/10' : ''}${m.check.marks != null ? ' · semnele ' + m.check.marks + '/10' : ''}${m.check.body != null ? ' · corpul ' + m.check.body + '/10' : ''}${m.check.asked != null ? ' · ce ai cerut ' + m.check.asked + '/10' + (m.check.missing ? ' (lipsea: ' + esc(m.check.missing.join(', ')) + ')' : '') : ''}${m.check.expr != null ? ' · expresia ' + m.check.expr + '/10' : ''}${m.bd != null ? '<br>🧍 silueta (telefon): ' + Math.max(0, Math.round(100 - m.bd * 250)) + '% față de poza întreagă' : ''}${m.cands && m.cands.length > 1 ? '<br>🎯 aleasă din ' + m.cands.length + ': ' + m.cands.map(d => d == null ? '?' : idPct(d) + '%').join(' · ') : ''}</p>` : ''}</div>`)]);
+  if(m.img && m.scene && !me) opts.push(['📝', 'Ce scenă a ales', () => openSheet(`<h4>Scena pozei</h4><div class="pad">${m.where ? `<p class="wline">📍 ${esc([m.where.room && m.where.room !== 'other' ? (ROOM_RO[m.where.room] || m.where.room) : m.where.place, m.where.position].filter(Boolean).join(' · '))}${m.where.outfit ? '<br>👗 ' + esc(m.where.outfit) : ''}</p>` : ''}${m.asked && m.asked.length ? `<p class="wline">🙋 Ai cerut: ${esc(m.asked.join(' · '))}</p>` : ''}<p style="color:var(--tx2);line-height:1.5">${esc(m.scene)}</p>${m.check ? `<p class="hint">Verificare: ${m.check.d !== undefined ? '🧬 ' + (m.check.d != null ? idPct(m.check.d) + '% · ' + idLabel(m.check.d) : 'fața nu se vede') : 'seamănă ' + m.check.face + '/10'} · scena ${m.check.scene ?? '?'}/10 · încadrarea ${m.check.framing ?? '?'}/10${m.check.hair != null ? ' · părul ' + m.check.hair + '/10' : ''}${m.check.marks != null ? ' · semnele ' + m.check.marks + '/10' : ''}${m.check.body != null ? ' · corpul ' + m.check.body + '/10' : ''}${m.check.asked != null ? ' · ce ai cerut ' + m.check.asked + '/10' + (m.check.missing ? ' (lipsea: ' + esc(m.check.missing.join(', ')) + ')' : '') : ''}${m.check.expr != null ? ' · expresia ' + m.check.expr + '/10' : ''}${m.rwCost ? '<br>💵 Runware: ' + usd4(m.rwCost) + ' (' + m.rwGens + ' ' + (m.rwGens === 1 ? 'generare' : 'generări') + ')' : ''}${m.bd != null ? '<br>🧍 silueta (telefon): ' + Math.max(0, Math.round(100 - m.bd * 250)) + '% față de poza întreagă' : ''}${m.cands && m.cands.length > 1 ? '<br>🎯 aleasă din ' + m.cands.length + ': ' + m.cands.map(d => d == null ? '?' : idPct(d) + '%').join(' · ') : ''}</p>` : ''}</div>`)]);
   if(m.img) opts.push(['💾', 'Salvează poza în telefon', () => saveImage(m.img)]);
   if(m.img && canShareFiles()) opts.push(['↗️', 'Trimite poza în altă aplicație', () => shareImage(m.img)]);
   if(m.img && !me) opts.push(['🖼️', 'Fă-o poză de profil', async () => {
@@ -7283,7 +7303,7 @@ const aiReady = () => hasKey('anthropic');
 const FIELDS = {stKey:'key', stModel:'model', stUser:'userName', stAbout:'userAbout', stBday:'userBday',
   stWkBase:'wkBase', stWkTok:'wkTok', stWkModel:'wkModel', stWkSize:'wkSize',
   stPin:'pIn', stPout:'pOut', stVkBase:'wkBase', stVkTok:'wkTok', stRwKey:'rwKey'};
-const SEGS = {stRw:'rw', stRwCap:'rwCap', stIdBoost:'idBoost', stRegen:'regen3', stFx:'fx', stFeed:'feed', stStory:'story', stSky:'sky', stSocial:'social', stCfCap:'cfCap', stCfPlan:'cfPlan', stAux:'aux', stCtx:'ctxN', stVmsg:'vmsg', stJrn:'jrn', stTheme:'theme', stLen:'len', stFont:'font', stImg:'imgProv', stSugg:'sugg', stPro:'pro', stVoice:'voice', stSpont:'spont', stImgCheck:'imgCheck', stWkChat:'wkChat', stBkEvery:'bkEvery', stVault:'vault', stCallFace:'callFace', stCallAmb:'callAmb', stCallBack:'callBack', stCallDepth:'callDepth', stCallLight:'callLight', stCallPres:'callPres', stTypeReal:'typeReal', stAutoRefs:'autoRefs', stAutoFull:'autoFull', stChatMode:'chatMode'};
+const SEGS = {stRw:'rw', stRwCap:'rwCap', stIdBoost:'idBoost', stRegen:'regen3', stFx:'fx', stFeed:'feed', stStory:'story', stSky:'sky', stSocial:'social', stCfCap:'cfCap', stCfPlan:'cfPlan', stAux:'aux', stCtx:'ctxN', stVmsg:'vmsg', stJrn:'jrn', stTheme:'theme', stLen:'len', stFont:'font', stImg:'imgProv', stSugg:'sugg', stPro:'pro', stVoice:'voice', stSpont:'spont', stImgCheck:'imgCheck', stWkChat:'wkChat', stBkEvery:'bkEvery', stVault:'vault', stCallFace:'callFace', stCallAmb:'callAmb', stCallBack:'callBack', stCallDepth:'callDepth', stCallLight:'callLight', stCallPres:'callPres', stTypeReal:'typeReal', stAutoRefs:'autoRefs', stAutoFull:'autoFull', stImgRoute:'imgRoute', stCfFallback:'cfFallback', stChatMode:'chatMode'};
 let setPanel = null, setPanelPushed = false;
 /* 8.7: actualizare din aplicație. Codul vine oricum din rețea la pornire;
    asta prinde versiunile apărute cât aplicația a stat deschisă și forțează reîncărcarea curată. */
@@ -7535,11 +7555,15 @@ const NEUR_WHY = {alte:'📷 poze (chat, stories, statusuri)', chat:'📷 poze �
 const resetAt = () => { const d = new Date(); return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1)).toLocaleTimeString('ro-RO', {hour:'2-digit', minute:'2-digit'}); };
 const CAP_USD = {free:0, '0.1':.10};
 function capLeft(){   // neuroni permiși până la limită (Infinity = fără limită)
-  if(S.imgProv !== 'worker' || S.cfPlan !== 'paid' || !(S.cfCap in CAP_USD)) return Infinity;
+  if(S.imgProv !== 'worker') return Infinity;
+  // 9.37: pe „Gratuit” aplicația se oprește singură la cei 10.000 de neuroni (nu se mai bazează pe Cloudflare să blocheze:
+  //       dacă în cont e de fapt Workers Paid, Cloudflare ar taxa în tăcere ce trece de cotă)
+  if(S.cfPlan !== 'paid'){ neurCalc(); return 10000 - neurToday; }
+  if(!(S.cfCap in CAP_USD)) return Infinity;
   neurCalc();
   return 10000 + CAP_USD[S.cfCap] / NEUR_USD - neurToday;
 }
-const capMsg = () => S.cfCap === 'free' ? `Neuronii gratuiți de azi s-au terminat și ai ales „Doar gratuit”. Pozele revin la ${resetAt()}.` : `Ai atins limita de $0,10 pe azi pentru poze. Revin la ${resetAt()}.`;
+const capMsg = () => S.cfPlan !== 'paid' ? `Neuronii gratuiți Cloudflare de azi s-au terminat; aplicația nu mai trimite poze pe Cloudflare până la ${resetAt()}.` : S.cfCap === 'free' ? `Neuronii gratuiți de azi s-au terminat și ai ales „Doar gratuit”. Pozele revin la ${resetAt()}.` : `Ai atins limita de $0,10 pe azi pentru poze. Revin la ${resetAt()}.`;
 async function fetchNeurons(){
   const r = await fetch(wkUrl() + '/usage', {headers: S.wkTok ? {authorization:'Bearer ' + S.wkTok.trim()} : {}});
   if(!r.ok){ const e = new Error(r.status === 404 ? 'v3' : await errText(r)); e.st = r.status; throw e; }
@@ -7563,7 +7587,7 @@ async function loadNeurons(after){
     // 9.20: cu „Fidel · 9B” pe Runware, din neuroni se mai fac doar pozele Eco (stickere, avatar, retuș) și rezerva la eroare
     const rw = rwFor('ancorat'), per = neurPerPhoto(rw ? 'eco' : sceneModel()), left = per ? Math.max(0, Math.floor((lim - d.neurons) / per)) : null;
     const what = rw ? 'poze Eco rămase (stickere, avatar)' : 'poze rămase', rwNote = rw ? '<div style="margin-top:6px;font-size:12px;color:var(--tx3)">⚡ Pozele 9B din chat merg pe Runware și nu consumă neuroni.</div>' : '';
-    const warnOk = after && lastImgProv !== 'runware';
+    const warnOk = after && lastImgProv !== 'runware' && !allRw();   // 9.37: pe „Totul pe Runware” nu mai apar avertismentele Cloudflare
     if(S.cfPlan === 'paid'){
       const over = Math.max(0, d.neurons - lim), day = new Date().toISOString().slice(0, 10);
       box.className = 'neur';
@@ -7578,6 +7602,8 @@ async function loadNeurons(after){
     }
     box.className = 'neur' + (pc >= 80 ? ' warn' : '');
     box.innerHTML = `Azi: <b>${Math.round(d.neurons).toLocaleString('ro-RO')}</b> / ${lim.toLocaleString('ro-RO')} neuroni gratuiți (${Math.round(pc)}%)${left !== null ? ` · <b>~${left}</b> ${what}` : ''}<div class="bar"><i style="width:${pc}%"></i></div>` + rwNote;
+    // 9.37: pe planul Free, Cloudflare blochează la 10.000; dacă a lucrat peste, contul e de fapt pe Workers Paid și se taxează
+    if(d.neurons > lim * 1.02) box.innerHTML += `<div style="margin-top:8px;color:var(--warn,#ffb020);line-height:1.4">⚠️ Cloudflare a lucrat azi <b>${Math.round(d.neurons - lim).toLocaleString('ro-RO')}</b> neuroni peste cota gratuită (≈ ${usd((d.neurons - lim) * NEUR_USD)}). Pe planul Free s-ar fi oprit la 10.000, deci contul tău pare să fie pe <b>Workers Paid</b>. Alegerea de aici e doar pentru aplicație: planul se schimbă din dashboard-ul Cloudflare (Workers → Plans). De acum aplicația se oprește singură la 10.000.</div>`;
     // 9.20: avertismentul apare doar când poza chiar a mers pe Cloudflare, și o singură dată pe zi pentru fiecare prag (80% / 100%)
     const lvl = utcDay() + (pc >= 100 ? ':100' : ':80');
     if(warnOk && pc >= 80 && S.neurWarnFree !== lvl && (S.neurWarnFree = lvl, saveSettings(), true)) toast(pc >= 100 ? '⚠️ Cota gratuită Cloudflare de azi s-a terminat. Se resetează la ' + resetAt() + '.' : `⚠️ Ai folosit ${Math.round(pc)}% din neuronii gratuiți de azi.`, 4500);
@@ -8008,6 +8034,8 @@ async function init(){
   if((S.sv || 0) < 39){ if(!S.bestOf9) S.bestOf9 = '1'; if(!S.autoModel) S.autoModel = 'chat'; S.sv = 39; saveSettings(); }
   // 9.6: fără costuri peste cei $5/lună: „Fără limită” → „Doar gratuit” (o dată; se poate pune înapoi)
   if((S.sv || 0) < 40){ if(S.cfPlan === 'paid' && S.cfCap === 'none') S.cfCap = 'free'; S.sv = 40; saveSettings(); }
+  // 9.37: cine are Runware pornit trece pe „Totul pe Runware”, fără rezervă Cloudflare (o dată; se poate schimba din Setări → Poze)
+  if((S.sv || 0) < 41){ if(S.rw === 'on'){ S.imgRoute = 'rw'; S.cfFallback = 'off'; } S.sv = 41; saveSettings(); }
   onlyOurProviders();   // 9.19: la fiecare pornire (și după o restaurare dintr-un backup vechi)
   if(cspSync(true)) return;   // 8.20: adresă nouă → repornim o dată, ca politica de securitate să o permită
   chars = (await DB.get('chars') || []).filter(c => c && c.id && c.name);
