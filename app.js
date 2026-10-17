@@ -1,5 +1,5 @@
 window.__taifas = true;   // 8.20.1: semn pentru index.html că app.js s-a încărcat
-const APP_VER = '9.40';
+const APP_VER = '9.41';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -4699,9 +4699,22 @@ async function askPhoto(spont, target, mode, opt = {}){
     if(target && mode === 'edit' && opt.edit){   // 9.40: ✏️ Modifică poza
       const E = opt.edit, base = await DB.get(target.img); if(!base) throw new Error('Nu găsesc poza.');
       pstage(busy.signal, '✏️ Înțelege ce schimbi', 20);
-      const tr = await editPlan(c, target.scene || '', E.ro, busy.signal);
-      asked = [tr.en]; where = target.where || null; shot = tr.shot; editLog = {t:E.ro, kind:E.kind, ts:Date.now()};
-      if(E.kind !== 'scene') edited = await editPhoto(c, base, tr.en, busy.signal, asked, shot);
+      const tr = E.ro ? await editPlan(c, target.scene || '', E.ro, busy.signal) : {en:'', shot:target.scene || fallbackShot(c, ch, m) || 'selfie'};
+      asked = tr.en ? [tr.en] : []; where = target.where || null; shot = tr.shot;
+      let cx = c;
+      if(E.body){   // 9.41: corpul de pe butoane, scris explicit (cu prioritate) și fără reperul de corp vechi, care l-ar întoarce
+        const Zb = {body:E.body}, en2 = crBodyEn(Zb), ro2 = crBodyText(Zb);
+        cx = {...c, physEn:physWithBody(c.physEn, en2, 'Body'), photoFull:undefined, bodySig:undefined, bodyFull:undefined};
+        asked.push('body: ' + en2); shot = `${shot}. Body: ${en2}`;
+        if(E.persist){ c.appZones = c.appZones || crEmptyZ(); c.appZones.body = {...E.body}; c.physEn = cx.physEn; c.physUser = physWithBody(c.physUser, ro2, 'corp'); await saveChars(); }
+      }
+      editLog = {t:E.ro || ('corp: ' + crBodyText({body:E.body || {}})), kind:E.kind, ts:Date.now()};
+      if(E.kind !== 'scene' && tr.en){
+        edited = await editPhoto(c, base, tr.en, busy.signal, asked, shot);
+        const df = await imgDiff(base, edited.blob);
+        if(df != null && df < .035){ edited = null; editLog.kind = 'scene'; editLog.auto = true; pstage(busy.signal, '🎬 Editarea n-a schimbat destul, fac poza din nou', 55); }   // aproape aceeași poză
+      }
+      if(!edited){ const r = await makeScenePhoto(cx, shot, busy.signal, {together:false, asked}); edited = r; }
     }
     else if(target && mode === 'same' && target.scene){ shot = target.scene; where = target.where || null; asked = target.asked || []; }
     else { const pl = await planShot(c, ch, {promised, exclude:m, signal:busy.signal, together}); shot = pl.shot; where = pl.where; together = pl.together; asked = pl.asked || []; shot = giftDetail(c, shot, where); }
@@ -4717,7 +4730,7 @@ async function askPhoto(spont, target, mode, opt = {}){
       while(m.imgAlts.length > 5){ const old = m.imgAlts.shift(); if(old !== c.photo) delImg(old).catch(() => {}); }
       m.ia = m.imgAlts.length - 1;
     }
-    if(editLog){ m.edits = (m.edits || []).concat(editLog).slice(-10); }   // 9.40
+    if(editLog){ m.edits = (m.edits || []).concat(editLog).slice(-10); if(editLog.auto) toast('✏️ Editarea pozei n-a schimbat destul, așa că am făcut-o din nou cu modificarea.', 4000); }   // 9.40
     m.img = k; m.prompt = prompt; m.scene = shot; if(where) m.where = where; if(asked.length) m.asked = asked; else delete m.asked; if(together) m.together = true; else delete m.together; if(check) m.check = check; else delete m.check;
     addUsage(c.id, imgPrice(), 'img');
     if(bd != null) m.bd = Math.round(bd * 1000) / 1000; else delete m.bd;
@@ -4796,32 +4809,64 @@ function msgSheet(i){
    Rezultatul intră ca variantă nouă a pozei (‹ ›); fața e măsurată în telefon (retuș dacă s-a îndepărtat), iar verificarea
    punctează dacă schimbarea cerută se vede (altfel încă o încercare). Regulile de siguranță ale aplicației rămân aceleași. */
 const PE_CHIPS = [['👗 Ținuta', 'poartă '], ['📍 Locul', 'să fie în '], ['🧍 Poziția', 'poziția: '], ['😊 Expresia', 'expresia: '], ['💇 Părul', 'părul: '], ['📸 Încadrarea', 'încadrarea: '], ['🌅 Lumina', 'lumina: ']];
+/* 9.41: „Modifică poza” refăcut. În 9.40, „✂️ Doar ce scriu” cerea generatorului să editeze poza păstrând tot „exact”, iar FLUX.2 klein
+   întorcea des practic aceeași poză (ca la „Ajustează” în 9.29). Acum: (1) scrii liber ce schimbi și/sau folosești opțiunile din creator
+   (ținută, păr, siluetă, bust, înălțime + butoanele de corp); (2) poza se face din nou prin motorul de identitate, cu scena rescrisă
+   cu schimbarea și cu corpul nou scris explicit; (3) „Păstrează compoziția” încearcă întâi editarea pozei de acum, iar dacă telefonul
+   vede că n-a ieșit aproape nimic diferit (`imgDiff`), trece singur pe poza nouă; (4) corpul schimbat poate rămâne și pentru personaj. */
+const bodyOf = c => { const z = c && c.appZones && c.appZones.body ? c.appZones.body : {}; return {...crEmptyZ().body, ...z}; };
+const bodySame = (a, b) => Object.keys({...a, ...b}).every(k => String(a[k] || '') === String(b[k] || ''));
 async function editPhotoSheet(i){
   const m = chat.msgs[i]; if(!m || !m.img || m.role !== 'ai' || busy) return;
   if(S.imgProv === 'none'){ toast('Pornește pozele din Setări.'); return; }
-  const b = await DB.get(m.img).catch(() => null); const url = b ? URL.createObjectURL(b) : '';
-  let kind = 'edit';
+  const c = cur, b0 = await DB.get(m.img).catch(() => null), url = b0 ? URL.createObjectURL(b0) : '';
+  const B0 = bodyOf(c), Z = {zones:{}, body:{...B0}};
   openSheet(`<h4>✏️ Modifică poza</h4><div class="pad">
     <div class="pedit">${url ? `<img src="${url}" alt="">` : ''}<div>
-      <div class="seg" id="peKind"><button data-v="edit" class="on">✂️ Doar ce scriu</button><button data-v="scene">🎬 Poză nouă</button></div>
-      <p class="hint" id="peHint"></p></div></div>
+      <textarea id="peTxt" rows="3" maxlength="400" placeholder="Scrie liber ce schimbi: ex. rochie roșie scurtă și cercei mari, zâmbește, pe balcon la apus, de aproape"></textarea></div></div>
     <div class="chipset" id="peChips">${PE_CHIPS.map(([l, q]) => `<button type="button" data-q="${esc(q)}">${esc(l)}</button>`).join('')}</div>
-    <textarea id="peTxt" rows="3" maxlength="400" placeholder="ex. rochie roșie scurtă și cercei mari · zâmbește larg · pe balcon, la apus · de aproape"></textarea>
+    <label style="margin-top:6px">Ca în creator</label>
+    <div class="chipset adj" id="peAdj">${CR_ADJ.map(([l, v]) => `<button type="button" data-adj="${esc(v)}">${esc(l)}</button>`).join('')}</div>
+    <details class="crzones" id="peBodyW"><summary>🧍 Corpul pe butoane (bust, siluetă, talie, șolduri…)</summary><div id="peBody"></div></details>
+    <label class="chk" id="peKeepW"><input type="checkbox" id="peKeep" checked> Păstrează compoziția pozei (același loc, cadru și poziție, dacă se poate)</label>
+    <label class="chk" id="pePersistW" hidden><input type="checkbox" id="pePersist"> 🧍 Corpul nou rămâne pentru ${esc(c.name)} (și în pozele următoare)</label>
     ${(m.edits || []).length ? `<div class="chipset" id="peLast"><small style="width:100%;color:var(--tx3)">Ultimele modificări:</small>${m.edits.slice(-3).reverse().map(x => `<button type="button" data-l="${esc(x.t)}">↺ ${esc(x.t.slice(0, 40))}</button>`).join('')}</div>` : ''}
     <div class="btns"><button class="btn pri" id="peGo">✏️ Modifică</button></div></div>`);
-  const hint = () => { $('#peHint').textContent = kind === 'edit' ? 'Păstrează poza așa cum e (loc, poziție, cadru) și schimbă doar ce scrii. Bun pentru ținută, păr, expresie, accesorii, culori.' : 'Face o poză nouă, cu aceeași scenă și schimbarea ta. Bun pentru alt loc, altă poziție sau alt cadru.'; };
-  hint();
-  $('#peKind').onclick = e => { const bt = e.target.closest('[data-v]'); if(!bt) return; kind = bt.dataset.v; $$('#peKind button').forEach(x => x.classList.toggle('on', x === bt)); hint(); };
+  const drawB = () => {
+    const box = $('#peBody'); if(!box) return; const B = Z.body, h = +B.h || 0;
+    box.innerHTML = `<div class="crrow"><span>Înălțime</span><input type="range" id="peH" min="145" max="195" step="1" value="${h || 168}"><b id="peHv">${h ? (h / 100).toFixed(2).replace('.', ',') + ' m' : '—'}</b></div>`
+      + CR_BODY.map(([k, l, opts]) => `<div class="crrow"><span>${esc(l)}</span><div class="crch" data-bk="${k}">${opts.map(o => `<button type="button" class="${B[k] === o ? 'on' : ''}" data-bv="${esc(o)}">${esc(o)}</button>`).join('')}</div></div>`).join('');
+    const ch = !bodySame(Z.body, B0); $('#pePersistW').hidden = !ch;
+    $('#peKeepW').style.opacity = ch ? '.5' : ''; $('#peKeep').disabled = ch;   // corp schimbat: poza se face din nou
+  };
+  drawB();
+  $('#peBody').onclick = e => { const bt = e.target.closest('[data-bv]'); if(!bt) return; const k = bt.parentElement.dataset.bk; Z.body[k] = Z.body[k] === bt.dataset.bv ? '' : bt.dataset.bv; drawB(); };
+  $('#peBody').oninput = e => { if(e.target.id === 'peH'){ Z.body.h = +e.target.value; $('#peHv').textContent = (Z.body.h / 100).toFixed(2).replace('.', ',') + ' m'; } };
+  $('#peBody').onchange = e => { if(e.target.id === 'peH') drawB(); };
   $('#peChips').onclick = e => { const bt = e.target.closest('[data-q]'); if(!bt) return; const t = $('#peTxt'); t.value = (t.value.trim() ? t.value.trim() + '; ' : '') + bt.dataset.q; t.focus(); };
+  $('#peAdj').onclick = e => {
+    const bt = e.target.closest('[data-adj]'); if(!bt) return; const v = bt.dataset.adj, op = CR_ADJ_OPS.find(x => x[0] === v);
+    if(op){ op[1](Z); $('#peBodyW').open = true; drawB(); toast('🧍 ' + bt.textContent.trim() + ': schimbat pe butoanele de corp', 1800); return; }   // corpul: pe butoane, exact
+    const t = $('#peTxt'); t.value = (t.value.trim() ? t.value.trim() + '; ' : '') + v; bt.classList.add('on');
+  };
   if($('#peLast')) $('#peLast').onclick = e => { const bt = e.target.closest('[data-l]'); if(bt) $('#peTxt').value = bt.dataset.l; };
   $('#peGo').onclick = () => {
-    const ro = $('#peTxt').value.trim().replace(/[;:\s]+$/, '');
-    if(ro.length < 3){ toast('Scrie ce schimbi.'); return; }
+    const ro = $('#peTxt').value.trim().replace(/[;:\s]+$/, ''), bodyCh = !bodySame(Z.body, B0);
+    if(ro.length < 3 && !bodyCh){ toast('Scrie ce schimbi sau alege o opțiune.'); return; }
     if(CR_MINOR.test(ro)){ toast('Personajele din Taifas sunt adulte.'); return; }
+    const E = {ro, kind: bodyCh || !$('#peKeep').checked ? 'scene' : 'edit', body: bodyCh ? {...Z.body} : null, persist: bodyCh && $('#pePersist').checked};
     closeSheet(); if(url) URL.revokeObjectURL(url);
-    askPhoto(false, m, 'edit', {edit:{ro, kind}});
+    askPhoto(false, m, 'edit', {edit:E});
   };
 }
+// cât de diferite sunt două poze (0 = identice; ~0,02 = aproape la fel; 0,08+ = schimbare clară), măsurat pe 48×64, în telefon
+async function imgDiff(a, b){
+  const px = async bl => { const u = URL.createObjectURL(bl); try{ const im = await loadImgEl(u), cv = document.createElement('canvas'); cv.width = 48; cv.height = 64; const g = cv.getContext('2d'); g.drawImage(im, 0, 0, 48, 64); return g.getImageData(0, 0, 48, 64).data; } finally { URL.revokeObjectURL(u); } };
+  try{ const x = await px(a), y = await px(b); let d = 0; for(let i = 0; i < x.length; i += 4) d += Math.abs(x[i] - y[i]) + Math.abs(x[i + 1] - y[i + 1]) + Math.abs(x[i + 2] - y[i + 2]); return d / (x.length / 4 * 3 * 255); }
+  catch(e){ return null; }
+}
+// corpul nou, scris peste „Cum arată” (EN pentru generator, RO pentru profil)
+const physWithBody = (txt, line, lead) => { const t = String(txt || '').replace(new RegExp('(^|[.;]\\s*)' + lead + ':[^.;]*[.;]?\\s*', 'i'), '$1').trim(); return (lead + ': ' + line + (t ? (lead === 'Body' ? '. ' : '; ') + t : '')).slice(0, 700); };
 // cererea (română) → instrucțiunea în engleză + descrierea scenei rescrisă cu schimbarea
 async function editPlan(c, scene, ro, signal){
   try{
@@ -4844,8 +4889,8 @@ async function editPhoto(c, base, en, signal, asked, shot){
   let R = null; try{ R = c.photo ? await idRefs(c) : null; }catch(e){}
   const st = c.stil || 'photo', size = await imgSize(base), model = S.wkChat || 'ancorat';
   const mk = fix => {
-    const p2 = `${stilLead(st)}Edit image 1: ${en}.${fix ? ' Make sure: ' + fix + '.' : ''} Image 2 shows the face of this same person: keep exactly that face and identity (face shape, eyes, nose, lips, skin, age), the same hair unless the change is about the hair, and the same body and proportions. Change ONLY what is asked; everything else from image 1 stays exactly as it is (the other clothes, the place, the pose, the framing, the light), unless the change itself requires it. ${STIL_TAG[st]}`;
-    const p1 = `${stilLead(st)}Edit this photo: ${en}.${fix ? ' Make sure: ' + fix + '.' : ''} Keep the same person with the same face, hair, body and proportions; change ONLY what is asked, everything else stays exactly as it is. ${STIL_TAG[st]}`;
+    const p2 = `${stilLead(st)}Edit image 1. Required change, clearly visible in the result: ${en}.${fix ? ' Make sure: ' + fix + '.' : ''} Image 2 shows the face of this same person: keep that face and identity (face shape, eyes, nose, lips, skin, age). Keep the same place and camera angle where possible. ${STIL_TAG[st]}`;
+    const p1 = `${stilLead(st)}Edit this photo. Required change, clearly visible in the result: ${en}.${fix ? ' Make sure: ' + fix + '.' : ''} Keep the same person (same face and identity) and, where possible, the same place and camera angle. ${STIL_TAG[st]}`;
     return {p2, p1};
   };
   const gen = async fix => { const {p2, p1} = mk(fix); return {prompt:p2, blob:await genImage(p2, base, signal, R && R.face, {model, force:{two:!!(R && R.face), px:1024}, px1:1024, size, p1, why:'editare'})}; };
