@@ -1,5 +1,5 @@
 window.__taifas = true;   // 8.20.1: semn pentru index.html că app.js s-a încărcat
-const APP_VER = '9.45';
+const APP_VER = '9.46';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -263,6 +263,9 @@ function provMsgs(msgs, ttl){
     out.push({...m});
   }
   if(!out.length || out[0].role !== 'user') out.unshift({role:'user', text:'(Începe conversația.)'});
+  // 9.46: modelele noi nu mai acceptă conversații care se termină cu mesajul personajului (prefill) → eroare 400.
+  //       Când istoricul se oprește la un mesaj al ei (altă variantă, continuare, mesaj trimis singur), adăugăm un mic semnal de la tine.
+  if(out[out.length - 1].role === 'assistant') out.push({role:'user', text:'(continuă tu, firesc, cu un mesaj nou; nu repeta ce ai scris deja)'});
   // punct de cache pe istoric: tot ce e până la mesajul marcat se citește din cache la ~10% din preț la răspunsul următor
   const cc = m => m._cache ? {cache_control:ttl === '1h' ? {type:'ephemeral', ttl:'1h'} : {type:'ephemeral'}} : {};
   const imgsOf = m => m.images || (m.image ? [m.image] : null);
