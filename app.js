@@ -1,5 +1,5 @@
 window.__taifas = true;   // 8.20.1: semn pentru index.html că app.js s-a încărcat
-const APP_VER = '9.53';
+const APP_VER = '9.54';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -866,7 +866,7 @@ async function creatorScene(c, shot, signal, fix, opt, full, id, fr){
     }catch(e){ bodyRef = null; }
   }
   const bodyLock = exposure !== 'clothed'
-    ? ' BODY-PROPORTION PRIORITY: use the body reference to preserve the character’s actual silhouette and proportions, especially the bust volume, projection, shape and width relative to the shoulders, ribcage and waist. If the reference shows a very large or unusually prominent bust, keep it very large and equally prominent; do not normalize it to an average bust, reduce it, flatten it, or replace it with a generic body. The body reference defines anatomy and proportions only, never clothing, pose, camera framing or background.'
+    ? ' BODY-PROPORTION PRIORITY: use the body reference to preserve the character’s actual silhouette and proportions, especially the bust volume, projection, shape and width relative to the shoulders, ribcage and waist. If the reference shows a very large or unusually prominent bust, keep it very large and equally prominent; do not normalize it to an average bust, reduce it, flatten it, or replace it with a generic body. NATURAL ANATOMY: breasts should have plausible human anatomy and gravity, a naturally curved teardrop/oval contour rather than two identical rigid spheres, a gradual transition into the chest wall, subtle left-right asymmetry, and shape that responds naturally to the character’s posture and camera perspective. Avoid implant-like spherical geometry, hard edges, identical mirrored shapes, or an unnaturally high fixed position. Do not reduce the referenced size to achieve realism. The body reference defines anatomy and proportions only, never clothing, pose, camera framing or background.'
     : '';
   const faceInstruction = bodyRef
     ? `Image 1 is the exact face reference for ${c.name}; preserve the same facial identity. Image 2 is the body/proportion reference for ${c.name}; preserve the same build and silhouette, especially bust size and shape, but do not copy its clothing, pose, framing or background.`
@@ -2094,12 +2094,12 @@ Dinamica de până acum: ${gc.dyn || '(încă nimic)'}
 Relațiile dintre ele până acum: ${relNow}
 Ultimele mesaje:
 ${recent}
-Scrie JSON: {"dyn":"dinamica actualizată, max 80 de cuvinte: ce rol are fiecare în grup (cine bârfește, cine mediază, cine e tăcută…), cine cu cine se înțelege sau se ciondănește, glumele interne; păstrează ce era valabil","recap":"ce s-a vorbit recent în grup, max 50 de cuvinte, la persoana a III-a","facts":["lucruri noi și durabile despre ${u}, spuse de ${u} în grup (max 3, câte o propoziție scurtă), sau []"],"rel":[{"a":"nume","b":"nume","t":"relația lor acum, 2-5 cuvinte (ex. cele mai bune prietene, se tachinează, rivale, supărate una pe alta, se împacă)","s":0}]}
-La "rel": câte una pentru fiecare pereche (${pairs.map(([a, b]) => a.name + ' + ' + b.name).join('; ')}); "s" de la -2 (ceartă) la 2 (foarte apropiate); schimb-o doar dacă mesajele chiar arată asta, altfel păstreaz-o.`, 800);
+Scrie JSON: {"dyn":"dinamica actualizată, max 80 de cuvinte: ce rol are fiecare în grup (cine bârfește, cine mediază, cine e tăcută…), cine cu cine se înțelege sau se ciondănește, glumele interne; păstrează ce era valabil","recap":"ce s-a vorbit recent în grup, max 50 de cuvinte, la persoana a III-a","facts":["lucruri noi și durabile despre ${u}, spuse de ${u} în grup (max 3, câte o propoziție scurtă), sau []"],"rel":[{"a":"numele exact al primului personaj","b":"numele exact al celui de-al doilea personaj","t":"relația lor acum, 2-5 cuvinte (ex. cele mai bune prietene, se tachinează, rivale, supărate una pe alta, se împacă)","s":0}]}
+La "rel": returnează un ARRAY JSON, cu câte un obiect pentru fiecare pereche (${pairs.map(([a, b]) => a.name + ' + ' + b.name).join('; ')}); "s" de la -2 (ceartă) la 2 (foarte apropiate); schimb-o doar dacă mesajele chiar arată asta, altfel păstreaz-o.`, 800);
   if(gc.dead) return;
   if(j.dyn) gc.dyn = faraLiniute(String(j.dyn)).slice(0, 700);
   if(j.recap){ gc.recap = faraLiniute(String(j.recap)).slice(0, 500); g.recap = gc.recap; g.recapAt = Date.now(); }
-  gRelUpdate(g, gc, ms, j.rel);
+  gRelUpdate(g, gc, ms, j.rel || j.relationships || j.relations || (j.data && (j.data.rel || j.data.relationships)) || []);
   const fs = (Array.isArray(j.facts) ? j.facts : []).map(x => faraLiniute(String(x || '').trim())).filter(x => x.length > 4).slice(0, 3);
   if(fs.length){ for(const c of ms){ c.facts = c.facts || []; for(const t of fs) if(!c.facts.some(f => f.t === t)) c.facts.push({t, ts:Date.now(), src:'grup'}); c.facts = c.facts.slice(-40); } await saveChars(); }
   await gSave(g, gc);
@@ -2107,13 +2107,15 @@ La "rel": câte una pentru fiecare pereche (${pairs.map(([a, b]) => a.name + ' +
 }
 // 9.48 (5): relațiile: se actualizează din ce vorbesc; o schimbare clară apare ca rând în grup
 function gRelUpdate(g, gc, ms, arr){
+  if(arr && !Array.isArray(arr) && typeof arr === 'object') arr = Object.values(arr);
   if(!Array.isArray(arr)) return;
   const find = n => { const a = pnorm(n || ''), f = a.split(' ')[0]; return ms.find(c => pnorm(c.name) === a) || ms.find(c => pnorm(c.name.split(' ')[0]) === f); };
   gc.rel = gc.rel || {}; gc.relLog = gc.relLog || [];
   for(const r of arr){
     const a = find(r && r.a), b = find(r && r.b); if(!a || !b || a === b) continue;
-    const t = faraLiniute(String(r.t || '')).replace(/[.„”"]/g, '').trim().slice(0, 50); if(!t) continue;
-    const sc = Math.max(-2, Math.min(2, Math.round(+r.s || 0))), k = pairKey(a.id, b.id), old = gc.rel[k];
+    const t = faraLiniute(String(r.t || r.relation || r.description || '')).replace(/[.„”"]/g, '').trim().slice(0, 50); if(!t) continue;
+    const rawScore = r.s ?? r.score ?? r.closeness ?? 0;
+    const sc = Math.max(-2, Math.min(2, Math.round(Number(rawScore) || 0))), k = pairKey(a.id, b.id), old = gc.rel[k];
     gc.rel[k] = {t, s:sc, at:Date.now()};
     if(old && (Math.abs(old.s - sc) >= 1 || (pnorm(old.t) !== pnorm(t) && Math.abs(old.s - sc) >= 1))){
       const txt = `🕸️ ${a.name} și ${b.name}: acum „${t}”${sc > old.s ? ' 💞' : ' ⚡'}`;

@@ -421,8 +421,13 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
 #gInp{flex:1;resize:none;max-height:140px;min-height:44px;padding:11px 16px;border-radius:22px;border:1px solid var(--line);background:var(--bg2);outline:none;line-height:1.35;color:var(--tx)}
 #gSend{width:44px;height:44px;border-radius:50%;background:var(--grad);color:#fff;display:grid;place-items:center;flex:none}
 #gSend.stop{background:var(--card);border:1px solid var(--line)}
-#gChips{display:flex;gap:6px;overflow-x:auto;padding:0 12px;flex:none}
-#gChips button{padding:5px 11px;border-radius:99px;background:var(--bg2);border:1px solid var(--line);font-size:.82rem;color:var(--tx2);white-space:nowrap}
+#gChips{display:flex;align-items:center;gap:7px;overflow-x:auto;padding:8px 12px 7px;flex:none;scrollbar-width:none;overscroll-behavior-x:contain;mask-image:linear-gradient(90deg,#000 0%,#000 94%,transparent 100%)}
+#gChips::-webkit-scrollbar{display:none}
+#gChips button{display:inline-flex;align-items:center;justify-content:center;gap:5px;min-height:34px;padding:7px 12px;border-radius:999px;background:color-mix(in srgb,var(--bg2) 88%,var(--acc) 12%);border:1px solid color-mix(in srgb,var(--line) 70%,var(--acc) 30%);font-size:.82rem;font-weight:600;color:var(--tx2);white-space:nowrap;flex:none;transition:background .18s,border-color .18s,transform .18s}
+#gChips button:active{transform:scale(.97)}
+#gChips button[data-gto]{background:color-mix(in srgb,var(--acc) 10%,var(--bg2));border-color:color-mix(in srgb,var(--acc) 35%,var(--line));color:var(--tx)}
+#gChips button[data-gpic]{background:color-mix(in srgb,var(--acc) 17%,var(--bg2));color:var(--tx);border-color:color-mix(in srgb,var(--acc) 55%,var(--line))}
+#gChips button[data-gspect]{background:var(--bg2);border-color:var(--line)}
 .gnm{display:block;font-size:.76rem;font-weight:700;color:var(--gc);margin-bottom:2px}
 .gstack{display:inline-flex;flex:none}.gstack .av{width:30px;height:30px;border:2px solid var(--bg);margin-left:-10px}.gstack .av:first-child{margin-left:0}
 .chathead .gstack .av{width:34px;height:34px}
