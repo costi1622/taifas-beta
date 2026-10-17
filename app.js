@@ -1,5 +1,5 @@
 window.__taifas = true;   // 8.20.1: semn pentru index.html că app.js s-a încărcat
-const APP_VER = '9.46';
+const APP_VER = '9.47';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -1671,7 +1671,7 @@ async function openGroup(id, push = true){
   if(g.unread){ g.unread = 0; saveGroups(); }
   renderGroup(true); show('vGroup', push);
   if(push) history.replaceState({v:'vGroup', g:id}, '');
-  gLife(g).catch(() => {});   // 9.45 (7): ce au vorbit cât ai lipsit
+  gLife(g, {loud:true}).catch(() => {});   // 9.45 (7): ce au vorbit cât ai lipsit
 }
 const gSpeaker = m => m.role === 'ai' ? charById(m.cid) : null;
 const gName = m => m.role === 'user' ? (S.userName.trim() || 'Tu') : (gSpeaker(m) || {}).name || m.name || '?';
@@ -1946,32 +1946,78 @@ Scrie-i acum lui ${u} în PRIVAT (nu în grup) un mesaj scurt despre ce s-a înt
   c.last = tx.replace(/\*/g, '').slice(0, 90); c.lastAt = Date.now(); c.unread = (c.unread || 0) + 1; await saveChars();
   toast(`💬 ${c.name} ți-a scris în privat`, 3500); if(!$('#vHome').hidden) renderHome();
 }
-/* (7): grupul trăiește și fără tine: când revii după câteva ore, ce și-au scris între ele (un singur apel, cel mult de 2 ori pe zi) */
-async function gLife(g){
-  if(g.life === false || !aiReady() || gbusy || S.groupLife === 'off') return;
-  const msgs = gchat.msgs.filter(m => m.role !== 'sys'), last = msgs[msgs.length - 1]; if(!last || msgs.length < 2) return;
-  const gap = Date.now() - (last.ts || 0); if(gap < 3 * 36e5 || Date.now() - (gchat.lifeAt || 0) < 3 * 36e5) return;   // de la ultimul mesaj ȘI de la ultima „viață” fără tine
-  const d = new Date().toISOString().slice(0, 10); if(gchat.lifeDay && gchat.lifeDay.d === d && gchat.lifeDay.n >= 2) return;
-  gchat.lifeDay = {d, n:(gchat.lifeDay && gchat.lifeDay.d === d ? gchat.lifeDay.n : 0) + 1}; gchat.lifeAt = Date.now();
-  const ms = gMembers(g), u = S.userName.trim() || 'utilizatorul', ac = new AbortController(); gbusy = ac; ac.typing = ms.slice(0, 2); renderGroup();
+/* (7): grupul trăiește și fără tine: când revii după câteva ore, ce și-au scris între ele (un singur apel)
+   9.47: rulează și din fundal (la pornire, la revenirea în aplicație, la 30 min), nu doar când deschizi grupul;
+         grupul primește mesaje necitite pe ecranul principal; slotul se consumă doar dacă a reușit (la eroare reîncearcă după 20 min);
+         pragul: 2 ore fără mesaje, cel mult 3 pe zi; și un grup nou, fără mesaje, prinde viață după 2 ore */
+const G_LIFE_GAP = 2 * 36e5, G_LIFE_DAY = 3;
+let gLifeRun = false;
+function gLifeDue(g, gc){
+  if(!g || g.life === false || S.groupLife === 'off' || gMembers(g).length < 2) return 0;
+  const msgs = (gc.msgs || []).filter(m => m.role !== 'sys' && !m.err && !m.pending), last = msgs[msgs.length - 1];
+  const lastTs = last ? (last.ts || 0) : (g.created || 0); if(!lastTs) return 0;
+  const gap = Date.now() - lastTs;
+  if(gap < G_LIFE_GAP || Date.now() - (gc.lifeAt || 0) < G_LIFE_GAP || Date.now() - (gc.lifeTry || 0) < 20 * 60e3) return 0;
+  const d = dayKey(Date.now()); if(gc.lifeDay && gc.lifeDay.d === d && gc.lifeDay.n >= G_LIFE_DAY) return 0;
+  return gap;
+}
+async function gLife(g, opts = {}){
+  if(!aiReady() || gLifeRun || locked) return 0;
+  const open = grp === g && gchat;
+  if(open && gbusy) return 0;
+  const gc = open ? gchat : ((await DB.get('grp:' + g.id)) || {msgs:[]});
+  const gap = gLifeDue(g, gc); if(!gap) return 0;
+  gLifeRun = true; gc.lifeTry = Date.now();
+  const ms = gMembers(g), u = S.userName.trim() || 'utilizatorul', ac = new AbortController();
+  if(open){ gbusy = ac; ac.typing = ms.slice(0, 2); renderGroup(); }
+  const msgs = gc.msgs.filter(m => m.role !== 'sys'), last = msgs[msgs.length - 1];
+  const base = last ? (last.ts || Date.now() - gap) : Date.now() - gap, mins = Math.max(5, Math.round(gap / 60000) - 1);
+  let n = 0;
   try{
     const out = await stream('Scrii continuarea realistă a unui chat de grup între personaje. Răspunzi DOAR cu JSON valid, în română.', [{role:'user', text:
 `Grupul „${g.name}”${g.topic ? ' (' + g.topic + ')' : ''}. Personajele:
 ${ms.map(c => `- ${c.name}: ${String(c.persona || c.tag || '').slice(0, 220)}${c.speech ? ' Vorbește: ' + c.speech : ''}`).join('\n')}
-${gchat.dyn ? 'Dinamica grupului: ' + gchat.dyn + '\n' : ''}Ultimele mesaje:
-${gchat.msgs.slice(-12).map(gLine).filter(Boolean).join('\n')}
-${u} a lipsit ${gapText(gap)} (acum e ${new Date().toLocaleString('ro-RO', {weekday:'long', hour:'2-digit', minute:'2-digit'})}). Între timp personajele și-au scris între ele, fără ${u}: 5-10 mesaje scurte, firești, fiecare în stilul ei (viața lor, ce s-a mai întâmplat, poate pomenesc de ${u}). Nu scrie mesaje de la ${u}.
-JSON: {"summary":"pe scurt, un rând: ce au vorbit cât ai lipsit","messages":[{"name":"","text":"","min":30}]}  ("min" = câte minute după ultimul mesaj, crescător, mai puțin de ${Math.round(gap / 60000)})`}], {max:1400, signal:ac.signal, cid:ms[0].id});
-    const j = parseJSON(out), base = last.ts || (Date.now() - gap);
-    const arr = (Array.isArray(j.messages) ? j.messages : []).map(x => ({c:ms.find(c => pnorm(c.name) === pnorm(x && x.name) || pnorm(c.name.split(' ')[0]) === pnorm(String(x && x.name || '').split(' ')[0])), text:faraLiniute(String(x && x.text || '')).replace(/\[[^\]\n]{1,80}\]/g, '').trim(), min:Math.max(1, +x.min || 1)})).filter(x => x.c && x.text).slice(0, 12);
-    if(!arr.length || grp !== g) return;
-    gchat.msgs.push({id:uid(), role:'sys', text:'🌙 Cât ai lipsit' + (j.summary ? ' · ' + faraLiniute(String(j.summary)).slice(0, 160) : ''), ts:base + 1});
+${gc.dyn ? 'Dinamica grupului: ' + gc.dyn + '\n' : ''}${msgs.length ? 'Ultimele mesaje:\n' + gc.msgs.slice(-12).map(gLine).filter(Boolean).join('\n') : 'Grupul e nou, încă nu și-a scris nimeni.'}
+${u} a lipsit ${gapText(gap)} (acum e ${new Date().toLocaleString('ro-RO', {weekday:'long', hour:'2-digit', minute:'2-digit'})}). Între timp personajele și-au scris între ele, fără ${u}: 6-10 mesaje scurte, ca într-un grup real. Vorbesc UNA CU ALTA: își răspund, se tachinează, se contrazic, își povestesc ce au mai făcut, pun întrebări una alteia; fiecare în stilul ei; poate o pomenesc pe ${u} sau îl strigă la final. Să participe cel puțin două. Nu scrie mesaje de la ${u}.
+JSON: {"summary":"pe scurt, un rând: ce au vorbit cât ai lipsit","messages":[{"name":"","text":"","min":30}]}  ("name" = exact unul dintre: ${ms.map(c => c.name).join(', ')}; "min" = câte minute după ultimul mesaj, crescător, între 1 și ${mins})`}], {max:1800, signal:ac.signal, cid:ms[0].id, tag:'grup'});
+    const j = parseJSON(out) || {};
+    const who = nm => { const a = pnorm(nm || ''), f = a.split(' ')[0]; return ms.find(c => pnorm(c.name) === a) || ms.find(c => pnorm(c.name.split(' ')[0]) === f) || ms.find(c => f && pnorm(c.name).includes(f)); };
+    const arr = (Array.isArray(j.messages) ? j.messages : []).map(x => ({c:who(x && x.name), text:faraLiniute(stripMood(stripReact(String(x && x.text || '')))).replace(/\[[^\]\n]{1,80}\]/g, '').trim(), min:Math.max(1, +(x && x.min) || 1)})).filter(x => x.c && x.text).slice(0, 12);
+    if(!arr.length) throw new Error('răspuns gol');
+    const d = dayKey(Date.now());
+    gc.lifeDay = {d, n:(gc.lifeDay && gc.lifeDay.d === d ? gc.lifeDay.n : 0) + 1}; gc.lifeAt = Date.now(); delete gc.lifeErr;
+    gc.msgs.push({id:uid(), role:'sys', text:'🌙 Cât ai lipsit' + (j.summary ? ' · ' + faraLiniute(String(j.summary)).slice(0, 160) : ''), ts:base + 1});
     let prevT = base + 2;
-    for(const x of arr){ const ts = Math.min(Date.now() - 60e3, Math.max(prevT + 1, base + x.min * 60e3)); prevT = ts; gchat.msgs.push({id:uid(), role:'ai', cid:x.c.id, text:x.text, ts, away:true}); }
-    await gSave(); toast(`🌙 ${arr.length} mesaje noi în „${g.name}” cât ai lipsit`, 3500);
+    for(const x of arr){ const ts = Math.min(Date.now() - 60e3, Math.max(prevT + 1, base + x.min * 60e3)); prevT = ts; gc.msgs.push({id:uid(), role:'ai', cid:x.c.id, text:x.text, ts, away:true}); }
+    gc.dynN = (gc.dynN || 0) + 2; n = arr.length;
+    const lm = gc.msgs[gc.msgs.length - 1];
+    g.lastAt = Date.now(); g.last = gName(lm) + ': ' + plain(lm.text).slice(0, 80);
+    if(!(grp === g && !$('#vGroup').hidden)) g.unread = (g.unread || 0) + n;
+    if(grp === g && gchat && gchat !== gc){   // ai deschis grupul cât se scria: unim, nu pierdem nimic
+      const have = new Set(gc.msgs.map(m => m.id)); for(const m of gchat.msgs) if(!have.has(m.id)) gc.msgs.push(m);
+      gc.msgs.sort((a, b) => (a.ts || 0) - (b.ts || 0)); for(const k of ['dyn', 'dynN', 'recap']) if(gchat[k] !== undefined && gc[k] === undefined) gc[k] = gchat[k];
+      gchat = gc;
+    }
+    await DB.set('grp:' + g.id, gc); await saveGroups();
+    toast(`🌙 ${n} mesaje noi în „${g.name}” cât ai lipsit`, 3500);
+    if(!$('#vHome').hidden) renderHome();
     if(Math.random() < .5) setTimeout(() => gGossip(g, arr[Math.floor(Math.random() * arr.length)].c).catch(() => {}), 8000);
-    gchat.dynN = (gchat.dynN || 0) + 2;
-  } catch(e){} finally { gbusy = null; if(grp === g) renderGroup(true); }
+  } catch(e){
+    gc.lifeErr = String(e && e.message || e).slice(0, 160);
+    await DB.set('grp:' + g.id, gc).catch(() => {});
+    if(opts.loud && e.name !== 'AbortError') toast('🌙 Grupul n-a putut „trăi” fără tine: ' + gc.lifeErr + ' (reîncerc în 20 min)', 5000);
+  } finally { gLifeRun = false; if(open && gbusy === ac) gbusy = null; if(grp === g) renderGroup(true); }
+  return n;
+}
+// 9.47: din fundal, pentru toate grupurile (cel mult 2 pe tură, cele mai recente întâi)
+async function gLifeSweep(){
+  if(!groups.length || !aiReady() || locked || document.hidden || S.groupLife === 'off') return;
+  let done = 0;
+  for(const g of [...groups].filter(x => x.life !== false).sort((a, b) => (b.lastAt || 0) - (a.lastAt || 0))){
+    if(done >= 2 || document.hidden) break;
+    if(grp === g && !$('#vGroup').hidden) continue;   // ești chiar în grup: nu „lipsești”
+    if(await gLife(g).catch(() => 0)) done++;
+  }
 }
 
 /* ───────── CONVERSAȚIE ───────── */
@@ -8790,6 +8836,9 @@ async function init(){
   setTimeout(laterPoll, 25e3); setInterval(() => { if(!document.hidden) laterPoll(); }, 3 * 60e3);
   document.addEventListener('visibilitychange', () => { if(!document.hidden) setTimeout(laterPoll, 6e3); });
   setTimeout(proSweep, 10e3); setInterval(() => { if(!document.hidden) proSweep(); }, 20 * 60e3);
+  // 9.47: grupurile trăiesc și când nu le deschizi
+  setTimeout(gLifeSweep, 15e3); setInterval(gLifeSweep, 30 * 60e3);
+  document.addEventListener('visibilitychange', () => { if(!document.hidden) setTimeout(gLifeSweep, 5000); });
   document.addEventListener('visibilitychange', () => { if(!document.hidden) setTimeout(proSweep, 5e3); });
   setTimeout(lifeSweep, 15e3); setTimeout(() => storySweep(false), 30e3);
   setInterval(() => { if(!document.hidden){ lifeSweep(); storySweep(false); } }, 45 * 60e3);
