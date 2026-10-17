@@ -1,5 +1,5 @@
 window.__taifas = true;   // 8.20.1: semn pentru index.html că app.js s-a încărcat
-const APP_VER = '9.52';
+const APP_VER = '9.53';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -856,11 +856,27 @@ async function creatorScene(c, shot, signal, fix, opt, full, id, fr){
   const face = await cropFace(full, id && !id.none ? id : null);
   const exposure = exposureMode(shot);
   const nude = exposure === 'full' ? ' The character is clearly an adult (18+); natural, non-explicit artistic nudity, not a sexual act.' : exposure === 'topless' ? ' The character is clearly an adult (18+) and is topless as requested; bare breasts visible, no shirt or bra, lower-body clothing stays as described. Do not turn this into full nudity.' : '';
-  const prompt = `${stilLead(st)}${asked.length ? `REQUESTED, must be clearly visible: ${asked.join('; ')}. ` : ''}${stilFrame(st, fr.p)}. ${shot}.${fix ? ` Corrections from the previous attempt: ${fix}.` : ''}${nude} The reference image is a close-up of this person's face only: keep exactly this face and identity (face shape, eyes, eyebrows, nose, lips, skin tone and texture, age); everything else comes from this text, not from the reference. The person, permanent look unless the request above changes something: ${lookText(c, id) || 'as in the reference'}. ${NO_BEAUTY} ${STIL_TAG[st]}`;
-  if(useF3()){   // 9.43: FLUX 3: fața (imaginea 1) + corpul din poza întreagă (imaginea 2), cu rolurile spuse în prompt
-    const fb = c.photoFull ? await DB.get(c.photoFull).catch(() => null) : null, body = fb ? await fullBodyRef(fb, c.fullBox) : null;
+  // 9.53: pentru cereri explicite de bust gol/nuditate, adaugă un reper separat de corp.
+  // Pozele îmbrăcate rămân pe fluxul existent cu o singură referință, ca să nu afectăm scena sau hainele.
+  let bodyRef = null;
+  if(exposure !== 'clothed'){
+    try{
+      if(c.photoFull){ const fb = await DB.get(c.photoFull).catch(() => null); if(fb) bodyRef = await fullBodyRef(fb, c.fullBox); }
+      if(!bodyRef) bodyRef = await bodySquare(full, id && !id.none ? id : null);
+    }catch(e){ bodyRef = null; }
+  }
+  const bodyLock = exposure !== 'clothed'
+    ? ' BODY-PROPORTION PRIORITY: use the body reference to preserve the character’s actual silhouette and proportions, especially the bust volume, projection, shape and width relative to the shoulders, ribcage and waist. If the reference shows a very large or unusually prominent bust, keep it very large and equally prominent; do not normalize it to an average bust, reduce it, flatten it, or replace it with a generic body. The body reference defines anatomy and proportions only, never clothing, pose, camera framing or background.'
+    : '';
+  const faceInstruction = bodyRef
+    ? `Image 1 is the exact face reference for ${c.name}; preserve the same facial identity. Image 2 is the body/proportion reference for ${c.name}; preserve the same build and silhouette, especially bust size and shape, but do not copy its clothing, pose, framing or background.`
+    : 'The reference image is a close-up of this person’s face only: keep exactly this face and identity (face shape, eyes, eyebrows, nose, lips, skin tone and texture, age); everything else comes from this text, not from the reference.';
+  const prompt = `${stilLead(st)}${asked.length ? `REQUESTED, must be clearly visible: ${asked.join('; ')}. ` : ''}${stilFrame(st, fr.p)}. ${shot}.${fix ? ` Corrections from the previous attempt: ${fix}.` : ''}${nude}${faceInstruction}${bodyLock} The person, permanent look unless the request above changes something: ${lookText(c, id) || 'as in the reference'}. ${NO_BEAUTY} ${STIL_TAG[st]}`;
+  if(useF3()){   // 9.43/9.53: FLUX 3 folosește fața + reperul de corp și prioritizează proporțiile bustului la cereri topless/nud
+    const fb = c.photoFull ? await DB.get(c.photoFull).catch(() => null) : null;
+    const body = bodyRef || (fb ? await fullBodyRef(fb, c.fullBox) : null);
     const face2 = await cropFace(full, id && !id.none ? id : null);
-    const p3 = `${stilLead(st)}${asked.length ? `REQUESTED, must be clearly visible: ${asked.join('; ')}. ` : ''}${stilFrame(st, fr.p)}. ${shot}.${fix ? ` Corrections from the previous attempt: ${fix}.` : ''}${nude} Image 1 is ${c.name}'s face: keep her face exact, the same face shape, eyes, nose, lips, skin tone and texture, and any marks.${body ? ` Image 2 shows ${c.name}'s body: keep the same build and proportions (bust, waist, hips, arms, legs); do not copy its clothes, pose or background.` : ''} ${c.name}, permanent look unless the request above changes something: ${lookText(c, id) || 'as in image 1'}. Everything else (place, outfit, pose, framing, light) comes from this text. ${STIL_TAG[st]}`;
+    const p3 = `${stilLead(st)}${asked.length ? `REQUESTED, must be clearly visible: ${asked.join('; ')}. ` : ''}${stilFrame(st, fr.p)}. ${shot}.${fix ? ` Corrections from the previous attempt: ${fix}.` : ''}${nude} Image 1 is ${c.name}'s face: keep her face exact, the same face shape, eyes, nose, lips, skin tone and texture, and any marks.${body ? ` Image 2 is ${c.name}'s body reference: preserve the same build and proportions, particularly the bust volume, projection, shape and width relative to shoulders, ribcage and waist. A very large/prominent bust in the reference must remain very large/prominent; do not normalize or reduce it. Do not copy the reference clothes, pose or background.` : ''} ${c.name}, permanent look unless the request above changes something: ${lookText(c, id) || 'as in image 1'}. Everything else (place, outfit, pose, framing, light) comes from this text. ${STIL_TAG[st]}`;
     let b3 = await f3Image(p3, [face2, body], S.wkSize, signal), ret = false;
     // 9.50: și pe FLUX 3 fața se măsoară în telefon și se retușează dacă s-a îndepărtat (înainte, pe FLUX 3 nu se verifica)
     if(st === 'photo' && rwReady()){
@@ -869,7 +885,10 @@ async function creatorScene(c, shot, signal, fix, opt, full, id, fr){
     }
     return {prompt:p3, blob:b3, engine:'flux3', refs:body ? 'față + corp' : 'față', retouched:ret};
   }
-  let blob = await genImage(prompt, face, signal, null, {model, force:{two:false, px:512}, p1:prompt, why:opt.why || 'chat'});
+  const genOpt = bodyRef
+    ? {model, one:face, p1:prompt, why:opt.why || 'chat'} // încearcă față + corp; la eroare revine automat la față, nu pierde identitatea
+    : {model, force:{two:false, px:512}, p1:prompt, why:opt.why || 'chat'};
+  let blob = await genImage(prompt, face, signal, bodyRef, genOpt);
   // fața: dacă s-a îndepărtat de personaj, retușul obișnuit (doar fața; cadrul și hainele rămân); cu „identitate maximă” îl face idBoost
   if(st === 'photo' && !idBoostOn(c, opt)){
     const lf = await localFace(blob, c);
