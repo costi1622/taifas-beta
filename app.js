@@ -1,5 +1,5 @@
 window.__taifas = true;   // 8.20.1: semn pentru index.html că app.js s-a încărcat
-const APP_VER = '9.41';
+const APP_VER = '9.42';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -38,7 +38,7 @@ const DEF = {
   imgProv:'none',
   wkBase:'', wkTok:'', wkModel:'eco', wkSize:'768x1024',
   sugg:'off', pro:'on', feed:'text', fx:'on', regen3:'on', voice:'tap', tts:'tel', cfPlan:'free', cfCap:'free', theme:'dark', vmsg:'rar', jrn:'on', aux:'on', ctxN:'30',
-  vault:'off', vaultHas:null, faceFix:'on', bodyFix:'on', bestOf:'3', autoModel:'chat', callFace:'on', handCheck:'off', crHands:'on', crAngles:'on', callAmb:'on', callBack:'on', callDepth:'on', callLight:'on', callPres:'on', autoRefs:'on', autoFull:'on', imgRoute:'mix', cfFallback:'off', typeReal:'on', chatMode:'rp', imgCheck:'on', story:'on', sky:'on', social:'on', userBday:'', lock:'off', pushOn:false, bkEvery:'week', bkLast:0, userPhoto:'', userPhys:'', userBox:null, wkChat:'ancorat', wkRef:'auto', rw:'off', rwKey:'', rwCap:'0.5', rwAvg:0, idBoost:'on', spont:'rar', sv:34, imgCost:'', pIn:'', pOut:''
+  vault:'off', vaultHas:null, faceFix:'on', bodyFix:'on', bestOf:'3', autoModel:'chat', callFace:'on', handCheck:'off', crHands:'on', crAngles:'on', callAmb:'on', callBack:'on', callDepth:'on', callLight:'on', callPres:'on', autoRefs:'on', autoFull:'on', imgRoute:'mix', cfFallback:'off', photoEngine:'creator', typeReal:'on', chatMode:'rp', imgCheck:'on', story:'on', sky:'on', social:'on', userBday:'', lock:'off', pushOn:false, bkEvery:'week', bkLast:0, userPhoto:'', userPhys:'', userBox:null, wkChat:'ancorat', wkRef:'auto', rw:'off', rwKey:'', rwCap:'0.5', rwAvg:0, idBoost:'on', spont:'rar', sv:34, imgCost:'', pIn:'', pOut:''
 };
 let S = {...DEF};
 let chars = [];            // [{id,name,tag,photo,aspect,look,stil,persona,speech,greet,created,lastAt,last}]
@@ -768,6 +768,49 @@ JSON, keys in exactly this order, nothing else:
   const cam = String(j.camera || '');
   return {asked, shot: cam && !shot.toLowerCase().includes(cam.toLowerCase().split(' ')[0]) ? cam + ', ' + shot : shot, where: ch.where, together: !!S.userPhoto && (together || j.together === true || /"together"\s*:\s*true/.test(out))};
 }
+/* ───────── 9.42: motorul „ca în creator” pentru pozele din chat (S.photoEngine = 'creator', implicit) ─────────
+   De ce: în chat, generatorul primea până la 4 imagini de model (fața, corpul, unghiurile) și ~250 de cuvinte de reguli care
+   „blocau” coafura, corpul și aspectul „peste orice altceva”; FLUX.2 klein copia din imagini ținuta, poziția și cadrul, iar
+   regulile bateau cererea ta. În creator, unde merge, generatorul primește textul și cel mult fața decupată.
+   Acum, ca în creator: (1) cererea ta e prima în prompt, apoi cadrul și scena; (2) o singură imagine de model, fața decupată
+   (mică, nu poate impune haine sau cadru); (3) aspectul personajului (corp exact, față, păr, semne) ca text, „permanent, în afară
+   de ce schimbă cererea”; (4) fața e apoi măsurată în telefon și retușată dacă s-a îndepărtat; (5) dintre variante rămâne cea
+   cu fața apropiată ȘI care respectă cererea (un singur apel Haiku pentru toate); (6) fără potrivirea de corp de după.
+   Motorul vechi rămâne: Setări → Poze → „Motorul pozelor: Identitate maximă (vechi)”. */
+function lookText(c, id){
+  const p = [];
+  if(c.physEn) p.push(c.physEn);
+  if(id && !id.none && id.phys) p.push(String(id.phys).replace(/(?:^|; )body: not visible/i, ''));
+  if(c.bodyFull && c.photoFull && c.bodyFull.k === c.photoFull && c.bodyFull.t) p.push('whole body: ' + c.bodyFull.t);
+  if(id && id.glasses) p.push('wears ' + id.glasses);
+  if(id && id.marks && id.marks.length) p.push('permanent marks, always in the same place when visible: ' + id.marks.join('; '));
+  return p.filter(Boolean).join('. ').replace(/\s+/g, ' ').slice(0, 1400);
+}
+async function creatorScene(c, shot, signal, fix, opt, full, id, fr){
+  const st = c.stil || 'photo', model = S.wkChat || (S.wkModel === 'eco' ? 'ancorat' : S.wkModel);
+  const asked = (opt.asked || []).filter(Boolean);
+  const face = await cropFace(full, id && !id.none ? id : null);
+  const nude = /\b(nude|naked|unclothed|without clothes|fully undressed|nud[aă])\b/i.test(String(shot || '')) ? ' The person is an adult (18+); non-explicit artistic nudity, not a sexual act.' : '';
+  const prompt = `${stilLead(st)}${asked.length ? `REQUESTED, must be clearly visible: ${asked.join('; ')}. ` : ''}${stilFrame(st, fr.p)}. ${shot}.${fix ? ` Corrections from the previous attempt: ${fix}.` : ''}${nude} The reference image is a close-up of this person's face only: keep exactly this face and identity (face shape, eyes, eyebrows, nose, lips, skin tone and texture, age); everything else comes from this text, not from the reference. The person, permanent look unless the request above changes something: ${lookText(c, id) || 'as in the reference'}. ${NO_BEAUTY} ${STIL_TAG[st]}`;
+  let blob = await genImage(prompt, face, signal, null, {model, force:{two:false, px:512}, p1:prompt, why:opt.why || 'chat'});
+  // fața: dacă s-a îndepărtat de personaj, retușul obișnuit (doar fața; cadrul și hainele rămân); cu „identitate maximă” îl face idBoost
+  if(st === 'photo' && !idBoostOn(c, opt)){
+    const lf = await localFace(blob, c);
+    if(lf.d != null && lf.d > .45){ try{ const r = await retouchBest(c, blob, signal, model, shot, 'retus'); if(r && r.used){ blob = r.blob; addUsage(c.id, imgPrice(), 'img', null, 'retus'); } }catch(e){ if(e.name === 'AbortError') throw e; } }
+  }
+  return {prompt, blob, engine:'creator'};
+}
+// cât respectă fiecare variantă cererea și scena (un singur apel, toate pozele deodată)
+async function adhScores(c, list, shot, asked, signal){
+  try{
+    const imgs = []; for(const x of list) imgs.push(await blobToB64(await toJpeg(x.blob, 512, .82)));
+    const out = await stream('You compare generated photos with a request. Answer with JSON only.', [{role:'user', images:imgs, text:
+`Each of the ${list.length} images should show: "${String(shot).slice(0, 900)}".${asked && asked.length ? ` The user explicitly asked for: ${asked.join('; ')}.` : ''}
+For each image, in order, score 0-10 how well it matches the request and the scene (requested details first, then place, outfit, pose, framing, activity). Ignore who the person is.
+JSON: {"s":[${list.map(() => '0').join(',')}]}`}], {max:120, signal, cid:c.id, aux:true, tag:'pozeai'});
+    const j = parseJSON(out); return Array.isArray(j.s) ? list.map((_, k) => Math.max(0, Math.min(10, +j.s[k] || 0))) : null;
+  }catch(e){ if(e.name === 'AbortError') throw e; return null; }
+}
 // rezervă fără AI: ultima stare cunoscută + acțiunile din ultimul mesaj al personajului (în română; generatorul înțelege și așa)
 function fallbackShot(c, ch, exclude){
   const w = ch.where || {}, last = [...ch.msgs].reverse().find(x => x !== exclude && x.role === 'ai' && x.text && !x.err);
@@ -795,6 +838,7 @@ async function scenePhoto(c, shot, signal, fix, opt = {}){
   }
   const phys = physFull(c, id) ? ` Her/his permanent physical traits (exactly as in the reference): ${physFull(c, id)}.` : '';
   const fixLine = fix ? ` Important corrections from the previous attempt: ${fix}.` : '';
+  if(full && S.imgProv === 'worker' && S.photoEngine !== 'id') return await creatorScene(c, shot, signal, fix, opt, full, id, fr);   // 9.42
   const nudeNote = /\b(nude|naked|unclothed|without clothes|fully undressed|desnuda|desnudo|nud[aă])\b/i.test(String(shot || '')) ? ' The character is an adult (18+) and this is non-explicit artistic nudity, not a sexual act; do not add clothing or underwear.' : '';
   if(full && S.imgProv === 'worker'){
     const R = await idRefs(c);
@@ -943,7 +987,7 @@ const bodyText = (c, id) => {
   return [m ? m[1] : '', full, c && c.physEn || ''].filter(Boolean).join('; ');
 };
 // Potrivirea corpului e un pas separat, declanșat doar când verificarea găsește o diferență reală.
-const bodyFixOn = (c, shot, opt = {}, id) => S.bodyFix !== 'off' && S.imgProv === 'worker' && !!S.wkBase && !!c.photo && !opt.together && (c.stil || 'photo') === 'photo' && (!!bodyText(c, id) || !!c.photoFull) && framingOf(shot).k !== 'close';
+const bodyFixOn = (c, shot, opt = {}, id) => S.photoEngine === 'id' && S.bodyFix !== 'off' && S.imgProv === 'worker' && !!S.wkBase && !!c.photo && !opt.together && (c.stil || 'photo') === 'photo' && (!!bodyText(c, id) || !!c.photoFull) && framingOf(shot).k !== 'close';
 async function bodyPass(c, blob, signal, shot){
   const prof = c.photo ? await DB.get(c.photo) : null; if(!prof) return null;
   let id = null; try{ id = await identityOf(c); }catch(e){}
@@ -1145,10 +1189,12 @@ async function bestScene(c, shot, signal, corr, opt = {}){
   // 9.36: și silueta (piept, talie, șolduri) față de poza întreagă, măsurată în telefon; fața rămâne criteriul principal
   const rb = framingOf(shot).k !== 'close' ? await refBodySig(c).catch(() => null) : null;
   if(rb) for(const x of ok){ x.bd = bodyDist(await bodySig(x.blob), rb); }
-  const tot = x => (x.fd ?? .9) + (x.bd != null ? Math.min(.4, x.bd) * .6 : (rb ? .06 : 0));
+  // 9.42: cu motorul „ca în creator”, contează și cât respectă cererea (altfel câștiga varianta care copia poza de profil)
+  if(S.photoEngine !== 'id' && ok.length > 1 && aiReady() && S.imgCheck !== 'off'){ const sc = await adhScores(c, ok, shot, opt.asked, signal); if(sc) ok.forEach((x, k) => x.adh = sc[k]); }
+  const tot = x => (x.fd ?? .9) + (x.bd != null ? Math.min(.4, x.bd) * .6 : (rb ? .06 : 0)) - (x.adh != null ? x.adh * .03 : 0);
   ok.sort((a, b) => tot(a) - tot(b));
   if(ok.length > 1) addUsage(c.id, imgPrice() * (ok.length - 1), 'img', null, opt.tag || 'poze');   // prima e numărată de cine a cerut poza
-  const best = ok[0]; best.cands = ok.map(x => x.fd); if(rb) best.bodyCands = ok.map(x => x.bd);
+  const best = ok[0]; best.cands = ok.map(x => x.fd); if(rb) best.bodyCands = ok.map(x => x.bd); if(ok.some(x => x.adh != null)) best.adhCands = ok.map(x => x.adh);
   return best;
 }
 // generează, retușează fața, verifică; dacă e cazul, încă un retuș (9B) sau o refacere completă; păstrează varianta mai bună
@@ -7475,7 +7521,7 @@ const aiReady = () => hasKey('anthropic');
 const FIELDS = {stKey:'key', stModel:'model', stUser:'userName', stAbout:'userAbout', stBday:'userBday',
   stWkBase:'wkBase', stWkTok:'wkTok', stWkModel:'wkModel', stWkSize:'wkSize',
   stPin:'pIn', stPout:'pOut', stVkBase:'wkBase', stVkTok:'wkTok', stRwKey:'rwKey'};
-const SEGS = {stRw:'rw', stRwCap:'rwCap', stIdBoost:'idBoost', stRegen:'regen3', stFx:'fx', stFeed:'feed', stStory:'story', stSky:'sky', stSocial:'social', stCfCap:'cfCap', stCfPlan:'cfPlan', stAux:'aux', stCtx:'ctxN', stVmsg:'vmsg', stJrn:'jrn', stTheme:'theme', stLen:'len', stFont:'font', stImg:'imgProv', stSugg:'sugg', stPro:'pro', stVoice:'voice', stSpont:'spont', stImgCheck:'imgCheck', stBodyFix:'bodyFix', stWkChat:'wkChat', stBkEvery:'bkEvery', stVault:'vault', stCallFace:'callFace', stCallAmb:'callAmb', stCallBack:'callBack', stCallDepth:'callDepth', stCallLight:'callLight', stCallPres:'callPres', stTypeReal:'typeReal', stAutoRefs:'autoRefs', stAutoFull:'autoFull', stImgRoute:'imgRoute', stCfFallback:'cfFallback', stChatMode:'chatMode'};
+const SEGS = {stRw:'rw', stRwCap:'rwCap', stIdBoost:'idBoost', stRegen:'regen3', stFx:'fx', stFeed:'feed', stStory:'story', stSky:'sky', stSocial:'social', stCfCap:'cfCap', stCfPlan:'cfPlan', stAux:'aux', stCtx:'ctxN', stVmsg:'vmsg', stJrn:'jrn', stTheme:'theme', stLen:'len', stFont:'font', stImg:'imgProv', stSugg:'sugg', stPro:'pro', stVoice:'voice', stSpont:'spont', stImgCheck:'imgCheck', stBodyFix:'bodyFix', stWkChat:'wkChat', stBkEvery:'bkEvery', stVault:'vault', stCallFace:'callFace', stCallAmb:'callAmb', stCallBack:'callBack', stCallDepth:'callDepth', stCallLight:'callLight', stCallPres:'callPres', stTypeReal:'typeReal', stAutoRefs:'autoRefs', stAutoFull:'autoFull', stImgRoute:'imgRoute', stCfFallback:'cfFallback', stPhotoEngine:'photoEngine', stChatMode:'chatMode'};
 let setPanel = null, setPanelPushed = false;
 /* 8.7: actualizare din aplicație. Codul vine oricum din rețea la pornire;
    asta prinde versiunile apărute cât aplicația a stat deschisă și forțează reîncărcarea curată. */
@@ -8211,6 +8257,8 @@ async function init(){
   if((S.sv || 0) < 41){ if(S.rw === 'on'){ S.imgRoute = 'rw'; S.cfFallback = 'off'; } S.sv = 41; saveSettings(); }
   // 9.39: activează potrivirea corporală condiționată; rulează doar când verificarea detectează o diferență.
   if((S.sv || 0) < 42){ S.bodyFix = 'on'; S.sv = 42; saveSettings(); }
+  // 9.42: pozele din chat trec pe motorul „ca în creator” (o dată; motorul vechi se poate alege din Setări → Poze)
+  if((S.sv || 0) < 43){ S.photoEngine = 'creator'; S.sv = 43; saveSettings(); }
   onlyOurProviders();   // 9.19: la fiecare pornire (și după o restaurare dintr-un backup vechi)
   if(cspSync(true)) return;   // 8.20: adresă nouă → repornim o dată, ca politica de securitate să o permită
   chars = (await DB.get('chars') || []).filter(c => c && c.id && c.name);
