@@ -1,5 +1,5 @@
 window.__taifas = true;   // 8.20.1: semn pentru index.html că app.js s-a încărcat
-const APP_VER = '9.50';
+const APP_VER = '9.51';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -37,7 +37,7 @@ const DEF = {
   userName:'', userAbout:'', len:'mediu', font:16,
   imgProv:'none',
   wkBase:'', wkTok:'', wkModel:'eco', wkSize:'768x1024',
-  sugg:'off', pro:'on', feed:'text', smart:'on', lenAuto:'on', cacheTtl:'auto', fx:'on', regen3:'on', voice:'tap', tts:'tel', cfPlan:'free', cfCap:'free', theme:'dark', vmsg:'rar', jrn:'on', aux:'on', ctxN:'30',
+  sugg:'off', pro:'on', feed:'text', smart:'on', lenAuto:'on', cacheTtl:'1h', fx:'on', regen3:'on', voice:'tap', tts:'tel', cfPlan:'free', cfCap:'free', theme:'dark', vmsg:'rar', jrn:'on', aux:'on', ctxN:'30',
   vault:'off', vaultHas:null, faceFix:'on', bodyFix:'on', bestOf:'3', autoModel:'chat', callFace:'on', handCheck:'off', crHands:'on', crAngles:'on', callAmb:'on', callBack:'on', callDepth:'on', callLight:'on', callPres:'on', autoRefs:'on', autoFull:'on', imgRoute:'mix', cfFallback:'off', photoEngine:'creator', photoModel:'klein', people:'on', typeReal:'on', chatMode:'rp', imgCheck:'on', story:'on', sky:'on', social:'on', userBday:'', lock:'off', pushOn:false, bkEvery:'week', bkLast:0, userPhoto:'', userPhys:'', userBox:null, wkChat:'ancorat', wkRef:'auto', rw:'off', rwKey:'', rwCap:'0.5', rwAvg:0, idBoost:'on', spont:'rar', sv:34, imgCost:'', pIn:'', pOut:''
 };
 let S = {...DEF};
@@ -1917,7 +1917,9 @@ function groupSystem(c, g, gc = gchat, x = {}){
 }
 function gContext(c, gc = gchat){
   const u = S.userName.trim() || 'Utilizatorul', out = [];
-  for(const m of gc.msgs.slice(-30)){
+  // 9.51: fereastră care se mută din 20 în 20 (nu la fiecare mesaj), ca începutul conversației să rămână în cache
+  const n = gc.msgs.length, from = Math.floor(Math.max(0, n - 30) / 20) * 20;
+  for(const m of gc.msgs.slice(from)){
     if(m.err || m.role === 'sys' || (!m.text && !m.img)) continue;
     const mine = m.role === 'ai' && m.cid === c.id, role = mine ? 'assistant' : 'user';
     const re = m.re ? `[re: ${m.re.text.split(/\s+/).slice(0, 6).join(' ')}] ` : '';
@@ -1929,6 +1931,7 @@ function gContext(c, gc = gchat){
   }
   if(!out.length || out[0].role !== 'user') out.unshift({role:'user', text:'(începe conversația de grup)'});
   if(out[out.length - 1].role !== 'user') out.push({role:'user', text:'(continuă tu, ' + c.name + ', firesc)'});
+  if(out.length >= 3) out[out.length - 2]._cache = true;   // 9.51: punctul de cache: tot ce e înaintea ultimelor mesaje
   return out;
 }
 // (3) [re: …] → mesajul din grup citat
@@ -1979,7 +1982,7 @@ async function gRespond(text, more, forcePhoto, x = {}){
       if(ac.signal.aborted || gc.dead) break;
       ac.typing = [c].concat(k + 1 < repl.length && Math.random() < .35 ? [repl[k + 1]] : []); if(grp === g) renderGroup();
       const t0 = Date.now(); let out = '';
-      try{ out = await stream(groupSystem(c, g, gc, x), gContext(c, gc), {max:500, signal:ac.signal, cid:c.id, tag:'grup'}); }
+      try{ out = await stream(groupSystem(c, g, gc, x), gContext(c, gc), {max:500, signal:ac.signal, cid:c.id, tag:'grup', conv:true, cold:true}); }   // 9.51: cache pe 5 min (fișa + istoricul grupului), citit la 5% din preț
       catch(e){ if(e.name === 'AbortError') break; gc.msgs.push({id:uid(), role:'ai', cid:c.id, text:'', err:e.message || 'Eroare', ts:Date.now()}); break; }
       let tx = faraLiniute(stripMood(stripReact(String(out || '').replace(RE_ANY, '⟦RE⟧$1⟦/RE⟧'))));
       let re = null; tx = tx.replace(/⟦RE⟧([^⟦]*)⟦\/RE⟧\s*/, (a, f) => { re = gFindQuoted(f, gc.msgs.length, gc); return ''; });
@@ -9059,6 +9062,7 @@ async function init(){
   if((S.sv || 0) < 42){ S.bodyFix = 'on'; S.sv = 42; saveSettings(); }
   // 9.42: pozele din chat trec pe motorul „ca în creator” (o dată; motorul vechi se poate alege din Setări → Poze)
   if((S.sv || 0) < 43){ S.photoEngine = 'creator'; S.sv = 43; saveSettings(); }
+  if((S.sv || 0) < 44){ if(S.cacheTtl === 'auto') S.cacheTtl = '1h'; S.sv = 44; saveSettings(); }   // 9.51: cache-ul de 5 min a dus la rescrieri complete după pauze de 5-60 min (mai scump decât economia)
   onlyOurProviders();   // 9.19: la fiecare pornire (și după o restaurare dintr-un backup vechi)
   if(cspSync(true)) return;   // 8.20: adresă nouă → repornim o dată, ca politica de securitate să o permită
   chars = (await DB.get('chars') || []).filter(c => c && c.id && c.name);
