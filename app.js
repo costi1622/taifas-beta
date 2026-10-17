@@ -1,5 +1,5 @@
 window.__taifas = true;   // 8.20.1: semn pentru index.html că app.js s-a încărcat
-const APP_VER = '9.39';
+const APP_VER = '9.40';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -3118,7 +3118,7 @@ function msgHTML(m, i, lastAi, anim, g = ''){
     under = `<div class="under last">
       ${n > 1 ? `<button data-alt="-1" ${m.alt <= 0 ? 'disabled' : ''}>‹</button><span>${(m.alt || 0) + 1}/${n}</span><button data-alt="1" ${m.alt >= n - 1 ? 'disabled' : ''}>›</button>` : ''}
       ${m.img && m.imgAlts && m.imgAlts.length > 1 ? `<button data-ia="-1" ${m.ia <= 0 ? 'disabled' : ''}>‹</button><span>${m.ia + 1}/${m.imgAlts.length}</span><button data-ia="1" ${m.ia >= m.imgAlts.length - 1 ? 'disabled' : ''}>›</button>` : ''}
-      ${m.img && !m.err ? `<button data-rephoto>🎲 Altă poză</button>` : ''}
+      ${m.img && !m.err ? `<button data-pedit>✏️ Modifică</button><button data-rephoto>🎲 Altă poză</button>` : ''}
       ${m.img || !m.alts ? '' : `<button data-regen>↻ Altul</button>${S.regen3 === 'on' && n > 1 && !m.err ? '<button data-more3>🎰 +2</button>' : ''}`}
       ${m.cut ? `<span class="cutn">${m.cut === 'refusal' ? '⚠️ întrerupt de furnizor' : m.cut === 'len' ? '✂️ prea lung, tăiat' : '📶 conexiune întreruptă'}</span>` : ''}
       ${m.err ? '' : `<button data-cont>▶ Continuă</button>`}
@@ -4695,9 +4695,17 @@ async function askPhoto(spont, target, mode, opt = {}){
     const promised = !target && spont && ch.nextShot ? ch.nextShot.t : '';      // descrierea scrisă chiar de personaj când a trimis poza
     if(promised) delete ch.nextShot;
     let shot, where = null, asked = [], together = !!(opt.together || (target && target.together)) && !!S.userPhoto;
-    if(target && mode === 'same' && target.scene){ shot = target.scene; where = target.where || null; asked = target.asked || []; }
+    let edited = null, editLog = null;
+    if(target && mode === 'edit' && opt.edit){   // 9.40: ✏️ Modifică poza
+      const E = opt.edit, base = await DB.get(target.img); if(!base) throw new Error('Nu găsesc poza.');
+      pstage(busy.signal, '✏️ Înțelege ce schimbi', 20);
+      const tr = await editPlan(c, target.scene || '', E.ro, busy.signal);
+      asked = [tr.en]; where = target.where || null; shot = tr.shot; editLog = {t:E.ro, kind:E.kind, ts:Date.now()};
+      if(E.kind !== 'scene') edited = await editPhoto(c, base, tr.en, busy.signal, asked, shot);
+    }
+    else if(target && mode === 'same' && target.scene){ shot = target.scene; where = target.where || null; asked = target.asked || []; }
     else { const pl = await planShot(c, ch, {promised, exclude:m, signal:busy.signal, together}); shot = pl.shot; where = pl.where; together = pl.together; asked = pl.asked || []; shot = giftDetail(c, shot, where); }
-    let {prompt, blob, check, retried, bd} = await makeScenePhoto(c, shot, busy.signal, {together, asked});
+    let {prompt, blob, check, retried, bd} = edited || await makeScenePhoto(c, shot, busy.signal, {together, asked});
     try{ if(blob.type === 'image/png') blob = await toJpeg(blob, 2048, .92); }catch(e){}   // PNG → JPEG: de ~5 ori mai puțin spațiu
     const k = await saveImg(blob);
     clearInterval(pT); if(live && live.stage){ live.stage.t = '✅ Gata'; live.stage.pv = 100; const st = $('#msgs .picload .plst'); if(st) st.textContent = '✅ Gata'; pDraw(100); await new Promise(r => setTimeout(r, 420)); }
@@ -4709,6 +4717,7 @@ async function askPhoto(spont, target, mode, opt = {}){
       while(m.imgAlts.length > 5){ const old = m.imgAlts.shift(); if(old !== c.photo) delImg(old).catch(() => {}); }
       m.ia = m.imgAlts.length - 1;
     }
+    if(editLog){ m.edits = (m.edits || []).concat(editLog).slice(-10); }   // 9.40
     m.img = k; m.prompt = prompt; m.scene = shot; if(where) m.where = where; if(asked.length) m.asked = asked; else delete m.asked; if(together) m.together = true; else delete m.together; if(check) m.check = check; else delete m.check;
     addUsage(c.id, imgPrice(), 'img');
     if(bd != null) m.bd = Math.round(bd * 1000) / 1000; else delete m.bd;
@@ -4767,8 +4776,9 @@ function msgSheet(i){
   if(m.text && !me) opts.push(['🔊', 'Citește cu voce', () => say(m.text, m)]);
   if(m.text && !me && learnOn(cur)) opts.push(['🔤', m.tr ? (m.trOn ? 'Ascunde traducerea' : 'Arată traducerea') : 'Tradu în română', () => translateMsg(m)]);
   if(m.text && !busy) opts.push(['✏️', me ? 'Editează și retrimite' : 'Editează', () => editMsg(i)]);
+  if(m.img && !me && !busy && S.imgProv !== 'none') opts.push(['✏️', 'Modifică poza', () => setTimeout(() => editPhotoSheet(i), 50)]);   // 9.40
   if(m.img && !me && !busy && S.imgProv !== 'none'){ opts.push(['🎲', 'Altă variantă (aceeași scenă)', () => askPhoto(false, m, 'same')]); opts.push(['🔄', 'Altă poză (altă scenă)', () => askPhoto(false, m, 'new')]); }
-  if(m.img && m.scene && !me) opts.push(['📝', 'Ce scenă a ales', () => openSheet(`<h4>Scena pozei</h4><div class="pad">${m.where ? `<p class="wline">📍 ${esc([m.where.room && m.where.room !== 'other' ? (ROOM_RO[m.where.room] || m.where.room) : m.where.place, m.where.position].filter(Boolean).join(' · '))}${m.where.outfit ? '<br>👗 ' + esc(m.where.outfit) : ''}</p>` : ''}${m.asked && m.asked.length ? `<p class="wline">🙋 Ai cerut: ${esc(m.asked.join(' · '))}</p>` : ''}<p style="color:var(--tx2);line-height:1.5">${esc(m.scene)}</p>${m.check ? `<p class="hint">Verificare: ${m.check.d !== undefined ? '🧬 ' + (m.check.d != null ? idPct(m.check.d) + '% · ' + idLabel(m.check.d) : 'fața nu se vede') : 'seamănă ' + m.check.face + '/10'} · scena ${m.check.scene ?? '?'}/10 · încadrarea ${m.check.framing ?? '?'}/10${m.check.hair != null ? ' · părul ' + m.check.hair + '/10' : ''}${m.check.marks != null ? ' · semnele ' + m.check.marks + '/10' : ''}${m.check.body != null ? ' · corpul ' + m.check.body + '/10' : ''}${m.check.asked != null ? ' · ce ai cerut ' + m.check.asked + '/10' + (m.check.missing ? ' (lipsea: ' + esc(m.check.missing.join(', ')) + ')' : '') : ''}${m.check.expr != null ? ' · expresia ' + m.check.expr + '/10' : ''}${m.rwCost ? '<br>💵 Runware: ' + usd4(m.rwCost) + ' (' + m.rwGens + ' ' + (m.rwGens === 1 ? 'generare' : 'generări') + ')' : ''}${m.bd != null ? '<br>🧍 silueta (telefon): ' + Math.max(0, Math.round(100 - m.bd * 250)) + '% față de poza întreagă' : ''}${m.cands && m.cands.length > 1 ? '<br>🎯 aleasă din ' + m.cands.length + ': ' + m.cands.map(d => d == null ? '?' : idPct(d) + '%').join(' · ') : ''}</p>` : ''}</div>`)]);
+  if(m.img && m.scene && !me) opts.push(['📝', 'Ce scenă a ales', () => openSheet(`<h4>Scena pozei</h4><div class="pad">${m.where ? `<p class="wline">📍 ${esc([m.where.room && m.where.room !== 'other' ? (ROOM_RO[m.where.room] || m.where.room) : m.where.place, m.where.position].filter(Boolean).join(' · '))}${m.where.outfit ? '<br>👗 ' + esc(m.where.outfit) : ''}</p>` : ''}${m.asked && m.asked.length ? `<p class="wline">🙋 Ai cerut: ${esc(m.asked.join(' · '))}</p>` : ''}${(m.edits || []).length ? `<p class="wline">✏️ Modificări: ${esc(m.edits.map(x => x.t).join(' → '))}</p>` : ''}<p style="color:var(--tx2);line-height:1.5">${esc(m.scene)}</p>${m.check ? `<p class="hint">Verificare: ${m.check.d !== undefined ? '🧬 ' + (m.check.d != null ? idPct(m.check.d) + '% · ' + idLabel(m.check.d) : 'fața nu se vede') : 'seamănă ' + m.check.face + '/10'} · scena ${m.check.scene ?? '?'}/10 · încadrarea ${m.check.framing ?? '?'}/10${m.check.hair != null ? ' · părul ' + m.check.hair + '/10' : ''}${m.check.marks != null ? ' · semnele ' + m.check.marks + '/10' : ''}${m.check.body != null ? ' · corpul ' + m.check.body + '/10' : ''}${m.check.asked != null ? ' · ce ai cerut ' + m.check.asked + '/10' + (m.check.missing ? ' (lipsea: ' + esc(m.check.missing.join(', ')) + ')' : '') : ''}${m.check.expr != null ? ' · expresia ' + m.check.expr + '/10' : ''}${m.rwCost ? '<br>💵 Runware: ' + usd4(m.rwCost) + ' (' + m.rwGens + ' ' + (m.rwGens === 1 ? 'generare' : 'generări') + ')' : ''}${m.bd != null ? '<br>🧍 silueta (telefon): ' + Math.max(0, Math.round(100 - m.bd * 250)) + '% față de poza întreagă' : ''}${m.cands && m.cands.length > 1 ? '<br>🎯 aleasă din ' + m.cands.length + ': ' + m.cands.map(d => d == null ? '?' : idPct(d) + '%').join(' · ') : ''}</p>` : ''}</div>`)]);
   if(m.img) opts.push(['💾', 'Salvează poza în telefon', () => saveImage(m.img)]);
   if(m.img && canShareFiles()) opts.push(['↗️', 'Trimite poza în altă aplicație', () => shareImage(m.img)]);
   if(m.img && !me) opts.push(['🖼️', 'Fă-o poză de profil', async () => {
@@ -4779,10 +4789,84 @@ function msgSheet(i){
   if(!busy && i < chat.msgs.length - 1) opts.push(['⤺', 'Șterge tot de aici în jos', async () => { const c = cur; const gone = chat.msgs.splice(i); cutAt(chat, i); for(const x of gone) await purgeMsg(x, c); await saveChat(); renderMsgs(); }, 'dan']);
   sheet(opts);
 }
+/* ───────── 9.40: ✏️ Modifică poza (ca la Botify) ─────────
+   Pe orice poză primită: scrii ce schimbi (ținuta, locul, poziția, expresia, părul, încadrarea, lumina…). Două feluri:
+   „✂️ Doar ce scriu”: poza de acum e editată (imaginea 1) cu fața personajului ca reper (imaginea 2); se schimbă doar ce ceri.
+   „🎬 Poză nouă cu schimbarea”: descrierea scenei e rescrisă cu schimbarea și poza se face din nou, prin motorul de identitate.
+   Rezultatul intră ca variantă nouă a pozei (‹ ›); fața e măsurată în telefon (retuș dacă s-a îndepărtat), iar verificarea
+   punctează dacă schimbarea cerută se vede (altfel încă o încercare). Regulile de siguranță ale aplicației rămân aceleași. */
+const PE_CHIPS = [['👗 Ținuta', 'poartă '], ['📍 Locul', 'să fie în '], ['🧍 Poziția', 'poziția: '], ['😊 Expresia', 'expresia: '], ['💇 Părul', 'părul: '], ['📸 Încadrarea', 'încadrarea: '], ['🌅 Lumina', 'lumina: ']];
+async function editPhotoSheet(i){
+  const m = chat.msgs[i]; if(!m || !m.img || m.role !== 'ai' || busy) return;
+  if(S.imgProv === 'none'){ toast('Pornește pozele din Setări.'); return; }
+  const b = await DB.get(m.img).catch(() => null); const url = b ? URL.createObjectURL(b) : '';
+  let kind = 'edit';
+  openSheet(`<h4>✏️ Modifică poza</h4><div class="pad">
+    <div class="pedit">${url ? `<img src="${url}" alt="">` : ''}<div>
+      <div class="seg" id="peKind"><button data-v="edit" class="on">✂️ Doar ce scriu</button><button data-v="scene">🎬 Poză nouă</button></div>
+      <p class="hint" id="peHint"></p></div></div>
+    <div class="chipset" id="peChips">${PE_CHIPS.map(([l, q]) => `<button type="button" data-q="${esc(q)}">${esc(l)}</button>`).join('')}</div>
+    <textarea id="peTxt" rows="3" maxlength="400" placeholder="ex. rochie roșie scurtă și cercei mari · zâmbește larg · pe balcon, la apus · de aproape"></textarea>
+    ${(m.edits || []).length ? `<div class="chipset" id="peLast"><small style="width:100%;color:var(--tx3)">Ultimele modificări:</small>${m.edits.slice(-3).reverse().map(x => `<button type="button" data-l="${esc(x.t)}">↺ ${esc(x.t.slice(0, 40))}</button>`).join('')}</div>` : ''}
+    <div class="btns"><button class="btn pri" id="peGo">✏️ Modifică</button></div></div>`);
+  const hint = () => { $('#peHint').textContent = kind === 'edit' ? 'Păstrează poza așa cum e (loc, poziție, cadru) și schimbă doar ce scrii. Bun pentru ținută, păr, expresie, accesorii, culori.' : 'Face o poză nouă, cu aceeași scenă și schimbarea ta. Bun pentru alt loc, altă poziție sau alt cadru.'; };
+  hint();
+  $('#peKind').onclick = e => { const bt = e.target.closest('[data-v]'); if(!bt) return; kind = bt.dataset.v; $$('#peKind button').forEach(x => x.classList.toggle('on', x === bt)); hint(); };
+  $('#peChips').onclick = e => { const bt = e.target.closest('[data-q]'); if(!bt) return; const t = $('#peTxt'); t.value = (t.value.trim() ? t.value.trim() + '; ' : '') + bt.dataset.q; t.focus(); };
+  if($('#peLast')) $('#peLast').onclick = e => { const bt = e.target.closest('[data-l]'); if(bt) $('#peTxt').value = bt.dataset.l; };
+  $('#peGo').onclick = () => {
+    const ro = $('#peTxt').value.trim().replace(/[;:\s]+$/, '');
+    if(ro.length < 3){ toast('Scrie ce schimbi.'); return; }
+    if(CR_MINOR.test(ro)){ toast('Personajele din Taifas sunt adulte.'); return; }
+    closeSheet(); if(url) URL.revokeObjectURL(url);
+    askPhoto(false, m, 'edit', {edit:{ro, kind}});
+  };
+}
+// cererea (română) → instrucțiunea în engleză + descrierea scenei rescrisă cu schimbarea
+async function editPlan(c, scene, ro, signal){
+  try{
+    const j = await crAskJSON('You turn photo-change requests into English for an image generator. Answer with JSON only.',
+`Current photo description: "${String(scene || '(not available)').slice(0, 900)}"
+The user wants this change (Romanian): "${ro}"
+Return JSON: {"en":"the change as one short, precise English instruction, keeping every detail the user gave (colors, items, place, pose, expression)","shot":"the full photo description rewritten with the change applied and everything else kept the same, 50-90 words"}`, 700);
+    const en = String(j.en || '').trim(), shot = String(j.shot || '').trim();
+    if(en) return {en:en.slice(0, 400), shot:(shot || [scene, en].filter(Boolean).join('. ')).slice(0, 1200)};
+  }catch(e){ if(e.name === 'AbortError') throw e; }
+  return {en:ro, shot:[scene, ro].filter(Boolean).join('. ')};
+}
+async function imgSize(blob){
+  const u = URL.createObjectURL(blob);
+  try{ const im = await loadImgEl(u), k = 1024 / Math.max(im.naturalWidth, im.naturalHeight), r = v => Math.max(256, Math.round(v * k / 16) * 16); return r(im.naturalWidth) + 'x' + r(im.naturalHeight); }
+  catch(e){ return S.wkSize || '768x1024'; } finally { URL.revokeObjectURL(u); }
+}
+async function editPhoto(c, base, en, signal, asked, shot){
+  pstage(signal, '✏️ Modifică poza', 40);
+  let R = null; try{ R = c.photo ? await idRefs(c) : null; }catch(e){}
+  const st = c.stil || 'photo', size = await imgSize(base), model = S.wkChat || 'ancorat';
+  const mk = fix => {
+    const p2 = `${stilLead(st)}Edit image 1: ${en}.${fix ? ' Make sure: ' + fix + '.' : ''} Image 2 shows the face of this same person: keep exactly that face and identity (face shape, eyes, nose, lips, skin, age), the same hair unless the change is about the hair, and the same body and proportions. Change ONLY what is asked; everything else from image 1 stays exactly as it is (the other clothes, the place, the pose, the framing, the light), unless the change itself requires it. ${STIL_TAG[st]}`;
+    const p1 = `${stilLead(st)}Edit this photo: ${en}.${fix ? ' Make sure: ' + fix + '.' : ''} Keep the same person with the same face, hair, body and proportions; change ONLY what is asked, everything else stays exactly as it is. ${STIL_TAG[st]}`;
+    return {p2, p1};
+  };
+  const gen = async fix => { const {p2, p1} = mk(fix); return {prompt:p2, blob:await genImage(p2, base, signal, R && R.face, {model, force:{two:!!(R && R.face), px:1024}, px1:1024, size, p1, why:'editare'})}; };
+  const polish = async x => {   // fața: dacă s-a îndepărtat de personaj, retușul obișnuit (doar dacă iese mai aproape)
+    if(!c.photo || st !== 'photo') return x;
+    const lf = await localFace(x.blob, c); x.fd = lf.d;
+    if(lf.d != null && lf.d > ID_MAX){ try{ const r = await retouchBest(c, x.blob, signal, model, shot, 'retus'); if(r && r.used){ x.blob = r.blob; x.fd = r.d; } }catch(e){ if(e.name === 'AbortError') throw e; } }
+    return x;
+  };
+  let a = await polish(await gen(''));
+  if(S.imgCheck === 'off' || !aiReady()) return a;
+  try{ a.check = await checkPhoto(c, a.blob, shot, signal, false, asked); }catch(e){ if(e.name === 'AbortError') throw e; return a; }
+  if(!(a.check && a.check.asked != null && a.check.asked < 7)) return a;
+  let b; try{ b = await polish(await gen((a.check.missing || []).join(', ') || en)); b.check = await checkPhoto(c, b.blob, shot, signal, false, asked); }catch(e){ if(e.name === 'AbortError') throw e; return a; }
+  const sc = x => x && x.check ? (x.check.asked ?? 5) * 2 + (x.check.face ?? 5) + (x.check.body ?? 6) * .6 : 0;
+  const best = sc(b) > sc(a) ? b : a; best.retried = true; return best;
+}
 function rephotoMenu(i){
   const m = chat.msgs[i]; if(!m || busy) return;
   if(S.imgProv === 'none'){ toast('Pornește pozele din Setări.'); return; }
-  sheet([['🎲', 'Altă variantă, aceeași scenă', () => askPhoto(false, m, 'same')], ['🔄', 'Altă poză, altă scenă', () => askPhoto(false, m, 'new')]]);
+  sheet([['✏️', 'Modifică poza (scrii ce schimbi)', () => setTimeout(() => editPhotoSheet(i), 50)], ['🎲', 'Altă variantă, aceeași scenă', () => askPhoto(false, m, 'same')], ['🔄', 'Altă poză, altă scenă', () => askPhoto(false, m, 'new')]]);
 }
 // trecerea între alternative: fiecare își păstrează felul ei (vocal / tăiat)
 function setAlt(m, k){
@@ -7946,6 +8030,7 @@ function bind(){
     const ia = e.target.closest('[data-ia]');
     if(ia){ m.ia = Math.max(0, Math.min(m.imgAlts.length - 1, m.ia + +ia.dataset.ia)); m.img = m.imgAlts[m.ia]; saveChat(); renderMsgs(); return; }
     if(e.target.closest('[data-rephoto]')){ rephotoMenu(i); return; }
+    if(e.target.closest('[data-pedit]')){ editPhotoSheet(i); return; }   // 9.40
     const a = e.target.closest('[data-alt]');
     if(a){ setAlt(m, (m.alt || 0) + +a.dataset.alt); saveChat(); renderMsgs(); return; }
     const q = e.target.closest('[data-q]');
