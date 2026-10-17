@@ -415,6 +415,7 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
 .vpk:active{border-color:var(--acc)}
 .vpk .vh{display:flex;justify-content:space-between;align-items:center;font-size:.74rem;color:var(--tx3);margin-bottom:6px;font-weight:700;letter-spacing:.3px}
 .vpk .vh span{color:var(--acc)}
+.ppl{display:flex;flex-direction:column;gap:8px;margin-top:8px}.pplr{display:flex;align-items:center;gap:10px}.pplr img{width:44px;height:44px;border-radius:50%;object-fit:cover;flex:none;background:var(--bg2)}.pplr > div{flex:1;min-width:0}.pplr small{display:block;color:var(--tx3);font-size:.78rem}
 .pedit{display:flex;gap:12px;align-items:flex-start;margin-bottom:10px}.pedit img{width:86px;height:114px;object-fit:cover;border-radius:12px;flex:none}.pedit > div{flex:1;min-width:0}.pedit .seg{margin:0}
 #peChips,#peLast{margin:8px 0}#peTxt{width:100%}
 .vpk.vhum{border-color:color-mix(in srgb,var(--acc) 55%,var(--line))}
@@ -1827,6 +1828,9 @@ details.sdanger>summary{color:var(--err)}
           <div class="seg" id="stRw"><button data-v="off">Cloudflare</button><button data-v="on">⚡ Runware</button></div>
           <p class="hint" id="stRwHint"></p>
           <div id="stRwBox" hidden>
+            <label style="margin-top:10px">Modelul pozelor pe Runware</label>
+            <div class="seg" id="stPhotoModel"><button data-v="klein">⚡ Klein 9B · ~$0,004</button><button data-v="flux3">💎 FLUX 3 · ~$0,041</button></div>
+            <p class="hint">💎 FLUX 3 Image: model mare, făcut pentru editări („Modifică poza”) și pentru a păstra aceeași persoană din fața și corpul ei; o singură poză în loc de 3 variante + retușuri. Klein: de ~10 ori mai ieftin.</p>
             <label style="margin-top:10px">Ce merge pe Runware</label>
             <div class="seg" id="stImgRoute"><button data-v="rw">⚡ Totul</button><button data-v="mix">Doar pozele 9B</button></div>
             <label style="margin-top:10px">Rezervă pe Cloudflare (când Runware nu merge sau atingi plafonul)</label>
@@ -1842,6 +1846,8 @@ details.sdanger>summary{color:var(--err)}
             </details>
           </div>
         </div>
+        <label style="margin-top:14px">👥 Poze cu oamenii din viața personajului (sora, prietena, colegul…)</label>
+        <div class="seg" id="stPeople"><button data-v="on">Pornit</button><button data-v="off">Oprit</button></div>
         <label style="margin-top:14px">Motorul pozelor din chat</label>
         <div class="seg" id="stPhotoEngine"><button data-v="creator">✨ Ca în creator</button><button data-v="id">🧬 Identitate maximă (vechi)</button></div>
         <p class="hint">Ca în creator: generatorul ascultă de ce scrii (cadru, ținută, păr, corp), cu fața ta decupată ca model și retușată după. Identitate maximă: 2–4 imagini de model; fața ține mai bine, dar copiază des ținuta, poziția și cadrul din model.</p>
