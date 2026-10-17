@@ -416,6 +416,24 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
 .vpk .vh{display:flex;justify-content:space-between;align-items:center;font-size:.74rem;color:var(--tx3);margin-bottom:6px;font-weight:700;letter-spacing:.3px}
 .vpk .vh span{color:var(--acc)}
 .ppl{display:flex;flex-direction:column;gap:8px;margin-top:8px}.pplr{display:flex;align-items:center;gap:10px}.pplr img{width:44px;height:44px;border-radius:50%;object-fit:cover;flex:none;background:var(--bg2)}.pplr > div{flex:1;min-width:0}.pplr small{display:block;color:var(--tx3);font-size:.78rem}
+#gMsgs{flex:1;overflow-y:auto;padding:14px 12px 8px;display:flex;flex-direction:column;gap:10px}
+#gComposer{display:flex;align-items:flex-end;gap:6px;padding:8px 10px calc(8px + var(--safe-b));flex:none}
+#gInp{flex:1;resize:none;max-height:140px;min-height:44px;padding:11px 16px;border-radius:22px;border:1px solid var(--line);background:var(--bg2);outline:none;line-height:1.35;color:var(--tx)}
+#gSend{width:44px;height:44px;border-radius:50%;background:var(--grad);color:#fff;display:grid;place-items:center;flex:none}
+#gSend.stop{background:var(--card);border:1px solid var(--line)}
+#gChips{display:flex;gap:6px;overflow-x:auto;padding:0 12px;flex:none}
+#gChips button{padding:5px 11px;border-radius:99px;background:var(--bg2);border:1px solid var(--line);font-size:.82rem;color:var(--tx2);white-space:nowrap}
+.gnm{display:block;font-size:.76rem;font-weight:700;color:var(--gc);margin-bottom:2px}
+.gstack{display:inline-flex;flex:none}.gstack .av{width:30px;height:30px;border:2px solid var(--bg);margin-left:-10px}.gstack .av:first-child{margin-left:0}
+.chathead .gstack .av{width:34px;height:34px}
+.gstack.big{justify-content:center;margin-bottom:10px}.gstack.big .av{width:64px;height:64px;margin-left:-16px}
+.gtyp{display:block;margin:2px 0 0 38px;color:var(--tx3);font-size:.75rem}
+.gmore{align-self:center;padding:7px 14px;border-radius:99px;background:var(--bg2);border:1px solid var(--line);color:var(--tx2);font-size:.85rem}
+.gpick{display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:8px;margin-top:6px}
+.gpk{display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 4px;border-radius:14px;border:1px solid var(--line);background:var(--bg2);font-size:.8rem}
+.gpk .av{width:46px;height:46px}.gpk.on{border-color:var(--acc);background:color-mix(in srgb,var(--acc) 16%,var(--bg2))}
+.gnewrow{display:block;width:100%;padding:12px 14px;margin:4px 0 8px;border-radius:14px;border:1px dashed var(--line);color:var(--tx2);text-align:left}
+.cav.gstack .av{width:40px;height:40px;margin-left:-18px}.cav.gstack .av:first-child{margin-left:0}
 .pedit{display:flex;gap:12px;align-items:flex-start;margin-bottom:10px}.pedit img{width:86px;height:114px;object-fit:cover;border-radius:12px;flex:none}.pedit > div{flex:1;min-width:0}.pedit .seg{margin:0}
 #peChips,#peLast{margin:8px 0}#peTxt{width:100%}
 .vpk.vhum{border-color:color-mix(in srgb,var(--acc) 55%,var(--line))}
@@ -1548,6 +1566,7 @@ details.sdanger>summary{color:var(--err)}
 <section id="vHome" class="view">
   <header class="top">
     <h1>Taifas</h1>
+    <button class="ib" id="btnGroups" aria-label="Grupuri" style="font-size:1.15rem">👥</button>
     <button class="ib" id="btnBcast" aria-label="Întreabă-le pe toate" style="font-size:1.15rem">📣</button>
     <button class="ib" id="btnWrapped" aria-label="Taifas Wrapped" style="font-size:1.15rem">📊</button>
     <button class="ib" id="btnSearch" aria-label="Caută"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></button>
@@ -1620,6 +1639,21 @@ details.sdanger>summary{color:var(--err)}
       <button type="button" id="btnPolish" aria-label="Îmbunătățește mesajul" hidden>✨</button>
     </div>
     <button type="submit" id="btnSend" aria-label="Trimite"><svg viewBox="0 0 24 24" width="21" height="21" fill="currentColor"><path d="M3.4 20.4 21 12 3.4 3.6l.1 6.5L15 12l-11.5 1.9z"/></svg></button>
+  </form>
+</section>
+
+<!-- GRUP (9.44) -->
+<section id="vGroup" class="view" hidden>
+  <header class="top chathead">
+    <button class="ib" data-back aria-label="Înapoi">‹</button>
+    <button class="who" id="gWho"><span class="gstack" id="gAvs"></span><div><b id="gName"></b><small id="gTag"></small></div></button>
+    <button class="ib" id="gMenu" aria-label="Meniu">⋯</button>
+  </header>
+  <div id="gMsgs"></div>
+  <div id="gChips"></div>
+  <form id="gComposer" autocomplete="off">
+    <textarea id="gInp" rows="1" placeholder="Mesaj pentru grup…"></textarea>
+    <button type="submit" id="gSend" aria-label="Trimite"></button>
   </form>
 </section>
 

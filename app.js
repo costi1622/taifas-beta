@@ -1,5 +1,5 @@
 window.__taifas = true;   // 8.20.1: semn pentru index.html că app.js s-a încărcat
-const APP_VER = '9.43';
+const APP_VER = '9.44';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -1466,7 +1466,7 @@ async function rwTest(){
 }
 
 /* ───────── navigare ───────── */
-const VIEWS = ['vHome', 'vChat', 'vEdit', 'vSet', 'vWelcome', 'vProf'];
+const VIEWS = ['vHome', 'vChat', 'vEdit', 'vSet', 'vWelcome', 'vProf', 'vGroup'];
 let flyNext = false, vtT = 0;
 // 9.15: lucruri de făcut după ce ecranul nou s-a așezat (după glisare), ca să nu încarce animația
 let viewTok = 0; const settleQ = [];
@@ -1522,6 +1522,7 @@ window.addEventListener('popstate', () => {
   if(!$('#vSet').hidden && setPanel){ closeSetPanel(); return; }
   if(v === 'vProf' && profId && charById(profId)){ charProfile(profId, false); return; }
   if(v === 'vChat' && cur && charById(cur.id)) openChat(cur.id, false, undefined, 'b');
+  else if(v === 'vGroup' && grp && groups.includes(grp)) openGroup(grp.id, false);   // 9.44
   else goHome();
 });
 function goHome(){
@@ -1601,7 +1602,8 @@ function renderHome(){
         <span class="cbot"><small>${prev}</small>${n > 1 ? `<span class="thr">🧵 ${n}</span>` : ''}${c.unread ? `<span class="badge">${c.unread > 9 ? '9+' : c.unread}</span>` : ''}</span>${(() => { const lf = lifeNow(c), ck = clockHTML(c, 'nclk'); if(charBdayToday(c)) return `<span class="clife">${ck}🎂 Își serbează ziua azi</span>`; return lf && lf.w ? `<span class="clife">${ck}${LIFE_E[lf.b]} ${esc(lf.w)}</span>` : ck ? `<span class="clife">${clockHTML(c, 'nclk solo')}</span>` : ''; })()}</span>
       </button></div>`;
   };
-  patchKeyed($('#homeChats'), [['stories', storyRowHTML()], ...(withChat.length
+  const grows = groups.length ? [['gl', '<div class="clabel">👥 Grupuri</div>'], ...[...groups].sort((a, b) => (b.lastAt || 0) - (a.lastAt || 0)).map(g => ['grp:' + g.id, groupRowHTML(g)])] : [['gnew', '<button class="gnewrow" data-gnew>👥 Grup nou: vorbește cu mai multe personaje deodată</button>']];
+  patchKeyed($('#homeChats'), [['stories', storyRowHTML()], ...grows, ...(withChat.length
     ? [...(pinned.length ? [['lp', '<div class="clabel">Fixate</div>'], ...pinned.map(c => ['row:' + c.id, crow(c)]), ...(rest.length ? [['lr', '<div class="clabel">Recente</div>']] : [])] : []), ...rest.map(c => ['row:' + c.id, crow(c)]),
       ['hint', '<div class="hint" style="text-align:center;margin:14px 0">Glisează spre stânga pe o conversație ca s-o fixezi sau s-o golești.</div>']]
     : [['none', `<div class="empty">Nicio conversație încă.<br>Alege un personaj din „Acasă".</div>`]])].filter(b => b[1]), homeStore.chats);
@@ -1613,6 +1615,166 @@ function when(ts){
   const d = new Date(ts), n = new Date();
   if(d.toDateString() === n.toDateString()) return d.toLocaleTimeString('ro-RO', {hour:'2-digit', minute:'2-digit'});
   return d.toLocaleDateString('ro-RO', {day:'numeric', month:'short'});
+}
+
+/* ───────── 9.44: 👥 GRUPURI ─────────
+   O conversație cu 2-5 personaje deodată. Scrii pentru grup; dacă pomenești pe cineva pe nume (sau atingi numele de deasupra
+   câmpului), răspunde acela; altfel un „regizor” mic (Haiku) alege cine răspunde și în ce ordine (1-3, se pot răspunde și între ei).
+   Fiecare personaj scrie cu personalitatea, stilul, memoria despre tine și relația lui (și cum se cunoaște cu ceilalți din grup),
+   vede ce au zis ceilalți și scrie doar replica lui. Grupurile stau în DB `groups`, mesajele în `grp:<id>`. Fără poze în grup. */
+let groups = [], grp = null, gchat = null, gbusy = null;
+const saveGroups = () => DB.set('groups', groups);
+const gMembers = g => (g && g.members || []).map(charById).filter(Boolean);
+function groupRowHTML(g){
+  const ms = gMembers(g), last = g.last || 'Grup nou';
+  return `<div class="crow"><button class="cfront" data-gopen="${g.id}"><span class="cav gstack">${ms.slice(0, 3).map(c => avatarHTML(c)).join('')}</span>
+    <span class="cmid"><span class="ctop"><b>👥 ${esc(g.name)}</b><time>${when(g.lastAt)}</time></span><span class="cbot"><small>${esc(last)}</small></span></span></button></div>`;
+}
+function groupsSheet(){
+  openSheet(`<h4>👥 Grupuri</h4><div class="pad">${groups.length ? groups.map(g => `<button class="opt" data-gs="${g.id}"><i>👥</i>${esc(g.name)} <small style="color:var(--tx3);margin-left:6px">${gMembers(g).map(c => esc(c.name)).join(', ')}</small></button>`).join('') : '<p class="hint">Niciun grup încă. Un grup e o conversație cu mai multe personaje deodată.</p>'}
+    <div class="btns"><button class="btn pri" id="gsNew">＋ Grup nou</button></div></div>`);
+  $$('.sheet [data-gs]').forEach(b => b.onclick = () => { closeSheet(); openGroup(b.dataset.gs); });
+  $('#gsNew').onclick = () => { closeSheet(); setTimeout(() => groupEditSheet(null), 60); };
+}
+function groupEditSheet(g){
+  const sel = new Set(g ? g.members : []);
+  if(chars.length < 2){ toast('Ai nevoie de cel puțin 2 personaje ca să faci un grup.'); return; }
+  openSheet(`<h4>${g ? '👥 Grupul' : '👥 Grup nou'}</h4><div class="pad">
+    <label for="geName">Numele grupului</label><input id="geName" maxlength="40" placeholder="ex. Fetele, Colegii, Familia" value="${esc(g ? g.name : '')}">
+    <label style="margin-top:10px">Cine e în grup (2-5)</label>
+    <div class="gpick">${[...chars].sort((a, b) => (b.lastAt || 0) - (a.lastAt || 0)).map(c => `<button type="button" class="gpk${sel.has(c.id) ? ' on' : ''}" data-gc="${c.id}">${avatarHTML(c)}<span>${esc(c.name)}</span></button>`).join('')}</div>
+    <label for="geTopic" style="margin-top:10px">Despre ce e grupul (opțional)</label><input id="geTopic" maxlength="160" placeholder="ex. plănuim o ieșire la munte" value="${esc(g && g.topic || '')}">
+    <div class="btns"><button class="btn pri" id="geGo">${g ? 'Salvează' : 'Creează grupul'}</button></div></div>`);
+  hydrate($('.sheet'));
+  $('.gpick').onclick = e => { const b = e.target.closest('[data-gc]'); if(!b) return; const id = b.dataset.gc; if(sel.has(id)) sel.delete(id); else { if(sel.size >= 5){ toast('Cel mult 5 personaje.'); return; } sel.add(id); } b.classList.toggle('on', sel.has(id)); };
+  $('#geGo').onclick = async () => {
+    if(sel.size < 2){ toast('Alege cel puțin 2 personaje.'); return; }
+    const ms = [...sel], name = $('#geName').value.trim() || ms.map(id => charById(id).name).join(', ');
+    if(g){ g.members = ms; g.name = name; g.topic = $('#geTopic').value.trim(); await saveGroups(); closeSheet(); if(grp === g) renderGroup(); renderHome(); return; }
+    const ng = {id:uid(), name, members:ms, topic:$('#geTopic').value.trim(), created:Date.now(), lastAt:Date.now()};
+    groups.push(ng); await saveGroups(); closeSheet(); openGroup(ng.id);
+  };
+}
+async function openGroup(id, push = true){
+  const g = groups.find(x => x.id === id); if(!g) return;
+  grp = g; gchat = (await DB.get('grp:' + id)) || {msgs:[]}; cur = null; chat = null;
+  renderGroup(true); show('vGroup', push);
+  if(push) history.replaceState({v:'vGroup', g:id}, '');
+}
+function gSpeaker(m){ return m.role === 'ai' ? charById(m.cid) : null; }
+function renderGroup(toEnd){
+  if(!grp) return;
+  const ms = gMembers(grp);
+  $('#gName').textContent = '👥 ' + grp.name;
+  $('#gTag').textContent = ms.map(c => c.name).join(', ') + (grp.topic ? ' · ' + grp.topic : '');
+  $('#gAvs').innerHTML = ms.slice(0, 3).map(c => avatarHTML(c)).join('');
+  const box = $('#gMsgs'), near = box.scrollHeight - box.scrollTop - box.clientHeight < 200;
+  const u = S.userName.trim() || 'Tu';
+  const html = (gchat.msgs || []).map(m => {
+    if(m.role === 'user') return `<div class="mw"><div class="m me"><div class="bub">${fmtMsg(m.text)}</div></div></div>`;
+    const c = gSpeaker(m), nm = c ? c.name : (m.name || '?');
+    return `<div class="mw"><div class="m ai">${c ? avatarHTML(c) : ''}<div class="bub${m.err ? ' err' : ''}"><b class="gnm" style="--gc:${c ? gColor(c) : '#aaa'}">${esc(nm)}</b>${m.err ? esc(m.err) : fmtMsg(m.text)}</div></div></div>`;
+  }).join('');
+  const typing = gbusy && gbusy.who ? `<div class="mw typrow"><div class="m ai">${avatarHTML(gbusy.who)}<div class="bub tdots"><i></i><i></i><i></i></div></div><small class="gtyp">${esc(gbusy.who.name)} scrie…</small></div>` : '';
+  const more = !gbusy && (gchat.msgs || []).length && gchat.msgs[gchat.msgs.length - 1].role === 'ai' ? '<button class="gmore" data-gmore>▶ Lasă-i să mai vorbească</button>' : '';
+  box.innerHTML = (gchat.msgs || []).length ? html + typing + more : `<div class="intro"><div class="gstack big">${ms.slice(0, 4).map(c => avatarHTML(c)).join('')}</div><b>${esc(grp.name)}</b><p>Scrie ceva pentru tot grupul. Ca să întrebi pe cineva anume, scrie-i numele (sau atinge-l mai jos).</p></div>` + typing;
+  hydrate(box);
+  if(toEnd || near){ box.scrollTop = box.scrollHeight; requestAnimationFrame(() => box.scrollTop = box.scrollHeight); }
+  $('#gChips').innerHTML = ms.map(c => `<button type="button" data-gto="${esc(c.name.split(' ')[0])}">@${esc(c.name.split(' ')[0])}</button>`).join('');
+  const b = $('#gSend'); b.classList.toggle('stop', !!gbusy); b.innerHTML = gbusy ? SEND_STOP : SEND_GO;
+}
+function gColor(c){ let h = 0; for(const ch of c.id) h = (h * 31 + ch.charCodeAt(0)) % 360; return `hsl(${h} 70% 72%)`; }
+async function gSave(){ if(!grp) return; const last = [...gchat.msgs].reverse().find(m => m.text && !m.err); grp.lastAt = Date.now(); grp.last = last ? (last.role === 'user' ? 'Tu: ' : (gSpeaker(last) ? gSpeaker(last).name + ': ' : '')) + plain(last.text).slice(0, 80) : ''; await DB.set('grp:' + grp.id, gchat); await saveGroups(); }
+function groupMenu(){
+  if(!grp) return;
+  sheet([
+    ['👥', 'Membri, nume și subiect', () => setTimeout(() => groupEditSheet(grp), 60)],
+    ['🧹', 'Golește conversația grupului', () => confirmSheet('Golești conversația grupului?', 'Golește', async () => { gchat = {msgs:[]}; await gSave(); renderGroup(true); }), 'dan'],
+    ['🗑️', 'Șterge grupul', () => confirmSheet('Ștergi grupul „' + grp.name + '”? Personajele rămân.', 'Șterge', async () => { await DB.del('grp:' + grp.id).catch(() => {}); groups = groups.filter(x => x !== grp); await saveGroups(); grp = null; gchat = null; goHome(); }), 'dan'],
+  ]);
+}
+// cine e pomenit pe nume (prenumele, fără diacritice); „toți / voi / amândouă” = toată lumea
+function gMentioned(text, ms){
+  const t = ' ' + pnorm(text) + ' ';
+  if(/ (toti|toate|voi|amandoi|amandoua|fetelor|baietilor|tuturor) /.test(t)) return ms.slice();
+  return ms.map(c => ({c, i:t.indexOf(' ' + pnorm(c.name.split(' ')[0]) + ' ')})).filter(x => x.i >= 0).sort((a, b) => a.i - b.i).map(x => x.c);
+}
+async function gDirector(ms, more){
+  const u = S.userName.trim() || 'Utilizatorul';
+  const recent = gchat.msgs.slice(-12).map(m => (m.role === 'user' ? u : (gSpeaker(m) || {}).name || '?') + ': ' + plain(m.text || '').slice(0, 240)).join('\n');
+  try{
+    const out = await stream('You direct a group chat between a user and several characters. Answer with JSON only.', [{role:'user', text:
+`Characters in the group: ${ms.map(c => c.name + (c.tag ? ' (' + c.tag + ')' : '')).join('; ')}.
+Recent messages:
+${recent}
+${more ? 'The user wants the characters to keep talking among themselves now.' : 'The last message is from ' + u + '.'} Decide who speaks next and in what order, like a real group chat: usually 1 or 2 characters, at most 3; someone may answer another character. Pick those for whom it is most natural to reply.
+JSON: {"order":["name", "..."]}`}], {max:80, aux:true, tag:'fundal'});
+    const j = parseJSON(out), names = Array.isArray(j.order) ? j.order : [];
+    const res = []; for(const n of names){ const c = ms.find(x => pnorm(x.name) === pnorm(n) || pnorm(x.name.split(' ')[0]) === pnorm(String(n).split(' ')[0])); if(c && !res.includes(c)) res.push(c); }
+    if(res.length) return res.slice(0, 3);
+  }catch(e){}
+  const sh = ms.slice().sort(() => Math.random() - .5); return sh.slice(0, Math.random() < .5 ? 1 : 2);
+}
+function groupSystem(c, g){
+  const u = S.userName.trim() || 'utilizatorul', others = gMembers(g).filter(o => o.id !== c.id);
+  const facts = (c.facts || []).filter(f => f.k !== 'lex').slice(-15).map(f => '- ' + f.t).join('\n');
+  return [
+    `Ești ${c.name}. Ești într-o conversație de grup pe telefon cu ${u}${others.length ? ' și cu ' + others.map(o => o.name).join(', ') : ''}. Rămâi mereu în personaj; nu spui că ești un AI.`,
+    c.persona && `## Cine ești\n${c.persona}`,
+    c.speech && `## Cum vorbești\n${c.speech}`,
+    c.aspect && `## Cum arăți\n${c.aspect}`,
+    S.userAbout.trim() && `## Despre ${u}\n${S.userAbout.trim()}`,
+    facts && `## Ce știi despre ${u}\n${facts}`,
+    `## Relația ta cu ${u}: ${relOf(c).name}\n${relOf(c).how}.`,
+    `## Grupul „${g.name}”${g.topic ? ' (' + g.topic + ')' : ''}\n${others.map(o => `- ${o.name}${o.tag ? ' (' + o.tag + ')' : ''}: ${relBetween(c, o) || 'vă cunoașteți din grupul ăsta'}`).join('\n')}`,
+    `## Reguli în grup
+- Scrii DOAR replica ta, ca ${c.name}, o singură dată. Nu scrii ce spun ${u} sau ceilalți și nu începi cu numele tău.
+- E un chat de grup: mesaje scurte și firești (1-3 propoziții), în română naturală. Poți să-i răspunzi lui ${u} sau celorlalți, pe nume, să fii de acord sau nu, să glumești, să întrebi. Nu repeta ce a zis altcineva.
+- Ai personalitatea și stilul tău; nu semeni cu ceilalți la vorbă.
+- Acțiuni foarte rar și scurt între *asteriscuri*. Fără liniuțe lungi, fără formule de asistent.
+- În grup nu trimiți poze și nu programezi nimic.`
+  ].filter(Boolean).join('\n\n');
+}
+function gContext(c){
+  const u = S.userName.trim() || 'Utilizatorul', out = [];
+  for(const m of gchat.msgs.slice(-30)){
+    if(m.err || !m.text) continue;
+    const mine = m.role === 'ai' && m.cid === c.id, role = mine ? 'assistant' : 'user';
+    const text = mine ? m.text : (m.role === 'user' ? u : (gSpeaker(m) || {}).name || '?') + ': ' + m.text;
+    const last = out[out.length - 1];
+    if(last && last.role === role) last.text += '\n' + text; else out.push({role, text});
+  }
+  if(!out.length || out[0].role !== 'user') out.unshift({role:'user', text:'(începe conversația de grup)'});
+  if(out[out.length - 1].role !== 'user') out.push({role:'user', text:'(continuă tu, ' + c.name + ', firesc)'});
+  return out;
+}
+async function gSend(){
+  const t = $('#gInp').value.trim(); if(!t || !grp) return;
+  if(!aiReady()){ toast('Adaugă cheia în Setări.'); return; }
+  $('#gInp').value = ''; $('#gInp').style.height = '';
+  gchat.msgs.push({id:uid(), role:'user', text:t, ts:Date.now()}); await gSave(); renderGroup(true);
+  await gRespond(t, false);
+}
+async function gRespond(text, more){
+  if(!grp || gbusy) return;
+  const g = grp, ms = gMembers(g); if(!ms.length) return;
+  const ac = new AbortController(); gbusy = ac;
+  try{
+    let order = text ? gMentioned(text, ms) : [];
+    if(!order.length) order = await gDirector(ms, more);
+    for(const c of order){
+      if(ac.signal.aborted || grp !== g) break;
+      ac.who = c; renderGroup();
+      let out = '';
+      try{ out = await stream(groupSystem(c, g), gContext(c), {max:500, signal:ac.signal, cid:c.id}); }
+      catch(e){ if(e.name === 'AbortError') break; gchat.msgs.push({id:uid(), role:'ai', cid:c.id, text:'', err:e.message || 'Eroare', ts:Date.now()}); break; }
+      let tx = faraLiniute(stripMood(stripReact(String(out || '')))).replace(/\[[^\]\n]{1,80}\]/g, '').trim();
+      tx = tx.replace(new RegExp('^\\*?\\*?' + c.name.split(' ')[0] + '\\*?\\*?\\s*:\\s*', 'i'), '').trim();
+      if(tx) gchat.msgs.push({id:uid(), role:'ai', cid:c.id, text:tx, ts:Date.now()});
+      await gSave(); ac.who = null; if(grp === g) renderGroup();
+      if(navigator.vibrate && !document.hidden) try{ navigator.vibrate(8); }catch(e){}
+    }
+  } finally { gbusy = null; if(grp === g) renderGroup(); }
 }
 
 /* ───────── CONVERSAȚIE ───────── */
@@ -7629,6 +7791,7 @@ async function deleteChar(cc){
     for(const p of feedCache.filter(p => p.cid === c.id)) if(p.img) await delImg(p.img).catch(() => {});
     feedCache = feedCache.filter(p => p.cid !== c.id); await saveFeed();
     chars = chars.filter(x => x !== c); await saveChars();
+    if(groups.some(g => g.members.includes(c.id))){ groups.forEach(g => g.members = g.members.filter(id => id !== c.id)); await saveGroups(); }   // 9.44
     ed = null; profId = null; closeSheet(); goHome(); toast('🗑️ ' + c.name + ' a fost șters.');   // Înapoi ulterior nu mai poate redeschide un personaj șters (popstate verifică charById)
   });
 }
@@ -8151,7 +8314,16 @@ function bind(){
   $('#vHome').addEventListener('click', e => {
     if(e.target.closest('#btnNew, [data-new]')){ if(!aiReady()) toast('Sfat: adaugă întâi cheia în Setări, ca poza să fie descrisă automat.', 3500); openEditor(null); return; }
     const o = e.target.closest('[data-open]'); if(o) openWithFly(o);
+    const go = e.target.closest('[data-gopen]'); if(go){ openGroup(go.dataset.gopen); return; }   // 9.44
+    if(e.target.closest('[data-gnew]')){ groupEditSheet(null); return; }
   });
+  $('#btnGroups').onclick = groupsSheet;
+  $('#gComposer').onsubmit = e => { e.preventDefault(); if(gbusy){ gbusy.abort(); return; } gSend(); };
+  $('#gInp').addEventListener('keydown', e => { if(e.key === 'Enter' && !e.shiftKey && matchMedia('(pointer:fine)').matches){ e.preventDefault(); $('#gComposer').requestSubmit(); } });
+  $('#gInp').addEventListener('input', () => { const t = $('#gInp'); t.style.height = 'auto'; t.style.height = Math.min(140, t.scrollHeight) + 'px'; });
+  $('#gMenu').onclick = groupMenu; $('#gWho').onclick = () => groupEditSheet(grp);
+  $('#gChips').onclick = e => { const b = e.target.closest('[data-gto]'); if(!b) return; const t = $('#gInp'); const n = b.dataset.gto; if(!new RegExp('(^|\\s)' + n + '\\b').test(t.value)) t.value = (n + ', ' + t.value).trim(); t.focus(); };
+  $('#gMsgs').onclick = e => { const b = e.target.closest('[data-gmore]'); if(b && !gbusy) gRespond(null, true); };
   // conversație
   $('#btnPolish').onclick = polishSheet;
   $('#composer').onsubmit = e => { e.preventDefault(); if(busy && live && live.ch === chat) busy.abort(); else send(); };
@@ -8379,6 +8551,7 @@ async function init(){
   onlyOurProviders();   // 9.19: la fiecare pornire (și după o restaurare dintr-un backup vechi)
   if(cspSync(true)) return;   // 8.20: adresă nouă → repornim o dată, ca politica de securitate să o permită
   chars = (await DB.get('chars') || []).filter(c => c && c.id && c.name);
+  groups = (await DB.get('groups') || []).filter(g => g && g.id && Array.isArray(g.members));   // 9.44
   { let ch9 = false; for(const c of chars) if(!c.physUser && !c.physEn && (c.appZones || c.appEn) && crApplyPhys(c)) ch9 = true; if(ch9) saveChars(); }   // 9.30: personajele create în 9.24–9.29
   setTimeout(async () => { let ch2 = false; for(const c of chars) if(c.physAuto && c.physRoV !== 2 && crRoThin(c.physUser) && (c.appPrompt || c.appEn) && await crPhysRo(c)) ch2 = true; if(ch2) saveChars(); }, 4000);   // 9.32: româna subțire („corp: …”) se completează o dată
   if((S.sv || 0) < 34){
