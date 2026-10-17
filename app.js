@@ -1,5 +1,5 @@
 window.__taifas = true;   // 8.20.1: semn pentru index.html că app.js s-a încărcat
-const APP_VER = '9.48';
+const APP_VER = '9.49';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -37,7 +37,7 @@ const DEF = {
   userName:'', userAbout:'', len:'mediu', font:16,
   imgProv:'none',
   wkBase:'', wkTok:'', wkModel:'eco', wkSize:'768x1024',
-  sugg:'off', pro:'on', feed:'text', fx:'on', regen3:'on', voice:'tap', tts:'tel', cfPlan:'free', cfCap:'free', theme:'dark', vmsg:'rar', jrn:'on', aux:'on', ctxN:'30',
+  sugg:'off', pro:'on', feed:'text', smart:'on', lenAuto:'on', cacheTtl:'auto', fx:'on', regen3:'on', voice:'tap', tts:'tel', cfPlan:'free', cfCap:'free', theme:'dark', vmsg:'rar', jrn:'on', aux:'on', ctxN:'30',
   vault:'off', vaultHas:null, faceFix:'on', bodyFix:'on', bestOf:'3', autoModel:'chat', callFace:'on', handCheck:'off', crHands:'on', crAngles:'on', callAmb:'on', callBack:'on', callDepth:'on', callLight:'on', callPres:'on', autoRefs:'on', autoFull:'on', imgRoute:'mix', cfFallback:'off', photoEngine:'creator', photoModel:'klein', people:'on', typeReal:'on', chatMode:'rp', imgCheck:'on', story:'on', sky:'on', social:'on', userBday:'', lock:'off', pushOn:false, bkEvery:'week', bkLast:0, userPhoto:'', userPhys:'', userBox:null, wkChat:'ancorat', wkRef:'auto', rw:'off', rwKey:'', rwCap:'0.5', rwAvg:0, idBoost:'on', spont:'rar', sv:34, imgCost:'', pIn:'', pOut:''
 };
 let S = {...DEF};
@@ -306,22 +306,23 @@ async function stream(sys, msgs, opts = {}){
   try{ return await streamOnce(sys, msgs, opts); }
   catch(e){
     // dacă modelul mic nu e disponibil pe cont, revenim o dată la modelul principal
-    if(opts.aux && !auxBroken && /model|not_found|404/i.test(e.message || '')){ auxBroken = true; return await streamOnce(sys, msgs, {...opts, aux:false}); }
+    if((opts.aux || opts.eco) && !auxBroken && /model|not_found|404/i.test(e.message || '')){ auxBroken = true; return await streamOnce(sys, msgs, {...opts, aux:false, eco:false, model:null}); }
     throw e;
   }
 }
-async function streamOnce(sys, msgs, {max = 700, signal, onText, cid, aux, meta, tag, cold, conv} = {}){
-  const model = modelFor(aux);
+async function streamOnce(sys, msgs, {max = 700, signal, onText, cid, aux, meta, tag, cold, conv, eco, hist} = {}){
+  const model = eco ? modelFor(true) : modelFor(aux);   // 9.49: eco = mesaj simplu → modelul mic, cu tot contextul personajului
   // 8.17: conversația rămâne în cache 1 oră (nu 5 minute): la pauze mai lungi istoricul se recitește la 5-10% din preț
   // 8.19: primul mesaj după o pauză (cache-ul a expirat oricum) scrie la 1,25× (5 min); de la al doilea trece pe 1 oră
   // 9.0: cache doar pentru conversații (conv); pașaportul, jurnalul, planificarea pozelor etc. se trimit o singură dată,
   //      iar scrierea în cache (2× pe 1 h, 1,25× pe 5 min) ar fi fost plătită degeaba
-  const ttl = conv && !aux && !cold && S.cacheTtl !== '5m' ? '1h' : '';
+  const ttl = conv && !aux && !eco && !cold && S.cacheTtl !== '5m' ? '1h' : '';
+  const httl = ttl && hist === '5m' ? '' : ttl;   // 9.49: cache inteligent: istoricul pe 5 min cât vorbiți repede (fișa rămâne pe 1 oră)
   if(!hasKey('anthropic')) throw new Error(vaultOn() ? 'Seiful (Worker-ul) nu are cheia Anthropic.' : 'Lipsește cheia Anthropic. Deschide Setări.');
   const res = await fetch(apiUrl('anthropic', '/v1/messages'), {method:'POST', signal, headers:apiHeaders('anthropic', {
         'content-type':'application/json', 'anthropic-version':'2023-06-01'}),
         body: JSON.stringify({model, max_tokens:max, stream:true,
-          system:[{type:'text', text:sys, ...(conv ? {cache_control:ttl ? {type:'ephemeral', ttl:'1h'} : {type:'ephemeral'}} : {})}], messages:provMsgs(conv ? msgs : msgs.map(x => x._cache ? {...x, _cache:false} : x), ttl)})});
+          system:[{type:'text', text:sys, ...(conv ? {cache_control:ttl ? {type:'ephemeral', ttl:'1h'} : {type:'ephemeral'}} : {})}], messages:provMsgs(conv ? msgs : msgs.map(x => x._cache ? {...x, _cache:false} : x), httl)})});
   if(!res.ok) throw new Error(await errText(res));
   const rd = res.body.getReader(), dec = new TextDecoder();
   let buf = '', full = '', usage = null, stop = null, ended = false;
@@ -346,7 +347,7 @@ async function streamOnce(sys, msgs, {max = 700, signal, onText, cid, aux, meta,
       if(piece){ full += piece; onText && onText(full); }
     }
   }
-  } finally { recordTokens(cid, usage, model, tag || (aux ? 'fundal' : 'chat')); if(meta){ meta.stop = stop || (ended ? 'end_turn' : 'cut'); if(usage) meta.u = {cw:usage.cache_creation_input_tokens || 0, cr:usage.cache_read_input_tokens || 0}; } }
+  } finally { recordTokens(cid, usage, model, tag || (aux ? 'fundal' : 'chat'), 1, !aux); if(meta){ meta.stop = stop || (ended ? 'end_turn' : 'cut'); if(usage) meta.u = {cw:usage.cache_creation_input_tokens || 0, cr:usage.cache_read_input_tokens || 0}; } }
   return full;
 }
 // taie textul la ultima propoziție (sau acțiune) încheiată; dacă ar pierde prea mult, îl lasă cu „…”
@@ -3739,7 +3740,7 @@ function msgHTML(m, i, lastAi, anim, g = ''){
       ${n > 1 ? `<button data-alt="-1" ${m.alt <= 0 ? 'disabled' : ''}>‹</button><span>${(m.alt || 0) + 1}/${n}</span><button data-alt="1" ${m.alt >= n - 1 ? 'disabled' : ''}>›</button>` : ''}
       ${m.img && m.imgAlts && m.imgAlts.length > 1 ? `<button data-ia="-1" ${m.ia <= 0 ? 'disabled' : ''}>‹</button><span>${m.ia + 1}/${m.imgAlts.length}</span><button data-ia="1" ${m.ia >= m.imgAlts.length - 1 ? 'disabled' : ''}>›</button>` : ''}
       ${m.img && !m.err ? `<button data-pedit>✏️ Modifică</button><button data-rephoto>🎲 Altă poză</button>` : ''}
-      ${m.img || !m.alts ? '' : `<button data-regen>↻ Altul</button>${S.regen3 === 'on' && n > 1 && !m.err ? '<button data-more3>🎰 +2</button>' : ''}`}
+      ${m.img || !m.alts ? '' : `<button data-regen${m.eco ? ' title="Răspunsul ăsta a fost scris de modelul economic; ↻ îl reface cu modelul principal"' : ''}>${m.eco ? '↻ ⚡→🧠' : '↻ Altul'}</button>${S.regen3 === 'on' && n > 1 && !m.err ? '<button data-more3>🎰 +2</button>' : ''}`}
       ${m.cut ? `<span class="cutn">${m.cut === 'refusal' ? '⚠️ întrerupt de furnizor' : m.cut === 'len' ? '✂️ prea lung, tăiat' : '📶 conexiune întreruptă'}</span>` : ''}
       ${m.err ? '' : `<button data-cont>▶ Continuă</button>`}
       ${m.err ? `<button data-retry>${m.errKind === 'flag' ? '🎲 Încearcă altă scenă' : 'Reîncearcă'}</button>` : ''}
@@ -4608,6 +4609,35 @@ async function send(){
   relBump(cur, 1, 'msg');
   await reply();
 }
+/* 9.49: costuri mai mici, aceeași calitate
+   (1) mesajele simple (scurte, fără întrebare serioasă, fără scenă sau emoție) → Haiku 5.5, cu tot contextul personajului; restul pe Sonnet
+   (2) lungimea răspunsului urmează mesajul tău   (5) cache-ul istoricului pe 5 min cât vorbiți repede */
+const ECO_HEAVY = /\*|\b(te iubesc|iubit|dor|trist|pl[âa]ng|sup[ăa]r|sup[ăa]rat|de ce|ce s-a [îi]nt[âa]mplat|scuze|iart[ăa]|sincer|probleme?|ajut|nu (mai )?pot|singur|frică|fric[ăa]|speriat|povestește|povesteste|spune-mi|zi-mi|explic|crezi|părerea|parerea|ce zici de)\b/i;
+function ecoSimple(um, ch, idx){
+  if(!um || um.img || um.gift || um.sticker || um.reply) return false;
+  const t = plain(String(um.text || '')).trim(); if(!t) return false;
+  if(t.length > 42 || ECO_HEAVY.test(t) || PHOTO_ASK.test(t)) return false;
+  if(/\?/.test(t) && t.length > 22) return false;
+  // după un mesaj al ei lung sau care a pus o întrebare serioasă, răspunsul contează mai mult: rămâne pe modelul principal
+  const prevAi = [...ch.msgs.slice(0, idx)].reverse().find(x => x.role === 'ai' && x.text && !x.err);
+  if(prevAi && plain(prevAi.text).length > 420) return false;
+  return true;
+}
+function fastPace(ch, idx){
+  // ultimele tale 3+ răspunsuri au venit la cel mult 4 minute după mesajul ei, la fel și acum
+  const ms = ch.msgs.slice(0, idx).filter(x => !x.err && x.ts && (x.role === 'user' || x.role === 'ai'));
+  const gaps = []; for(let i = ms.length - 1; i > 0 && gaps.length < 4; i--) if(ms[i].role === 'user' && ms[i - 1].role === 'ai') gaps.push(ms[i].ts - ms[i - 1].ts);
+  const lastAi = [...ms].reverse().find(x => x.role === 'ai');
+  return gaps.length >= 3 && gaps.every(g => g >= 0 && g < 4 * 60e3) && lastAi && Date.now() - lastAi.ts < 4 * 60e3;
+}
+function lenHint(um, ch){
+  if(S.lenAuto === 'off' || !um || S.len === 'scurt') return '';
+  const t = plain(String(um.text || '')).trim(), rp = modeOf(ch) === 'rp';
+  if(!t || um.img) return '';
+  if(t.length <= 50 && !/\?/.test(t)) return ' (mesajul meu e scurt: răspunde-mi tot scurt, ca pe chat: o frază sau două, uneori doar câteva cuvinte' + (rp ? ', cel mult o acțiune scurtă' : '') + '; mai lung doar dacă momentul chiar o cere)';
+  if(t.length <= 140) return ' (răspunde cam cât un mesaj de chat, fără paragrafe lungi, dacă momentul nu cere mai mult)';
+  return '';
+}
 async function reply(target, opts = {}){
   const c = opts.c || cur, ch = opts.ch || chat;
   let m = target;
@@ -4655,6 +4685,7 @@ async function reply(target, opts = {}){
       const li = ctx.lastIndexOf(lastU);
       for(let k = li - 1; k >= 0; k--) if(ctx[k].role === 'assistant'){ ctx[k]._cache = true; break; }
       let extra = turnExtras(c, ch, opts);
+      if(!opts.pro && !opts.sched && !opts.cont && opts.tag !== 'apel' && !call && um) extra += lenHint(um, ch);   // 9.49 (2)
       if(!opts.cont){ const w = await weatherOf(c).catch(() => null); if(w) extra += ` (vremea reală la tine în ${w.city} acum: ${wxLine(w)}; ține cont de ea firesc, doar dacă se potrivește, fără să o tot pomenești)`; }
       const acts = (lastU.text.match(/\*[^*\n]{2,200}\*/g) || []).map(a => a.slice(1, -1).trim());
       if(acts.length) extra += ` (acțiunile mele de acum, care s-au întâmplat deja exact așa: ${acts.map(a => '„' + a + '”').join(', ')}; pornește de la starea de după ele, nu le contrazice și nu le rescrie, apoi reacționează în felul tău)`;
@@ -4668,8 +4699,11 @@ async function reply(target, opts = {}){
     const fnv = t => { let h = 2166136261; for(let q = 0; q < t.length; q++){ h ^= t.charCodeAt(q); h = Math.imul(h, 16777619); } return (h >>> 0).toString(36); };
     const sig = ctx.map(x => ({r:x.role, h:fnv(String(x.text || '')), i:!!(x.image || x.images), rt:/\(am reacționat/.test(String(x.text || ''))})), sigN = lastU ? ctx.lastIndexOf(lastU) : ctx.length;
     let meta = {}, full;
-    const lastCall = ch._callAt || ([...ch.msgs.slice(0, idx)].reverse().find(x => x.role === 'ai' && !x.err && x.ts) || {}).ts || 0;
+    // 9.49 (1): mesaj simplu → modelul mic; regenerarea (↻), mesajele ei din proprie inițiativă, apelurile și pozele rămân pe modelul principal
+    const eco = S.smart !== 'off' && S.aux !== 'off' && !auxBroken && !target && !opts.pro && !opts.sched && !opts.cont && !opts.fix && !opts.three && opts.tag !== 'apel' && !call && !opts.liveImg && !String(S.model || '').toLowerCase().includes('haiku') && ecoSimple(um, ch, idx);
+    const lastCall = ch._callAtS || ch._callAt || ([...ch.msgs.slice(0, idx)].reverse().find(x => x.role === 'ai' && !x.err && x.ts) || {}).ts || 0;   // 9.49: vârsta cache-ului modelului principal
     const cold = Date.now() - lastCall > 58 * 60e3;   // 8.19: cache-ul conversației a expirat: scriem ieftin (5 min), nu la 2×
+    const hist = S.cacheTtl === 'auto' && !eco && !cold && fastPace(ch, idx) ? '5m' : '';   // 9.49 (5)
     const solo = !!(opts.pro || opts.sched);         // 9.3: mesaj trimis singur, când lipsești: fără scriere în cache
     const why0 = {from:ch._lastFrom, sum:ch._lastSum, sys:ch._sys && ch._sys.text};
     if(opts.three && target){
@@ -4692,21 +4726,22 @@ async function reply(target, opts = {}){
       full = outs[pick];
       meta = metas[[first, ...rest].map(x => String(x || '').trim()).indexOf(full)] || {};
       m._others = outs.filter((x, k) => k !== pick && !(keepIdx >= 0 && k === 0));
-    } else full = await stream(sysFor(c, ch), ctx, {max:LEN[S.len].max, signal:busy.signal, cid:c.id, meta, tag:opts.tag, cold, conv:!solo,
+    } else full = await stream(sysFor(c, ch), ctx, {max:LEN[S.len].max, signal:busy.signal, cid:c.id, meta, tag:opts.tag, cold, conv:!solo, eco, hist,
       onText: t => { m.text = t;
         // mesaj vocal: textul nu apare pe ecran cât timp „înregistrează”
         if(!m.rec && S.vmsg !== 'off' && /^\s*(?:\[[^\]v][^\]]*\]\s*)?\[v/i.test(t)){ m.rec = m.hold = true; if(live){ live.rec = true; if(chat === ch) setBusyUI(true); } if(chat === ch) renderMsgs(); }
         draw(); }});
-    ch._callAt = Date.now();
+    ch._callAt = Date.now(); if(!eco) ch._callAtS = ch._callAt;
+    if(eco) m.eco = true; else delete m.eco;
     // 9.3: de ce s-a rescris tot istoricul în cache (dacă s-a rescris): pentru Consum
-    if(meta.u && !solo && meta.u.cw > 1500 && meta.u.cr < meta.u.cw){
+    if(meta.u && !solo && !eco && meta.u.cw > 1500 && meta.u.cr < meta.u.cw){
       let why = cold ? 'pauza' : (why0.from !== undefined && why0.from !== ch._from) ? 'fereastra' : (ch._lastSum !== undefined && why0.sum !== (ch.summary || '')) ? 'rezumat' : (why0.sys && ch._sys && why0.sys !== ch._sys.text) ? 'prompt' : 'altele';
       if(why === 'altele' && Array.isArray(ch._sig)){ const old = ch._sig, lim = Math.min(ch._sigN || old.length, sig.length);
         let k = 0; while(k < lim && old[k].h === sig[k].h && old[k].i === sig[k].i) k++;
         if(k < lim) why = old[k].i !== sig[k].i ? 'altele:poza' : (old[k].rt || sig[k].rt) ? 'altele:reactie' : 'altele:mesaj'; }
       noteRewrite(why);
     }
-    ch._lastFrom = ch._from; ch._lastSum = ch.summary || ''; ch._sig = sig; ch._sigN = sigN;
+    if(!eco){ ch._lastFrom = ch._from; ch._lastSum = ch.summary || ''; ch._sig = sig; ch._sigN = sigN; }
     m.text = faraLiniute(full.trim());
     { const sw = [...full.matchAll(SHOW_RE)].pop(); if(sw) m.showIdx = +sw[1]; }   // 9.23: [arăt: N] din apelul video (eticheta se scoate din text)
     { const sk = [...full.matchAll(STK_RE)].pop(); if(sk){ const x = (c.stickers || []).find(z => z.l.toLowerCase() === sk[1].trim().toLowerCase()); if(x) m._stk = x; } }
@@ -4778,7 +4813,7 @@ async function reply(target, opts = {}){
   delete m._others; m.ts = (opts.at && !m.err) ? opts.at : Date.now();   // mesajul programat poartă ora promisă
   if(!m.err && m._stk){ ch.msgs.push({id:uid(), role:'ai', sticker:{k:m._stk.k, l:m._stk.l}, ts:Date.now() + 1}); }
   delete m._stk;
-  if(!m.err){ m.am = m.am || {}; m.am[m.alt] = {voice:!!m.voice, cut:m.cut || '', re:m.reply || null}; }
+  if(!m.err){ m.am = m.am || {}; m.am[m.alt] = {voice:!!m.voice, cut:m.cut || '', re:m.reply || null, eco:!!m.eco}; }
   busy = null; live = null;
   if(!m.err && !(chat === ch && !$('#vChat').hidden)) c.unread = (c.unread || 0) + 1;
   await saveChat(c, ch);
@@ -4964,13 +4999,13 @@ function addUsage(cid, usd, kind, tok, tag){
     const M = u.months[mo] = u.months[mo] || {txt:0, img:0, n:0};
     M.by = M.by || {}; M.by[tag] = (M.by[tag] || 0) + usd;   // 8.17: pe ce se duc banii
     if(kind === 'img'){ M.img += usd; M.n++; } else if(kind === 'voc'){ M.voc = (M.voc || 0) + usd; M.vn = (M.vn || 0) + 1; } else M.txt += usd;
-    if(tok){ for(const k of ['inp', 'cw', 'cr', 'out', 'saved']) M[k] = (M[k] || 0) + (tok[k] || 0); M.calls = (M.calls || 0) + 1; if(tok.main) M.mcalls = (M.mcalls || 0) + 1;
+    if(tok){ for(const k of ['inp', 'cw', 'cr', 'out', 'saved']) M[k] = (M[k] || 0) + (tok[k] || 0); M.calls = (M.calls || 0) + 1; if(tok.main) M.mcalls = (M.mcalls || 0) + 1; if(tok.eco){ M.eco = (M.eco || 0) + 1; M.ecoUsd = (M.ecoUsd || 0) + usd; }
       M.tk = M.tk || {}; const T = M.tk[tag] = M.tk[tag] || {inp:0, cw:0, cr:0, out:0, n:0}; for(const k of ['inp', 'cw', 'cr', 'out']) T[k] += tok[k] || 0; T.n++; }
     if(cid) u.chars[cid] = (u.chars[cid] || 0) + usd;
     await DB.set('usage', u);
   }).catch(() => {});
 }
-function recordTokens(cid, usage, model, tag, mult = 1){
+function recordTokens(cid, usage, model, tag, mult = 1, turn){
   if(!usage) return;
   model = model || S.model;
   const [pin, pout] = priceFor(model);
@@ -4979,7 +5014,7 @@ function recordTokens(cid, usage, model, tag, mult = 1){
   const cw1h = usage.cache_creation ? (usage.cache_creation.ephemeral_1h_input_tokens || 0) : 0, cw5 = cw - cw1h;
   const m = String(model).toLowerCase(), rd = /fable|mythos/.test(m) ? .025 : /(sonnet|opus)-5-5/.test(m) ? .05 : .1;   // prețul citirii din cache diferă pe model
   const usd = (inp * pin + cw5 * pin * 1.25 + cw1h * pin * 2 + cr * pin * rd + out * pout) / 1e6 * mult;
-  addUsage(cid, usd, 'txt', {inp, cw, cr, out, saved: cr * pin * (1 - rd) / 1e6 * mult, main: model === modelFor(false)}, tag);
+  addUsage(cid, usd, 'txt', {inp, cw, cr, out, saved: cr * pin * (1 - rd) / 1e6 * mult, main: model === modelFor(false) || !!turn, eco: !!turn && model !== modelFor(false)}, tag);
 }
 const usd = v => '$' + (v < 10 ? v.toFixed(3) : v.toFixed(2));
 async function renderCost(){
@@ -4993,8 +5028,11 @@ async function renderCost(){
   const totIn = (M.inp || 0) + (M.cw || 0) + (M.cr || 0), pc = totIn ? Math.round((M.cr || 0) / totIn * 100) : 0;
   $('#stCost').innerHTML = `<b>${usd(tot(M))}</b>luna aceasta · text ${usd(M.txt)} · poze ${usd(M.img)} (${M.n})${M.voc ? ` · voce ${usd(M.voc)} (${M.vn})` : ''}
     ${totIn ? `<div class="row2"><span>Context citit din cache</span><span>${pc}%</span></div><div class="row2"><span>Economisit prin cache</span><span style="color:var(--ok)">${usd(M.saved || 0)}</span></div><div class="row2"><span>Cost mediu pe mesaj</span><span>${usd(M.txt / Math.max(1, M.mcalls || M.calls || 1))}</span></div>` : ''}
-    ${(() => { const by = Object.entries(M.by || {}).filter(x => x[1] > 0).sort((a, b) => b[1] - a[1]); if(!by.length) return ''; const mx = by[0][1];
-      const L = {chat:['💬', 'Conversații'], apel:['📞', 'Apeluri'], poze:['📷', 'Poze în chat'], stories:['📸', 'Stories'], statusuri:['📱', 'Statusuri'], voce:['🎙️', 'Voce'], fundal:['⚙️', 'Fundal (memorie, relație, planuri)'], jurnal:['📔', 'Jurnal'], profil:['🖼️', 'Portrete, avatar, stickere'], pozeai:['🧠', 'Poze: plan și verificare (AI)']};
+    ${M.eco ? `<div class="row2"><span>⚡ Mesaje simple pe modelul economic</span><span>${M.eco} · ${usd(M.ecoUsd || 0)}</span></div>` : ''}
+    ${(() => { const by = Object.entries(M.by || {}).filter(x => x[1] > 0).sort((a, b) => b[1] - a[1]); if(!by.length) return '';
+      { const rest = tot(M) - by.reduce((a, x) => a + x[1], 0); if(rest > .05) by.push(['_rest', rest]); }   // 9.49: ce s-a cheltuit înainte de împărțirea pe categorii
+      const mx = Math.max(...by.map(x => x[1]));
+      const L = {chat:['💬', 'Conversații'], apel:['📞', 'Apeluri'], poze:['📷', 'Poze în chat'], stories:['📸', 'Stories'], statusuri:['📱', 'Statusuri'], voce:['🎙️', 'Voce'], fundal:['⚙️', 'Fundal (memorie, relație, planuri)'], jurnal:['📔', 'Jurnal'], profil:['🖼️', 'Portrete, avatar, stickere'], pozeai:['🧠', 'Poze: plan și verificare (AI)'], grup:['👥', 'Grupuri'], _rest:['•', 'Neîmpărțit (versiuni vechi, înainte de categorii)'], oameni:['👤', 'Oamenii din viața lor'], retus:['🪄', 'Retușuri']};
       const tk = M.tk || {}, kf = n => n >= 1000 ? (n / 1000).toFixed(n >= 1e4 ? 0 : 1).replace('.', ',') + 'k' : String(Math.round(n));
       const cp = k => { const T = tk[k]; if(!T || !T.n) return ''; const all = T.inp + T.cw + T.cr;
         const rw = k === 'chat' && M.rw ? Object.entries(M.rw).sort((a, b) => b[1] - a[1]) : [];
@@ -8181,7 +8219,7 @@ const aiReady = () => hasKey('anthropic');
 const FIELDS = {stKey:'key', stModel:'model', stUser:'userName', stAbout:'userAbout', stBday:'userBday',
   stWkBase:'wkBase', stWkTok:'wkTok', stWkModel:'wkModel', stWkSize:'wkSize',
   stPin:'pIn', stPout:'pOut', stVkBase:'wkBase', stVkTok:'wkTok', stRwKey:'rwKey'};
-const SEGS = {stRw:'rw', stRwCap:'rwCap', stIdBoost:'idBoost', stRegen:'regen3', stFx:'fx', stFeed:'feed', stStory:'story', stSky:'sky', stSocial:'social', stCfCap:'cfCap', stCfPlan:'cfPlan', stAux:'aux', stCtx:'ctxN', stVmsg:'vmsg', stJrn:'jrn', stTheme:'theme', stLen:'len', stFont:'font', stImg:'imgProv', stSugg:'sugg', stPro:'pro', stVoice:'voice', stSpont:'spont', stImgCheck:'imgCheck', stBodyFix:'bodyFix', stWkChat:'wkChat', stBkEvery:'bkEvery', stVault:'vault', stCallFace:'callFace', stCallAmb:'callAmb', stCallBack:'callBack', stCallDepth:'callDepth', stCallLight:'callLight', stCallPres:'callPres', stTypeReal:'typeReal', stAutoRefs:'autoRefs', stAutoFull:'autoFull', stImgRoute:'imgRoute', stCfFallback:'cfFallback', stPhotoEngine:'photoEngine', stPhotoModel:'photoModel', stPeople:'people', stChatMode:'chatMode'};
+const SEGS = {stRw:'rw', stRwCap:'rwCap', stIdBoost:'idBoost', stRegen:'regen3', stFx:'fx', stFeed:'feed', stStory:'story', stSky:'sky', stSocial:'social', stCfCap:'cfCap', stCfPlan:'cfPlan', stAux:'aux', stCtx:'ctxN', stVmsg:'vmsg', stJrn:'jrn', stTheme:'theme', stLen:'len', stFont:'font', stImg:'imgProv', stSugg:'sugg', stPro:'pro', stVoice:'voice', stSpont:'spont', stImgCheck:'imgCheck', stBodyFix:'bodyFix', stWkChat:'wkChat', stBkEvery:'bkEvery', stVault:'vault', stCallFace:'callFace', stCallAmb:'callAmb', stCallBack:'callBack', stCallDepth:'callDepth', stCallLight:'callLight', stCallPres:'callPres', stTypeReal:'typeReal', stAutoRefs:'autoRefs', stAutoFull:'autoFull', stImgRoute:'imgRoute', stCfFallback:'cfFallback', stPhotoEngine:'photoEngine', stPhotoModel:'photoModel', stPeople:'people', stChatMode:'chatMode', stSmart:'smart', stLenAuto:'lenAuto', stCacheTtl:'cacheTtl'};
 let setPanel = null, setPanelPushed = false;
 /* 8.7: actualizare din aplicație. Codul vine oricum din rețea la pornire;
    asta prinde versiunile apărute cât aplicația a stat deschisă și forțează reîncărcarea curată. */
