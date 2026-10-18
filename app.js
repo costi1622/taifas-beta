@@ -1,5 +1,5 @@
 window.__taifas = true;   // 8.20.1: semn pentru index.html că app.js s-a încărcat
-const APP_VER = '9.64';
+const APP_VER = '9.65';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -2009,6 +2009,7 @@ function gSharedSys(g, gc = gchat){
 - Scrii DOAR replica personajului cerut. Nu scrii ce spun ${u} sau ceilalți și nu începi cu numele personajului.
 - E un chat de grup pe telefon: scurt, viu, în română naturală, cu stilul personajului (nu seamănă cu ceilalți la vorbă). Poate să-i răspundă lui ${u} sau celorlalți, pe nume; poate fi de acord sau nu, glumi, tachina, întreba. Nu repeta ce a zis altcineva.
 - Dacă vrei să trimiți 2-3 mesaje scurte la rând, ca pe chat, separă-le cu un rând care conține doar //. De cele mai multe ori un singur mesaj.
+- Fiecare bulă are 1-3 propoziții și se termină cu propoziția încheiată; scrii doar replica personajului cerut, niciodată și replicile celorlalte.
 - Când răspunzi la un mesaj mai vechi din grup (nu la ultimul), începe cu [re: primele 3-6 cuvinte exacte din mesajul acela].
 - Acțiuni foarte rar și scurt între *asteriscuri*. Fără liniuțe lungi, fără formule de asistent.
 - Ce a aflat un personaj doar din discuțiile private cu ${u} rămâne între ei: nu spune asta în grup și nu lasă să se înțeleagă; celelalte nu știu ce vorbește ${u} cu fiecare între patru ochi.
@@ -2098,13 +2099,18 @@ async function gRespond(text, more, forcePhoto, x = {}){
       ac.typing = [c].concat(k + 1 < repl.length && Math.random() < .35 ? [repl[k + 1]] : []); if(grp === g) renderGroup();
       const t0 = Date.now(); let out = '';
       const eco = gEco(k, c, text, more, x, mentioned, photo, gc);   // 9.60: amestecul și în grup
-      try{ out = await stream(gSharedSys(g, gc), gContext(c, gc, x, g), {max:500, signal:ac.signal, cid:c.id, tag:'grup', conv:true, cold:true, eco}); }   // 9.61: prompt și transcriere comune, cache comun   // 9.51: cache pe 5 min (fișa + istoricul grupului), citit la 5% din preț
+      const meta = {};   // 9.65: aflăm dacă răspunsul s-a oprit la limită (înainte: mesajul tăiat intra în grup așa, chiar la jumătatea unui cuvânt)
+      try{ out = await stream(gSharedSys(g, gc), gContext(c, gc, x, g), {max:800, signal:ac.signal, cid:c.id, tag:'grup', conv:true, cold:true, eco, meta}); }   // 9.61: prompt și transcriere comune, cache comun   // 9.51: cache pe 5 min (fișa + istoricul grupului), citit la 5% din preț
       catch(e){ if(e.name === 'AbortError') break; push({id:uid(), role:'ai', cid:c.id, name:c.name, text:'', err:e.message || 'Eroare', ts:Date.now()}); break; }   // 9.57: și eroarea apare la necitite
       let tx = faraLiniute(stripMood(stripReact(String(out || '').replace(RE_ANY, '⟦RE⟧$1⟦/RE⟧'))));
       let re = null; tx = tx.replace(/⟦RE⟧([^⟦]*)⟦\/RE⟧\s*/, (a, f) => { re = gFindQuoted(f, gc.msgs.length, gc); return ''; });
       tx = tx.replace(/⟦\/?RE⟧/g, '').replace(/\[[^\]\n]{1,80}\]/g, '').trim();
       const nmRe = new RegExp('^\\*?\\*?(?:' + c.name.split(' ')[0].replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')\\*?\\*?\\s*:\\s*', 'i');   // 9.57: numele escapat (un nume cu „(” sau „+” arunca eroare și oprea runda)
-      const parts = tx.split(/\n\s*\/\/\s*\n|\n\s*\/\/\s*$|^\s*\/\/\s*\n/).map(x => x.replace(nmRe, '').trim()).filter(Boolean).slice(0, 3);
+      tx = gNoOthers(tx, c, ms);   // 9.65: dacă AI-ul a început să scrie și replicile altora („Nkechi: …”), ne oprim acolo
+      let parts = tx.split(/\n\s*\/\/\s*\n|\n\s*\/\/\s*$|^\s*\/\/\s*\n/).map(x => x.replace(nmRe, '').trim()).filter(Boolean);
+      const cutOff = meta.stop && meta.stop !== 'end_turn' && meta.stop !== 'stop_sequence';
+      if(parts.length > 3) parts = parts.slice(0, 3);
+      else if(cutOff) parts = gTrimCut(parts);   // 9.65: oprit la limită / conexiune căzută: fără propoziții tăiate
       for(let p = 0; p < parts.length; p++){
         if(ac.signal.aborted || gc.dead) break;
         const waitMs = p ? Math.min(2600, 500 + parts[p].length * 45) : Math.max(0, typeMs({text:parts[p]}) - (Date.now() - t0));
@@ -2146,6 +2152,27 @@ function gEco(k, c, text, more, x, mentioned, photo, gc){
   else eco = L === 'mult' ? !mentioned.includes(c) : L === 'echilibrat' ? !heavy && !mentioned.includes(c) : !heavy && t.length <= 42 && !mentioned.includes(c);
   gc.ecoRun[c.id] = eco ? (gc.ecoRun[c.id] || 0) + 1 : 0;
   return eco;
+}
+/* 9.65: propoziții tăiate în grup. Dacă răspunsul s-a oprit la limită sau conexiunea a căzut, ultima bulă se taie la ultima
+   propoziție întreagă (punct, semn de întrebare/exclamare, „…” sau emoji la final); dacă nu are niciuna, bula se renunță (sau,
+   dacă e singura, rămâne până la ultimul cuvânt întreg, cu „…”). */
+function gTrimCut(parts){
+  if(!parts.length) return parts;
+  const last = parts[parts.length - 1], keep = parts.slice(0, -1);
+  const m = last.match(/^[\s\S]*[.!?…](?:[\s\u201d"»)\]]|$)|^[\s\S]*\p{Extended_Pictographic}\uFE0F?(?=\s|$)/u);
+  const done = m ? m[0].trim() : '';
+  if(done.length >= 6) return keep.concat(done);
+  if(keep.length) return keep;
+  const words = last.split(/\s+/); words.pop(); const t = words.join(' ').replace(/[,;:\s]+$/, '');
+  return t.length >= 6 ? [t + '…'] : [];
+}
+// 9.65: textul scris de un personaj se oprește unde începe replica altui personaj din grup (sau a ta)
+function gNoOthers(tx, c, ms){
+  const names = ms.filter(o => o.id !== c.id).flatMap(o => [o.name, o.name.split(' ')[0]]).concat([S.userName.trim()].filter(Boolean))
+    .map(n => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+  if(!names.length) return tx;
+  const re = new RegExp('\\n\\s*\\**\\s*(?:' + names.join('|') + ')\\s*\\**\\s*:', 'i'), k = tx.search(re);
+  return k > 0 ? tx.slice(0, k).trim() : tx;
 }
 /* (5) + (6): pozele în grup: selfie de la una din ele sau poză cu mai multe (fețele tuturor ca repere) */
 async function gPhotoShot(g, people, gc = gchat){
@@ -2470,6 +2497,7 @@ function gDmPromise(g, c, text){
 }
 /* (8): bârfa în privat: una din ele îți scrie separat, în chatul ei */
 async function gGossip(g, c, o = {}){
+  const gm = {};   // 9.65: dacă mesajul privat s-a oprit la limită
   if(!c || !aiReady() || !charById(c.id) || !groups.includes(g)) return;
   if(!o.promise && Date.now() - (g.dmAt || 0) < 3 * 36e5) return;
   g.dmAt = Date.now(); await saveGroups();
@@ -2477,8 +2505,10 @@ async function gGossip(g, c, o = {}){
   const out = await stream(`Ești ${c.name}. ${c.persona || ''}\nCum vorbești: ${c.speech || 'natural'}. Rămâi în personaj; nu spui că ești un AI.`, [{role:'user', text:
 `Ce s-a vorbit recent în grupul „${g.name}”:
 ${recent}
-${o.promise ? `În grup tocmai i-ai spus lui ${u}: „${o.promise}”. Ține-te de cuvânt: scrie-i acum în PRIVAT (nu în grup) exact ce ai promis că îi spui separat, ca o continuare firească a ce ai zis acolo. 1-4 propoziții, în stilul tău, fără acțiuni lungi; nu repeta replica din grup.` : `Scrie-i acum lui ${u} în PRIVAT (nu în grup) un mesaj scurt despre ce s-a întâmplat în grup: o bârfă, o părere sinceră despre cineva, o glumă doar între voi doi. 1-2 propoziții, în stilul tău, fără acțiuni lungi.`}`}], {max:o.promise ? 350 : 200, cid:c.id, tag:'grup', aux:!o.promise});   // 9.60: bârfa obișnuită pe Haiku
-  const tx = faraLiniute(stripMood(stripReact(String(out || '')))).replace(/\[[^\]\n]{1,80}\]/g, '').trim(); if(!tx) return;
+${o.promise ? `În grup tocmai i-ai spus lui ${u}: „${o.promise}”. Ține-te de cuvânt: scrie-i acum în PRIVAT (nu în grup) exact ce ai promis că îi spui separat, ca o continuare firească a ce ai zis acolo. 1-4 propoziții, în stilul tău, fără acțiuni lungi; nu repeta replica din grup.` : `Scrie-i acum lui ${u} în PRIVAT (nu în grup) un mesaj scurt despre ce s-a întâmplat în grup: o bârfă, o părere sinceră despre cineva, o glumă doar între voi doi. 1-2 propoziții, în stilul tău, fără acțiuni lungi.`}`}], {max:o.promise ? 500 : 320, cid:c.id, tag:'grup', aux:!o.promise, meta:gm});   // 9.60: bârfa obișnuită pe Haiku
+  let tx = faraLiniute(stripMood(stripReact(String(out || '')))).replace(/\[[^\]\n]{1,80}\]/g, '').trim();
+  if(gm.stop && gm.stop !== 'end_turn' && gm.stop !== 'stop_sequence') tx = (gTrimCut([tx])[0] || '');   // 9.65
+  if(!tx) return;
   const tid = c.thread || 'main', key = chatKey(c.id, tid), msg = {id:uid(), role:'ai', text:tx, alts:[tx], alt:0, ts:Date.now(), pro:true, fromGroup:g.id};
   // 9.57: dacă chatul ei e în memorie (deschis sau încă scrie), mesajul intră acolo; altfel salvarea chatului deschis îl ștergea din DB
   const mem = live && live.c && live.c.id === c.id && live.ch && (live.ch.tid || 'main') === tid ? live.ch : (cur && cur.id === c.id && chat && (chat.tid || 'main') === tid ? chat : null);
