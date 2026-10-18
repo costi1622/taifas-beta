@@ -1,5 +1,5 @@
 window.__taifas = true;   // 8.20.1: semn pentru index.html că app.js s-a încărcat
-const APP_VER = '9.61';
+const APP_VER = '9.62';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -37,7 +37,7 @@ const DEF = {
   userName:'', userAbout:'', len:'mediu', font:16,
   imgProv:'none',
   wkBase:'', wkTok:'', wkModel:'eco', wkSize:'768x1024',
-  sugg:'off', pro:'on', feed:'text', smart:'echilibrat', lenAuto:'on', cacheTtl:'1h', fx:'on', regen3:'on', voice:'tap', tts:'tel', cfPlan:'free', cfCap:'free', theme:'dark', vmsg:'rar', jrn:'on', aux:'on', ctxN:'30',
+  sugg:'off', pro:'on', feed:'text', smart:'echilibrat', callFill:'on', lenAuto:'on', cacheTtl:'1h', fx:'on', regen3:'on', voice:'tap', tts:'tel', cfPlan:'free', cfCap:'free', theme:'dark', vmsg:'rar', jrn:'on', aux:'on', ctxN:'30',
   vault:'off', vaultHas:null, faceFix:'on', bodyFix:'on', bestOf:'3', autoModel:'chat', callFace:'on', handCheck:'off', crHands:'on', crAngles:'on', callAmb:'on', callBack:'on', callDepth:'on', callLight:'on', callPres:'on', autoRefs:'on', autoFull:'on', imgRoute:'mix', cfFallback:'off', photoEngine:'creator', photoModel:'klein', people:'on', typeReal:'on', chatMode:'rp', rpStyle:'open', imgCheck:'on', story:'on', sky:'on', social:'on', userBday:'', lock:'off', pushOn:false, bkEvery:'week', bkLast:0, userPhoto:'', userPhys:'', userBox:null, wkChat:'ancorat', wkRef:'auto', rw:'off', rwKey:'', rwCap:'0.5', rwAvg:0, idBoost:'on', spont:'rar', sv:34, imgCost:'', pIn:'', pOut:''
 };
 let S = {...DEF};
@@ -4342,7 +4342,7 @@ function genderOf(c){
   if(/\b(man|boy|male|guy)\b|bărbat|barbat|băiat|baiat|domn/.test(t)) return 'm';
   return '';
 }
-function voiceLabel(c){ return 'Vocea telefonului' + (c.vPitch && c.vPitch !== 1 ? (c.vPitch < 1 ? ' · mai gravă' : ' · mai subțire') : ''); }
+function voiceLabel(c){ return (c.vName ? '🗣️ ' + c.vName : 'Vocea telefonului') + (c.vPitch && c.vPitch !== 1 ? (c.vPitch < 1 ? ' · mai gravă' : ' · mai subțire') : ''); }
 const ttsKey = m => 'aud:' + m.id + ':' + (m.alt || 0);
 
 // mesaj vocal: undă reală dacă există înregistrare, altfel stabilă (din id)
@@ -4360,16 +4360,19 @@ function voiceHTML(m){
 }
 let vPlaying = null, vAudio = null;
 function stopAllVoice(){ try{ speechSynthesis.cancel(); }catch(e){} if(vAudio){ vAudio.pause(); vAudio = null; } if(vPlaying && vPlaying._stop) vPlaying._stop(); vPlaying = null; }
-function phoneVoice(lang = 'ro-RO'){
-  const vs = (window.speechSynthesis ? speechSynthesis.getVoices() : []).filter(x => x.lang && x.lang.slice(0, 2).toLowerCase() === lang.slice(0, 2).toLowerCase());
-  return vs.find(x => /natural|neural|online|enhanced|premium/i.test(x.name)) || vs.find(x => /google/i.test(x.name)) || vs[0] || null;
+// 9.62: vocea aleasă pe personaj (`c.vName`); automat: întâi vocile de rețea / naturale (sună mult mai puțin a robot), apoi Google, apoi oricare
+const phoneVoices = lang => (window.speechSynthesis ? speechSynthesis.getVoices() : []).filter(x => x.lang && x.lang.slice(0, 2).toLowerCase() === String(lang || 'ro-RO').slice(0, 2).toLowerCase());
+function phoneVoice(lang = 'ro-RO', c){
+  const vs = phoneVoices(lang);
+  if(c && c.vName){ const v = vs.find(x => x.name === c.vName); if(v) return v; }
+  return vs.find(x => /natural|neural|online|enhanced|premium|wavenet/i.test(x.name)) || vs.find(x => x.localService === false) || vs.find(x => /google/i.test(x.name)) || vs[0] || null;
 }
 function speakPhone(c, text, onEnd){
   if(!('speechSynthesis' in window)){ toast('Telefonul nu are voce pentru citire.'); onEnd && onEnd(); return null; }
   speechSynthesis.cancel();
   // propoziție cu propoziție: pauzele dintre ele sună mai omenește decât un singur bloc
   const parts = ttsText(text, false).match(/[^.!?…]+[.!?…]*/g) || [];
-  const g = c ? genderOf(c) : '', base = c && c.vPitch ? c.vPitch : (g === 'm' ? .9 : g === 'f' ? 1.06 : 1), v = phoneVoice(langOf(c));
+  const g = c ? genderOf(c) : '', base = c && c.vPitch ? c.vPitch : (g === 'm' ? .9 : g === 'f' ? 1.06 : 1), v = phoneVoice(langOf(c), c);
   let off = 0, full = ttsText(text, false);
   parts.forEach((p, k) => {
     const u = new SpeechSynthesisUtterance(p.trim()); u.lang = langOf(c); if(v) u.voice = v;
@@ -4420,7 +4423,20 @@ async function say(t, m){
 const SAMPLE = c => `Bună! Sunt ${c.name}. [râde] Deci... așa sună vocea mea. Îți place?`;
 function voiceSample(c){ stopAllVoice(); speakPhone(c, SAMPLE(c)); }
 function pickVoice(c, done){
-  sheet([['🔉', 'Mai gravă', async () => { c.vPitch = .85; await saveChars(); done(); }], ['🔊', 'Normală', async () => { c.vPitch = 0; await saveChars(); done(); }], ['🎵', 'Mai subțire', async () => { c.vPitch = 1.18; await saveChars(); done(); }]]);
+  // 9.62: întâi ce voce (cele din telefon pentru limba ei, cu ▶ ascultare), apoi tonul
+  const vs = phoneVoices(langOf(c)), cur0 = phoneVoice(langOf(c), c);
+  const row = (v, i) => `<div class="vrow${cur0 && cur0.name === v.name ? ' on' : ''}"><button type="button" class="opt" data-vn="${i}"><i>${v.localService === false ? '🌐' : '📱'}</i>${esc(v.name)}${cur0 && cur0.name === v.name ? ' ✓' : ''}</button><button type="button" class="btn" data-vt="${i}" aria-label="Ascultă">▶</button></div>`;
+  openSheet(`<h4>🎙️ Vocea lui ${esc(c.name)}</h4><div class="pad">
+    ${vs.length ? vs.slice(0, 12).map(row).join('') + '<p class="hint">🌐 = voce de rețea (de obicei cea mai naturală, are nevoie de internet) · 📱 = voce din telefon. Alte voci românești: Setări Android → Ieșire text în vorbire.</p>' : '<p class="hint">Telefonul nu are încă o voce pentru limba asta. O poți instala din Setări Android → Ieșire text în vorbire.</p>'}
+    <button type="button" class="opt" data-vauto><i>✨</i>Alege automat${c.vName ? '' : ' ✓'}</button>
+    <p style="margin:12px 0 4px"><b>Tonul</b></p>
+    <div class="seg" id="vPit"><button type="button" data-p=".85" class="${c.vPitch && c.vPitch < 1 ? 'on' : ''}">Mai gravă</button><button type="button" data-p="0" class="${!c.vPitch || c.vPitch === 1 ? 'on' : ''}">Normală</button><button type="button" data-p="1.18" class="${c.vPitch > 1 ? 'on' : ''}">Mai subțire</button></div>
+    <div class="btns"><button class="btn pri" data-close>Gata</button></div></div>`);
+  $$('.sheet [data-vt]').forEach(b => b.onclick = () => { const v = vs[+b.dataset.vt], keep = c.vName; c.vName = v.name; voiceSample(c); c.vName = keep; });
+  $$('.sheet [data-vn]').forEach(b => b.onclick = async () => { c.vName = vs[+b.dataset.vn].name; await saveChars(); voiceSample(c); closeSheet(); done(); });
+  $('.sheet [data-vauto]').onclick = async () => { delete c.vName; await saveChars(); closeSheet(); done(); };
+  $('#vPit').onclick = async e => { const b = e.target.closest('[data-p]'); if(!b) return; c.vPitch = +b.dataset.p; $$('#vPit button').forEach(x => x.classList.toggle('on', x === b)); await saveChars(); voiceSample(c); };
+  $('.sheet [data-close]').addEventListener('click', () => done());
 }
 const seenMap = new WeakMap();
 const devDone = new Set();   // 7.5: pozele deja „developate” în sesiunea asta
@@ -6433,9 +6449,11 @@ const wxLine = w => w ? `${w.t}°C, ${w.ro}${w.wind >= 30 ? ', vânt puternic' :
    Bucla: ascultă (SpeechRecognition ro-RO) → mesajul tău intră în conversație → personajul răspunde (reply, scurt, vorbit)
    → răspunsul e citit cu vocea telefonului → ascultă din nou. Nu ascultă cât vorbește telefonul (fără ecou). */
 let call = null;
-const CALL_FIX = u => `ești într-un apel vocal la telefon cu ${u}: scrie doar ce spui cu voce tare, natural și scurt (1-3 propoziții), ca la telefon, fără *acțiuni*, fără emoji și fără [vocal]; poți folosi „hm”, „păi”, un râs scurt scris ca text`;
+// 9.62: cum se vorbește la telefon (nu ca un mesaj scris)
+const CALL_SPOKEN = u => `Vorbiți în timp real. Scrii doar ce spui cu voce tare: de obicei 1-2 propoziții scurte, uneori doar câteva cuvinte („serios?”, „stai, cum adică?”, „mhm, și?”); mai mult doar când chiar povestești ceva. Sună vorbit, nu scris: română colocvială („păi”, „adică”, „na”, „auzi”, „stai puțin”), propoziții simple, uneori reluate sau lăsate neterminate („mă rog, nu contează”), fără enumerări, paranteze, ghilimele sau formule de mesaj scris; numerele le scrii cum le spui. Reacționezi întâi la ce ai auzit, apoi spui ce ai de spus; nu încheia mereu cu o întrebare. Ce spune ${u} vine din recunoașterea vocii: dacă un cuvânt pare auzit greșit, înțelege ce a vrut să zică; dacă nu se înțelege deloc, întreabă scurt, ca la telefon („stai, n-am prins, ce-ai zis?”). Dacă replica ta de dinainte se termină cu „…”, te-a întrerupt: nu o relua de la capăt, răspunde la ce a zis el. Când e firesc, poți pomeni scurt ce se aude sau ce se întâmplă în jurul tău. Fără *acțiuni*, fără emoji și fără [vocal]; un râs scurt îl scrii ca vorbă („haha”)`;
+const CALL_FIX = u => `ești într-un apel vocal la telefon cu ${u}. ` + CALL_SPOKEN(u);
 // 8.13: apel video: vă vedeți. Dacă primește un cadru din camera lui, îl vede ca într-un apel adevărat
-const CALL_FIX_V = u => `ești într-un apel video cu ${u}, vă vedeți pe ecran: scrie doar ce spui cu voce tare, natural și scurt (1-3 propoziții), fără *acțiuni*, fără emoji și fără [vocal]. Dacă primești o imagine, e ce vezi chiar acum prin camera lui: poți reacționa firesc la ce vezi (unde e, lumina, ce face, expresia lui), în treacăt, fără s-o descrii ca pe o poză și fără comentarii despre corpul lui`;
+const CALL_FIX_V = u => `ești într-un apel video cu ${u}, vă vedeți pe ecran. ` + CALL_SPOKEN(u) + `. Dacă primești o imagine, e ce vezi chiar acum prin camera lui: poți reacționa firesc la ce vezi (unde e, lumina, ce face, expresia lui), în treacăt, fără s-o descrii ca pe o poză și fără comentarii despre corpul lui`;
 const callFix = c => (c && c.video ? CALL_FIX_V : CALL_FIX)(S.userName.trim() || 'el') + showNote(c) + (c && c.video && c.exprReady ? '. Începe fiecare replică cu expresia feței tale de acum, exact așa: [față: zâmbet], [față: râs], [față: surpriză], [față: gânditoare], [față: tristă] sau [față: neutră]' : '');
 const ICO = {
   mic:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>',
@@ -6597,13 +6615,14 @@ function callClean(t){
 // o propoziție pusă la coadă în vocea telefonului; subtitrarea crește odată cu ea
 // 9.23: vocea cu emoție (`callProso`): ton, viteză și volum după starea ei, propoziție și oră; frazele lungi în două bucăți, cu pauză reală
 function callSay(c, text, capOff){
-  const parts = callChunks(text), v = phoneVoice(langOf(c.c));
+  const parts = callChunks(text), v = phoneVoice(langOf(c.c), c.c);
   return Promise.all(parts.map(([s, at], k) => new Promise(res => {
     const u = new SpeechSynthesisUtterance(s); u.lang = langOf(c.c); if(v) u.voice = v;
     const P = callProso(c, s, text); u.pitch = P.pitch; u.rate = P.rate; u.volume = P.vol;
-    u.onstart = () => { if(call === c && c.state !== 'listen'){ c.state = 'speak'; callState('vorbește', 'speak'); callBarge(c); } };
+    u.onstart = () => { u._t0 = performance.now(); if(call === c && c.state !== 'listen'){ c.state = 'speak'; callState('vorbește', 'speak'); callBarge(c); vfUtter(c, u); } };   // 9.62: gura pe cronologia textului
     u.onboundary = e => { if(window.__talk) window.__talk(e, capOff + at); };
-    u.onend = u.onerror = () => {
+    u.onend = u.onerror = ev => {
+      if(ev && ev.type === 'end' && u._t0) vfCalib(u, performance.now() - u._t0);   // 9.62
       if(call === c && c.holdNext && c.state === 'speak' && !c.interrupted){ c.holdNext = false; callInterrupt(c, ''); }   // 9.23: ai ieșit din cadru: se oprește la capăt de propoziție
       else if(call === c && k < parts.length - 1 && /(…|\.\.\.)\s*$/.test(s)) callBreath(c, .6);
       res();
@@ -6634,7 +6653,9 @@ async function callReply(opts){
   const speakNew = final => {
     if(!m || c.interrupted) return;
     const t = callClean(m.text); let rest = t.slice(said);
-    if(!final){ const mm = rest.match(/^[\s\S]*?[.!?…]+["”»)]?(?=\s)/); if(!mm || mm[0].trim().length < 2) return; rest = mm[0]; }
+    if(!final){ let mm = rest.match(/^[\s\S]*?[.!?…]+["”»)]?(?=\s)/);
+      if(!mm && !said){ const cm = rest.match(/^[\s\S]*?,(?=\s)/); if(cm && cm[0].trim().split(/\s+/).length >= 5) mm = cm; }   // 9.62: prima bucată pornește și la o virgulă (vorbește mai repede)
+      if(!mm || mm[0].trim().length < 2) return; rest = mm[0]; }
     said += rest.length; rest = rest.trim(); if(!rest) return;
     const off = capAppend(c, rest);
     if(!q.length && rest.split(/\s+/).length >= 7 && Math.random() < .45) callBreath(c);   // 9.23: o respirație înainte de o replică mai lungă
@@ -6645,8 +6666,14 @@ async function callReply(opts){
   const exOf = () => { shOf(); const x = m && (m.face ? [0, m.face] : m.text && m.text.match(/\[fa[țt][ăa]:\s*([^\]\n]{1,20})\]/i)); if(x && !m._ex){ m._ex = 1; c.face = x[1].trim(); exprShow(c, x[1].trim()); }
     else if(m && m.text && !m._ex && !m._exT){ const k = exprFromText(m.text); if(k){ m._exT = 1; c.face = k; exprShow(c, k); } } };   // 9.5: și după ce spune
   c.pollT = setInterval(() => { if(call !== c) return clearInterval(c.pollT); if(m && m.text && !m.err){ exOf(); speakNew(false); } }, 120);
+  // 9.62: dacă răspunsul întârzie, un „hm…” scurt, ca un om care se gândește (local, fără cost; nu la începutul apelului, nu în altă limbă)
+  clearTimeout(c.fillT); if(!opts.pro && !learnOn(c.c) && S.callFill !== 'off') c.fillT = setTimeout(() => {
+    if(call !== c || c.state !== 'think' || said || c.interrupted || (m && callClean(m.text || '').length > 3)) return;
+    const q = /\?\s*$/.test(c.lastHeard || ''), F = q ? ['Hmm…', 'Păi…', 'Stai…', 'Hm, păi…'] : ['Mhm…', 'Hm…', 'Aha…', 'Mm…'];
+    if(Math.random() < .65) callSay(c, F[Math.floor(Math.random() * F.length)], 0);
+  }, 1100);
   try{ await run; } catch(e){}
-  clearInterval(c.pollT); done = true;
+  clearInterval(c.pollT); clearTimeout(c.fillT); done = true;
   if(c.interrupted && m && !m.err){ m.text = (c.saidText || callClean(m.text).split(/\s+/).slice(0, 4).join(' ')).trim() + '…'; if(m.alts) m.alts[m.alt || 0] = m.text; m.call = true; await saveChat(c.c, c.ch); return; }   // în istoric rămâne doar ce a apucat să spună
   if(call !== c) return;
   if(!m || m.err){ if(c.interrupted) return; callState(m && m.err ? '⚠️ ' + m.err : 'n-a mers', 'err'); c.state = 'idle'; setTimeout(() => call === c && callListen(), 1500); return; }
@@ -6666,6 +6693,7 @@ function callInterrupt(c, heard){
   if(call !== c || c.state !== 'speak') return;
   c.saidText = [...($('#clCap') ? $('#clCap').querySelectorAll('.kw.lit') : [])].map(w => w.textContent).join(' ');
   c.interrupted = true; c.state = 'listen';
+  if(c.vf) c.vf.kf = [];   // 9.62: gura se oprește odată cu vocea
   try{ speechSynthesis.cancel(); }catch(e){}
   if(busy && live && live.ch === c.ch) busy.abort();
   callState('te ascultă…', 'listen'); $('#clCap').innerHTML = heard ? `<span class="cme">${esc(heard)}</span>` : '';
@@ -6882,9 +6910,39 @@ const VF_VIS = (ch, nx) => {
   return {o:.24, w:1};
 };
 const VF_WARM = /\b(drag|dragă|iubire|iubitule|iubito|frumos|frumoasă|mulțumesc|bine|super|minunat|haha|hihi|pupic|pup|te iubesc|dor|bucur|perfect)\b|❤|😊|🥰|😍|😘|☺/i;
+/* 9.62: gura după textul rostit, nu după un sinus generic. Multe voci (Google pe Android) nu anunță cuvintele (`onboundary`),
+   iar gura „vorbea” la întâmplare. Acum, la începutul fiecărei propoziții, `vfUtter` așază literele pe o cronologie, cu viteza
+   vocii tale măsurată la fiecare propoziție (`vCps`, caractere pe secundă); pauze la virgulă și la punct, buzele lipite la m/b/p.
+   Dacă vocea anunță totuși cuvintele, cronologia se retrage și gura urmează anunțurile (mai precis). */
+const vfCps = u => { const k = (u && u.voice && u.voice.name) || 'implicit'; return (S.vCps && S.vCps[k]) || 14.5; };
+function vfUtter(c, u){
+  const V = c.vf; if(!V || !V.ready || !u || !u.text) return;
+  const now = performance.now(), rate = u.rate || 1, cps = vfCps(u) * rate, id = u._id = (u._id || Math.random());
+  let t = now + 40; const re = /([\p{L}\p{N}'’-]+)|([,;:])|([.!?…]+)/gu; let mm;
+  while((mm = re.exec(u.text))){
+    if(mm[1]){
+      const w = mm[1], L = [...w.toLowerCase()].filter(ch => /\p{L}/u.test(ch)); if(!L.length) continue;
+      const dur = Math.min(1100, Math.max(130, w.length / cps * 1000)), wt = L.map(ch => /[aeiouăâîyóú]/.test(ch) ? 1 : .55), tot = wt.reduce((a, b) => a + b, 0) || 1;
+      const t0 = t; L.forEach((ch, k) => { const d = dur * wt[k] / tot, v = VF_VIS(ch, L[k + 1]); V.kf.push({t:t + d * .5, ...v, a:.8 + Math.random() * .3, src:id}); t += d; });
+      if(VF_WARM.test(w)) V.kf.push({t:t0, o:V.kf[V.kf.length - 1].o, w:1, smile:1, src:id});
+      t += 1000 / cps * .6;   // spațiul dintre cuvinte
+    } else if(mm[2]){ V.kf.push({t:t + 50, o:0, w:1, rest:1, src:id}); t += 170 / rate; }
+    else { V.kf.push({t:t + 50, o:0, w:1, rest:1, src:id, end:/\?/.test(mm[3]) ? 'q' : 'p'}); t += 330 / rate; }
+  }
+  V.kf.push({t:t + 60, o:0, w:1, rest:1, src:id});
+  V.lastWord = now;
+}
+function vfCalib(u, ms){   // cât a durat de fapt propoziția → viteza vocii, pentru data viitoare
+  if(!u || !u.text || ms < 500 || u.text.length < 14 || u._cut) return;
+  const k = (u.voice && u.voice.name) || 'implicit', meas = u.text.length / (ms / 1000) / (u.rate || 1);
+  if(!(meas > 5 && meas < 40)) return;
+  S.vCps = S.vCps || {}; S.vCps[k] = S.vCps[k] ? S.vCps[k] * .7 + meas * .3 : meas;
+  clearTimeout(vfCalib.t); vfCalib.t = setTimeout(saveSettings, 4000);
+}
 function vfWord(c, e){
   const V = c.vf; if(!V || !V.ready) return;
   const u = e && e.utterance, txt = u ? u.text : '', i = e && typeof e.charIndex === 'number' ? e.charIndex : -1;
+  if(u && u._id && !u._bnd){ u._bnd = true; const now0 = performance.now(); V.kf = V.kf.filter(x => x.src !== u._id || x.t <= now0); }   // 9.62: vocea anunță cuvintele: renunțăm la cronologie
   let w = ''; if(txt && i >= 0){ const m = txt.slice(i).match(/^[\p{L}\p{N}'’-]+/u); w = m ? m[0] : ''; }
   if(!w) return;
   const now = performance.now(); V.lastWord = now;
@@ -6966,6 +7024,7 @@ function vfDraw(c, now){
   const ease = (cur, tgt, up, dn) => cur + (tgt - cur) * (tgt > cur ? up : dn);
   // ── gura: cadrele-cheie ale literelor; fără cuvinte de la voce, un vorbit generic cât vorbește
   V.kf = V.kf.filter(x => now < x.t + 400);
+  for(const x of V.kf) if(!x.done && x.src && x.t <= now){ x.done = 1; if(x.smile) V.smileT = now; if(x.end){ V.nods.push({t:now, a:x.end === 'q' ? .4 : .9}); if(x.end === 'q'){ V.brow = now; V.tiltT = now; } else { V.lensUntil = now + 1200 + Math.random() * 800; V.sacAt = now; } } }   // 9.62
   let tO = 0, tW = 1, tP = 0;
   const prev = [...V.kf].reverse().find(x => x.t <= now), next = V.kf.find(x => x.t > now);
   if(prev && next && next.t - prev.t < 400){ const f = (now - prev.t) / (next.t - prev.t), m = f * f * (3 - 2 * f);
@@ -7262,7 +7321,7 @@ function bcMaybe(c, txt, lastT){
   const set = BC_WORDS[langOf(c.c).slice(0, 2)] || BC_WORDS.ro, pool = set[sad ? 1 : 0], w = pool[Math.floor(Math.random() * pool.length)];
   c.bcAt = now; c.bcWords = words; (c.bcSaid = c.bcSaid || []).push(w);
   try{
-    const u = new SpeechSynthesisUtterance(w); u.lang = langOf(c.c); const vv = phoneVoice(langOf(c.c)); if(vv) u.voice = vv;
+    const u = new SpeechSynthesisUtterance(w); u.lang = langOf(c.c); const vv = phoneVoice(langOf(c.c), c.c); if(vv) u.voice = vv;
     const P = callProso(c, w, txt); u.pitch = P.pitch; u.rate = Math.min(1.25, P.rate * 1.05); u.volume = .55;
     speechSynthesis.speak(u);
   }catch(e){}
@@ -7506,6 +7565,7 @@ function callFrame(c, px = 512, force = false){   // un cadru mic din camera ta,
 }
 async function callUserSaid(c, t){
   t = bcClean(c, t); if(!t) return;   // 9.23: „îhî”-ul ei, auzit de microfon, nu intră în ce ai spus
+  c.lastHeard = t;   // 9.62: pentru „hm…”-ul de dinaintea răspunsului
   const rx = c.reacts.splice(0).join('');
   c.ch.msgs.push({id:uid(), role:'user', text:t[0].toUpperCase() + t.slice(1) + (rx ? ` (în timpul apelului ți-a trimis ${rx})` : ''), ts:Date.now(), call:true, video:c.video || undefined, seen:true});
   await saveChat(c.c, c.ch);
@@ -8663,7 +8723,7 @@ const aiReady = () => hasKey('anthropic');
 const FIELDS = {stKey:'key', stModel:'model', stUser:'userName', stAbout:'userAbout', stBday:'userBday',
   stWkBase:'wkBase', stWkTok:'wkTok', stWkModel:'wkModel', stWkSize:'wkSize',
   stPin:'pIn', stPout:'pOut', stVkBase:'wkBase', stVkTok:'wkTok', stRwKey:'rwKey'};
-const SEGS = {stRw:'rw', stRwCap:'rwCap', stIdBoost:'idBoost', stRegen:'regen3', stFx:'fx', stFeed:'feed', stStory:'story', stSky:'sky', stSocial:'social', stCfCap:'cfCap', stCfPlan:'cfPlan', stAux:'aux', stCtx:'ctxN', stVmsg:'vmsg', stJrn:'jrn', stTheme:'theme', stLen:'len', stFont:'font', stImg:'imgProv', stSugg:'sugg', stPro:'pro', stVoice:'voice', stSpont:'spont', stImgCheck:'imgCheck', stBodyFix:'bodyFix', stWkChat:'wkChat', stBkEvery:'bkEvery', stVault:'vault', stCallFace:'callFace', stCallAmb:'callAmb', stCallBack:'callBack', stCallDepth:'callDepth', stCallLight:'callLight', stCallPres:'callPres', stTypeReal:'typeReal', stAutoRefs:'autoRefs', stAutoFull:'autoFull', stImgRoute:'imgRoute', stCfFallback:'cfFallback', stPhotoEngine:'photoEngine', stPhotoModel:'photoModel', stPeople:'people', stChatMode:'chatMode', stRpStyle:'rpStyle', stSmart:'smart', stLenAuto:'lenAuto', stCacheTtl:'cacheTtl'};
+const SEGS = {stCallFill:'callFill', stRw:'rw', stRwCap:'rwCap', stIdBoost:'idBoost', stRegen:'regen3', stFx:'fx', stFeed:'feed', stStory:'story', stSky:'sky', stSocial:'social', stCfCap:'cfCap', stCfPlan:'cfPlan', stAux:'aux', stCtx:'ctxN', stVmsg:'vmsg', stJrn:'jrn', stTheme:'theme', stLen:'len', stFont:'font', stImg:'imgProv', stSugg:'sugg', stPro:'pro', stVoice:'voice', stSpont:'spont', stImgCheck:'imgCheck', stBodyFix:'bodyFix', stWkChat:'wkChat', stBkEvery:'bkEvery', stVault:'vault', stCallFace:'callFace', stCallAmb:'callAmb', stCallBack:'callBack', stCallDepth:'callDepth', stCallLight:'callLight', stCallPres:'callPres', stTypeReal:'typeReal', stAutoRefs:'autoRefs', stAutoFull:'autoFull', stImgRoute:'imgRoute', stCfFallback:'cfFallback', stPhotoEngine:'photoEngine', stPhotoModel:'photoModel', stPeople:'people', stChatMode:'chatMode', stRpStyle:'rpStyle', stSmart:'smart', stLenAuto:'lenAuto', stCacheTtl:'cacheTtl'};
 let setPanel = null, setPanelPushed = false;
 /* 8.7: actualizare din aplicație. Codul vine oricum din rețea la pornire;
    asta prinde versiunile apărute cât aplicația a stat deschisă și forțează reîncărcarea curată. */
