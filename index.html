@@ -454,6 +454,7 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
 .grrow i{width:10px;height:10px;border-radius:50%;flex:none}
 .grrow span{margin-left:auto;color:var(--tx2);text-align:right}
 .grlog{font-size:.8rem;color:var(--tx2);padding:2px 0}
+.duob .duo+.duo{margin-top:8px;padding-top:8px;border-top:1px solid color-mix(in srgb,var(--tx) 10%,transparent)}.duo .dnm{display:block;font-size:.78rem;font-weight:700;color:var(--dc);margin-bottom:2px}
 .vrow{display:flex;gap:6px;align-items:center}.vrow .opt{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.vrow .btn{flex:none;padding:8px 12px}.vrow.on .opt{color:var(--acc)}
 .grbtn{width:100%;background:none;border:0;border-bottom:1px solid var(--line);color:inherit;text-align:left;font:inherit;cursor:pointer}
 .grbtn u{text-decoration:none;opacity:.55;font-size:.8rem;flex:none}
@@ -1763,6 +1764,20 @@ details.sdanger>summary{color:var(--err)}
       <div class="sec">
         <div class="lblrow"><label for="edPersona">Personalitate și poveste</label><button type="button" class="btn sm" id="edDraft">✨ Completează</button></div>
         <textarea id="edPersona" rows="6" placeholder="Cine e, ce-i place, ce relație aveți, cum se poartă. Scrie câteva idei și apasă ✨ Completează."></textarea>
+      </div>
+      <div class="sec" id="edDuoSec">
+        <div class="hint" id="edDuoHint" hidden>Pare că descrii două personaje. <button type="button" class="btn sm" id="edDuoGo">👯 Fă-le două în același chat</button></div>
+        <label class="chk"><input type="checkbox" id="edDuo"> 👯 Două personaje în același chat (fiecare cu personalitatea, aspectul și vocea ei)</label>
+        <div id="edDuoBox" hidden>
+          <p class="hint">Personajul 1 e cel de sus (nume, personalitate, aspect, cum vorbește). Aici e al doilea. Amândouă îți răspund în același chat și vorbesc și între ele.</p>
+          <div class="btns"><button type="button" class="btn sm" id="edDuoSplit">✨ Împarte descrierea în două personaje</button></div>
+          <label for="edDuoName">Numele personajului 2</label><input id="edDuoName" maxlength="40" placeholder="ex. Maria">
+          <label for="edDuoPersona">Personalitate și poveste (personajul 2)</label><textarea id="edDuoPersona" rows="5"></textarea>
+          <label for="edDuoAspect">Aspect (personajul 2)</label><textarea id="edDuoAspect" rows="4"></textarea>
+          <label for="edDuoSpeech">Cum vorbește (personajul 2)</label><input id="edDuoSpeech" maxlength="200" placeholder="ex. sec, ironică, fraze scurte">
+          <label for="edDuoRel">Ce relație au între ele</label><input id="edDuoRel" maxlength="160" placeholder="ex. surori, colege de apartament, cele mai bune prietene">
+          <p class="hint">La două personaje nu sunt (încă) poze, apeluri și grupuri.</p>
+        </div>
       </div>
       <div class="sec">
         <div class="lblrow"><label for="edAspect">Aspect</label><span style="display:flex;gap:6px"><button type="button" class="btn sm" id="edCheck">🔍 Verifică</button><button type="button" class="btn sm" id="edRedesc">↻ Din nou</button></span></div>

@@ -1,5 +1,5 @@
 window.__taifas = true;   // 8.20.1: semn pentru index.html că app.js s-a încărcat
-const APP_VER = '9.62';
+const APP_VER = '9.63';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -216,6 +216,29 @@ function faraLiniute(t){
     .replace(/,\s*([,.!?…])/g, '$1')
     .replace(/([.!?…])\s*,/g, '$1')
     .replace(/ {2,}/g, ' ');
+}
+/* 9.63: 👯 două personaje în același chat (fără grup). c.duo = {on, a:{name}, b:{name, persona, aspect, speech}, rel}.
+   Personajul 1 = câmpurile obișnuite (persona, aspect, speech); c.name = „A & B” (cardul, antetul).
+   Un singur răspuns AI le scrie pe amândouă, fiecare replică pe rândul ei: „A: …” / „B: …”; chatul le arată cu numele colorat. */
+const duoOn = c => !!(c && c.duo && c.duo.on && c.duo.a && c.duo.b && c.duo.a.name && c.duo.b.name);
+const DUO_COL = ['var(--acc)', '#4fc3f7'];
+function duoSplit(c, text){
+  const N = [c.duo.a.name, c.duo.b.name], esc2 = x => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const alt = N.flatMap((n, k) => [[n, k], [n.split(' ')[0], k]]).sort((x, y) => y[0].length - x[0].length);
+  const re = new RegExp('^\\s*\\**\\s*(' + alt.map(x => esc2(x[0])).join('|') + ')\\s*\\**\\s*:\\s*', 'i');
+  const out = []; let curK = 0;
+  for(const line of String(text || '').split('\n')){
+    const m = line.match(re);
+    if(m){ const hit = alt.find(x => x[0].toLowerCase() === m[1].toLowerCase()); curK = hit ? hit[1] : curK; out.push({k:curK, t:line.slice(m[0].length)}); }
+    else if(out.length) out[out.length - 1].t += '\n' + line;
+    else if(line.trim()) out.push({k:0, t:line});
+  }
+  return out.map(x => ({k:x.k, t:x.t.replace(/^\n+|\n+$/g, '')})).filter(x => x.t.trim());
+}
+function duoHTML(c, text){
+  const seg = duoSplit(c, text); if(!seg.length) return fmtMsg(text);
+  const N = [c.duo.a.name, c.duo.b.name];
+  return seg.map(x => `<div class="duo d${x.k}"><b class="dnm" style="--dc:${DUO_COL[x.k]}">${esc(N[x.k].split(' ')[0])}</b>${fmtMsg(x.t)}</div>`).join('');
 }
 function fmtMsg(t){
   const src = String(t || '').replace(/\*\*(.+?)\*\*/g, '\u0001$1\u0002').replace(/\.\.\./g, '…');
@@ -1801,7 +1824,7 @@ function groupEditSheet(g){
   openSheet(`<h4>${g ? '👥 Grupul' : '👥 Grup nou'}</h4><div class="pad">
     <label for="geName">Numele grupului</label><input id="geName" maxlength="40" placeholder="ex. Fetele, Colegii, Familia" value="${esc(g ? g.name : '')}">
     <label style="margin-top:10px">Cine e în grup (2-5)</label>
-    <div class="gpick">${[...chars].sort((a, b) => (b.lastAt || 0) - (a.lastAt || 0)).map(c => `<button type="button" class="gpk${sel.has(c.id) ? ' on' : ''}" data-gc="${c.id}">${avatarHTML(c)}<span>${esc(c.name)}</span></button>`).join('')}</div>
+    <div class="gpick">${[...chars].filter(c => !duoOn(c)).sort((a, b) => (b.lastAt || 0) - (a.lastAt || 0)).map(c => `<button type="button" class="gpk${sel.has(c.id) ? ' on' : ''}" data-gc="${c.id}">${avatarHTML(c)}<span>${esc(c.name)}</span></button>`).join('')}</div>
     <label for="geTopic" style="margin-top:10px">Despre ce e grupul (opțional)</label><input id="geTopic" maxlength="160" placeholder="ex. plănuim o ieșire la munte" value="${esc(g && g.topic || '')}">
     <label style="margin-top:10px">Tonul grupului</label>
     <div class="seg gtone" id="geTone">${Object.entries(G_TONES).map(([k, t]) => `<button type="button" data-v="${k}" class="${(g && g.tone || 'normal') === k ? 'on' : ''}">${t.e} ${t.n}</button>`).join('')}</div>
@@ -4102,7 +4125,7 @@ function msgHTML(m, i, lastAi, anim, g = ''){
   else if(m.voice && !m.pending) inner = `<div class="bub">${voiceHTML(m)}${tm}${reactHTML(m)}</div>`;
   else if(m.sticker) inner = `<div class="stk"><img data-k="${esc(m.sticker.k)}" data-view="${esc(m.sticker.k)}" alt="${esc(m.sticker.l)}">${tm}${reactHTML(m)}</div>`;
   else if(m.gift) inner = `<div class="bub gift"><span class="ge">${esc(m.gift.e)}</span><span class="gn">🎁 ${esc(m.gift.n)}</span>${m.text ? `<span class="gt">${esc(m.text)}</span>` : ''}${tm}${reactHTML(m)}</div>`;
-  else inner = `<div class="bub${m.pending ? ' typing' : ''}${!m.pending && !m.reply && isJumbo(m.text) ? ' jumbo' : ''}">${quoteHTML(m)}${fmtMsg(m.pending ? typedText(m) : m.text)}${m.pending ? '' : tm}${reactHTML(m)}</div>`;
+  else inner = `<div class="bub${m.pending ? ' typing' : ''}${!m.pending && !m.reply && isJumbo(m.text) ? ' jumbo' : ''}${!me && duoOn(cur) ? ' duob' : ''}">${quoteHTML(m)}${!me && duoOn(cur) ? duoHTML(cur, m.pending ? typedText(m) : m.text) : fmtMsg(m.pending ? typedText(m) : m.text)}${m.pending ? '' : tm}${reactHTML(m)}</div>`;   // 9.63
   let under = '', lx = '';
   // 8.15: învață o limbă: corecturile și traducerea, sub mesajul ei
   if(!me && m.corr && m.corr.length) lx += `<div class="corr">${m.corr.map(x => { const [w, why] = x.split('|'); const [bad, good] = (w || '').split(/→|->/); return `<div>✏️ ${good ? `<s>${esc(bad.trim())}</s> → <b>${esc(good.trim())}</b>` : esc(w)}${why ? `<small>${esc(why.trim())}</small>` : ''}</div>`; }).join('')}</div>`;
@@ -4371,13 +4394,15 @@ function speakPhone(c, text, onEnd){
   if(!('speechSynthesis' in window)){ toast('Telefonul nu are voce pentru citire.'); onEnd && onEnd(); return null; }
   speechSynthesis.cancel();
   // propoziție cu propoziție: pauzele dintre ele sună mai omenește decât un singur bloc
-  const parts = ttsText(text, false).match(/[^.!?…]+[.!?…]*/g) || [];
+  // 9.63: două personaje: fără „Nume:”, iar a doua vorbește cu alt ton și puțin altă viteză
+  const segs = duoOn(c) ? duoSplit(c, text).map(x => ({k:x.k, t:ttsText(x.t, false)})) : [{k:0, t:ttsText(text, false)}];
+  const parts = segs.flatMap(sg => (sg.t.match(/[^.!?…]+[.!?…]*/g) || []).map(p => ({p, k:sg.k})));
   const g = c ? genderOf(c) : '', base = c && c.vPitch ? c.vPitch : (g === 'm' ? .9 : g === 'f' ? 1.06 : 1), v = phoneVoice(langOf(c), c);
-  let off = 0, full = ttsText(text, false);
-  parts.forEach((p, k) => {
+  let off = 0, full = segs.map(x => x.t).join(' ');
+  parts.forEach(({p, k:who}, k) => {
     const u = new SpeechSynthesisUtterance(p.trim()); u.lang = langOf(c); if(v) u.voice = v;
     const at = full.indexOf(p.trim(), off); const base0 = at >= 0 ? at : off; off = base0 + p.trim().length;
-    u.pitch = base * (1 + (k % 2 ? .02 : -.02)); u.rate = /\?\s*$/.test(p) ? 1.02 : .97;
+    u.pitch = base * (who ? .84 : 1) * (1 + (k % 2 ? .02 : -.02)); u.rate = (/\?\s*$/.test(p) ? 1.02 : .97) * (who ? 1.06 : 1);
     u.onboundary = e => { if(window.__talk) window.__talk(e, base0); };
     if(k === parts.length - 1){ u.onend = u.onerror = () => onEnd && onEnd(); }
     speechSynthesis.speak(u);
@@ -4606,7 +4631,7 @@ const LEN = {scurt:{t:'1-2 fraze scurte', max:700}, mediu:{t:'un paragraf, cel m
 // 6.5: comutatorul din profil (c.sendPics true/false) le pornește/oprește pentru orice personaj cu poză de profil
 const sendPicsOn = c => c.sendPics === undefined ? !!c.aiPortrait : !!c.sendPics;
 // Cererile explicite ale utilizatorului sunt independente de setarea pentru poze spontane.
-const canRequestPhoto = c => S.imgProv !== 'none' && !!c && !!c.photo;
+const canRequestPhoto = c => S.imgProv !== 'none' && !!c && !!c.photo && !duoOn(c);   // 9.63: fără poze la două personaje
 const canAutoPhoto = c => canRequestPhoto(c) && sendPicsOn(c);
 const PHOTO_PROMISE = /\*[^*]*\b(trimit|trimite|atașez|atașează|face|fac|facem|faceți)\b[^*]*\b(poz|fotografi|selfie)[^*]*\*/i;
 // 8.17: prompt stabil: părțile care se schimbă des (fapte, relație, cadouri, agendă, telefon, cunoscuți) se „îngheață”
@@ -4696,16 +4721,34 @@ function sysFor(c, ch){
   if(ch) sysMemo.set(ch, {core, from:ch._from, last:Date.now(), text});
   return text;
 }
+// 9.63: fișa pentru două personaje în același chat
+function duoSys(c, u){
+  const A = c.duo.a.name, B = c.duo.b.name, b = c.duo.b;
+  return [
+    `Joci DOUĂ personaje diferite în aceeași conversație privată cu ${u}: ${A} și ${B}. Sunt două persoane distincte, cu personalitatea, aspectul și felul lor de a vorbi. Rămâi mereu în personaje; nu spui că ești un AI.`,
+    `## ${A}${c.aspect ? '\nCum arată (exact așa): ' + c.aspect : ''}${c.persona ? '\nCine e: ' + c.persona : ''}${c.speech ? '\nCum vorbește: ' + c.speech : ''}`,
+    `## ${B}${b.aspect ? '\nCum arată (exact așa): ' + b.aspect : ''}${b.persona ? '\nCine e: ' + b.persona : ''}${b.speech ? '\nCum vorbește: ' + b.speech : ''}`,
+    `## Ele două\n${c.duo.rel || 'Se cunosc bine și sunt împreună în conversația asta.'}`,
+    `## Cum scrii, cu două personaje
+- Fiecare replică începe pe un rând nou cu numele exact și două puncte: „${A}: …” sau „${B}: …”. Fără alt text în afara replicilor.
+- De obicei vorbesc amândouă, în ordinea pe care o cere momentul; uneori doar una (cealaltă poate interveni scurt). Se pot întrerupe, completa, contrazice, tachina, își pot răspunde una alteia, nu doar lui ${u}.
+- Vocile lor sunt clar diferite (ton, vocabular, lungimea frazelor, umor), după fișele de mai sus; nu se copiază una pe alta și nu spun același lucru de două ori.
+- Ce face fiecare între *asteriscuri* stă în replica ei. Nu scrii niciodată ce spune sau face ${u}.
+- Fără mesaje vocale ([vocal]) și fără poze în conversația asta.
+- Regulile de mai jos se aplică fiecăreia; lungimea e pentru amândouă la un loc.`
+  ];
+}
 function systemFor(c, ch){
   const u = S.userName.trim() || 'utilizatorul';
   const chatM = modeOf(ch) === 'chat';
   const lex = (c.facts || []).filter(f => f.k === 'lex').slice(-12).map(f => '- ' + f.t).join('\n');
   const facts = (c.facts || []).filter(f => f.k !== 'lex').map(f => '- ' + (f.k === 'urm' ? '(urma să i se întâmple) ' : f.k === 'gluma' ? '(glumă de-a voastră) ' : '') + f.t).join('\n');
   return [
+    ...(duoOn(c) ? duoSys(c, u) : [
     `Ești ${c.name}. Joci acest personaj într-o conversație privată cu ${u}. Rămâi mereu în personaj; nu spui că ești un AI.`,
     c.aspect && `## Cum arăți\nAceasta e înfățișarea ta exactă. Când te descrii sau descrii ce porți, rămâi fidel ei.\n${c.aspect}`,
     c.persona && `## Cine ești\n${c.persona}`,
-    c.speech && `## Cum vorbești\n${c.speech}`,
+    c.speech && `## Cum vorbești\n${c.speech}`]),
     (S.userAbout.trim() || S.userBday) && `## Despre ${u}\n${S.userAbout.trim()}${S.userBday ? (S.userAbout.trim() ? '\n' : '') + 'Ziua lui de naștere: ' + mdLabel(mdOf(S.userBday)) + '.' : ''}`,
     agendaFor(c),
     circleFor(c),
@@ -6463,6 +6506,7 @@ const ICO = {
   end:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 9c-3.3 0-6.3 1-8.5 2.7-.6.5-.7 1.4-.2 2l1.5 1.8c.4.5 1.2.6 1.8.3l2-1.2c.4-.3.6-.7.6-1.2v-1.6c1.8-.5 3.8-.5 5.6 0v1.6c0 .5.2.9.6 1.2l2 1.2c.6.3 1.4.2 1.8-.3l1.5-1.8c.5-.6.4-1.5-.2-2C18.3 10 15.3 9 12 9z"/></svg>'
 };
 function callChoice(){
+  if(duoOn(cur)){ toast('Apelurile nu merg încă la două personaje în același chat.', 3500); return; }   // 9.63
   const c = cur, can = c.callIn !== false;
   sheet([['📞', 'Apel vocal', () => startCall({video:false})], ['📹', 'Apel video', () => startCall({video:true})],
     ['🔔', can ? `${c.name} te poate suna: Da (atinge ca să oprești)` : `${c.name} te poate suna: Nu (atinge ca să pornești)`, () => { c.callIn = !can; saveChars(); toast(c.callIn ? `🔔 ${c.name} te poate suna` : `🔕 ${c.name} nu te mai sună`); }]]);
@@ -8461,6 +8505,7 @@ function openEditor(id){
   $('#edTitle').textContent = c ? c.name : 'Personaj nou';
   $('#edName').value = c?.name || ''; $('#edTag').value = c?.tag || '';
   $('#edAspect').value = c?.aspect || ''; $('#edPersona').value = c?.persona || '';
+  duoFill(c);   // 9.63
   $('#edSpeech').value = c?.speech || ''; $('#edGreet').value = c?.greet || '';
   $('#edLook').value = c?.look || ''; $('#edStil').value = c?.stil || 'photo';
   ed.accent = c?.accent || ''; ed.bg = c?.bg || 'clar'; drawLook();
@@ -8665,14 +8710,57 @@ async function runDraft(){
   btn.disabled = false; btn.textContent = '✨ Completează';
 }
 let edSaving = false;
+// 9.63: panoul „👯 Două personaje” din editor
+const DUO_HINT = /(?<!\p{L})(două personaje|doua personaje|doi |două |doua |amândou|amandou|amândoi|amandoi|gemene|gemeni|surori|surorile|frați|frati|frații|fratii|colege de apartament|colegi de apartament|cuplu|prietene cele mai bune|cele mai bune prietene|el și ea|ea și el)(?!\p{L})/iu;
+function duoFill(c){
+  const on = duoOn(c) || !!(c && c.duo && c.duo.b && c.duo.on);
+  $('#edDuo').checked = on; $('#edDuoBox').hidden = !on;
+  const b = (c && c.duo && c.duo.b) || {};
+  $('#edDuoName').value = b.name || ''; $('#edDuoPersona').value = b.persona || ''; $('#edDuoAspect').value = b.aspect || ''; $('#edDuoSpeech').value = b.speech || ''; $('#edDuoRel').value = (c && c.duo && c.duo.rel) || '';
+  if(c && c.duo && c.duo.a && on) $('#edName').value = c.duo.a.name;
+  duoHintSync();
+}
+function duoHintSync(){ const t = [$('#edPrompt') && $('#edPrompt').value, $('#edPersona').value, $('#edAspect').value].join(' '); $('#edDuoHint').hidden = $('#edDuo').checked || !DUO_HINT.test(t); }
+function duoRead(){
+  if(!$('#edDuo').checked) return null;
+  const a = $('#edName').value.trim(), n = $('#edDuoName').value.trim();
+  if(!n){ toast('Pune numele celui de-al doilea personaj.'); $('#edDuoName').focus(); return false; }
+  if(pnorm(n) === pnorm(a)){ toast('Cele două personaje au nevoie de nume diferite.'); $('#edDuoName').focus(); return false; }
+  const all = [$('#edPersona').value, $('#edDuoPersona').value, $('#edDuoAspect').value].join(' ');
+  if(typeof CR_MINOR !== 'undefined' && CR_MINOR.test(all)){ toast('Personajele trebuie să fie adulte.'); return false; }
+  return {on:true, a:{name:a}, b:{name:n, persona:$('#edDuoPersona').value.trim(), aspect:$('#edDuoAspect').value.trim(), speech:$('#edDuoSpeech').value.trim()}, rel:$('#edDuoRel').value.trim()};
+}
+async function duoSplitDesc(){
+  const src = [$('#edPrompt') && $('#edPrompt').value.trim(), $('#edName').value.trim() && 'Nume: ' + $('#edName').value.trim(), $('#edPersona').value.trim(), $('#edAspect').value.trim()].filter(Boolean).join('\n');
+  if(src.length < 20){ toast('Scrie întâi descrierea (cu cele două personaje), apoi apasă din nou.'); return; }
+  if(typeof CR_MINOR !== 'undefined' && CR_MINOR.test(src)){ toast('Personajele trebuie să fie adulte.'); return; }
+  if(!aiReady()){ toast('Adaugă cheia în Setări.'); return; }
+  const b = $('#edDuoSplit'); b.disabled = true; b.innerHTML = '<span class="spin"></span> Le despart…';
+  try{
+    const j = await crAskJSON('Desparți o descriere în două personaje de poveste, distincte. Răspunzi DOAR cu JSON valid, în română.',
+`Descrierea scrisă de utilizator (conține două personaje):
+${src}
+Despart-o în DOUĂ personaje adulte (21+), fiecare cu: "name" (numele din descriere; dacă lipsește, unul potrivit), "persona" (cine e, ce-i place, cum se poartă, relația cu utilizatorul, 3-6 propoziții, fidel descrierii, completând firesc), "aspect" (cum arată, fără haine trecătoare: vârstă, față, păr, corp, semne; doar ce reiese din descriere, completat discret), "speech" (cum vorbește, 4-10 cuvinte, clar diferit de celălalt). Plus "rel": ce relație au ele două între ele (o propoziție). Nu amesteca trăsăturile unuia cu ale celuilalt.
+JSON: {"a":{"name":"","persona":"","aspect":"","speech":""},"b":{"name":"","persona":"","aspect":"","speech":""},"rel":""}`, 1400);
+    const A = j.a || {}, B = j.b || {}, cl = v => faraLiniute(String(v || '')).trim();
+    if(!cl(A.name) || !cl(B.name)) throw new Error('n-am găsit două personaje în descriere');
+    if(typeof CR_MINOR !== 'undefined' && CR_MINOR.test([A.persona, A.aspect, B.persona, B.aspect].join(' '))) throw new Error('personajele trebuie să fie adulte');
+    $('#edName').value = cl(A.name).slice(0, 40); $('#edPersona').value = cl(A.persona); $('#edAspect').value = cl(A.aspect); if(!$('#edSpeech').value.trim()) $('#edSpeech').value = cl(A.speech).slice(0, 200);
+    $('#edDuoName').value = cl(B.name).slice(0, 40); $('#edDuoPersona').value = cl(B.persona); $('#edDuoAspect').value = cl(B.aspect); $('#edDuoSpeech').value = cl(B.speech).slice(0, 200); $('#edDuoRel').value = cl(j.rel).slice(0, 160);
+    $('#edDuo').checked = true; $('#edDuoBox').hidden = false; duoHintSync();
+    toast('👯 ' + $('#edName').value + ' și ' + $('#edDuoName').value + ': verifică și corectează ce vrei');
+  }catch(e){ toast('N-a mers: ' + (e.message || e), 4000); }
+  finally{ b.disabled = false; b.textContent = '✨ Împarte descrierea în două personaje'; }
+}
 async function saveEditor(){
   if(edSaving || !ed) return;
   edSaving = true;
   try{ await saveEditorNow(); } finally { edSaving = false; }
 }
 async function saveEditorNow(){
-  const name = $('#edName').value.trim();
+  let name = $('#edName').value.trim();
   if(!name){ toast('Pune un nume.'); $('#edName').focus(); return; }
+  const duo = duoRead(); if(duo === false) return;   // 9.63
   let c = ed.id ? charById(ed.id) : null;
   const isNew = !c;
   if(isNew){ c = {id:uid(), created:Date.now()}; chars.push(c); }
@@ -8685,6 +8773,8 @@ async function saveEditorNow(){
   Object.assign(c, {name, tag:$('#edTag').value.trim(), aspect:$('#edAspect').value.trim(), persona:$('#edPersona').value.trim(),
     speech:$('#edSpeech').value.trim(), greet:$('#edGreet').value.trim(), look:$('#edLook').value.trim(), stil:$('#edStil').value,
     accent:ed.accent || '', bg:ed.bg || 'clar'});
+  if(duo){ c.duo = duo; c.name = duo.a.name + ' & ' + duo.b.name; groups.forEach(g => { if(g.members.includes(c.id)) g.members = g.members.filter(x => x !== c.id); }); saveGroups(); }   // 9.63
+  else if(c.duo){ c.duo.on = false; }
   await saveChars();
   // dacă salutul s-a schimbat și conversația are doar salutul, îl înlocuim
   if(!isNew && oldGreet !== c.greet){
@@ -9377,6 +9467,9 @@ function bind(){
   $('#edSurprise').onclick = surpriseSheet;
   $('#edName').addEventListener('input', () => { $('#edTitle').textContent = $('#edName').value.trim() || 'Personaj nou'; $$('#edNames button').forEach(b => b.classList.toggle('on', b.textContent === $('#edName').value.trim())); });
   $('#edSave').onclick = saveEditor;
+  $('#edDuo').onchange = () => { $('#edDuoBox').hidden = !$('#edDuo').checked; duoHintSync(); };   // 9.63
+  $('#edDuoSplit').onclick = duoSplitDesc; $('#edDuoGo').onclick = () => { $('#edDuo').checked = true; $('#edDuoBox').hidden = false; duoHintSync(); duoSplitDesc(); };
+  ['#edPersona', '#edAspect', '#edPrompt'].forEach(q => $(q) && $(q).addEventListener('input', duoHintSync));
   $('#edDel').onclick = () => deleteChar();
   $('#edAcc').addEventListener('click', e => { const b = e.target.closest('[data-a]'); if(!b) return; ed.accent = b.dataset.a; drawLook(); });
   $$('#edBg button').forEach(b => b.onclick = () => { ed.bg = b.dataset.v; drawLook(); });
