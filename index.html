@@ -454,6 +454,20 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
 .grrow i{width:10px;height:10px;border-radius:50%;flex:none}
 .grrow span{margin-left:auto;color:var(--tx2);text-align:right}
 .grlog{font-size:.8rem;color:var(--tx2);padding:2px 0}
+.grbtn{width:100%;background:none;border:0;border-bottom:1px solid var(--line);color:inherit;text-align:left;font:inherit;cursor:pointer}
+.grbtn u{text-decoration:none;opacity:.55;font-size:.8rem;flex:none}
+.grbtn span small{color:var(--tx3);font-size:.74rem}
+.grme{font-size:.66rem;font-weight:700;color:var(--mc);line-height:1}
+.grmerow .av{width:38px;height:38px;border-radius:50%;object-fit:cover;flex:none}
+.grmerow .grmeb{margin-left:0;display:flex;flex-direction:column;gap:3px;flex:1;text-align:left;color:var(--tx)}
+.grmerow .grmeb span,.grmerow .grmeb b{margin-left:0;text-align:left}
+.grbar{display:flex;align-items:center;gap:6px;font-size:.78rem;width:100%;color:var(--tx2)}
+.grbar em{font-style:normal;flex:none}
+.grmerow .grbar span{flex:1;min-width:60px;height:6px;border-radius:3px;background:var(--line);overflow:hidden;display:block}
+.grbar span i{display:block;height:100%;border-radius:3px}
+.grmerow .grbar b{width:26px;text-align:right;font-size:.75rem;flex:none}
+.grseg button.on{background:var(--sc);color:#111;border-color:var(--sc)}
+.gmei{margin-left:4px;font-size:.68rem;font-weight:700;color:var(--mc);opacity:.95}
 #gTag.typing{color:var(--acc)}
 #gMsgs .mw.gp .m.ai .av{visibility:hidden}
 .gpick{display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:8px;margin-top:6px}
@@ -1961,8 +1975,9 @@ details.sdanger>summary{color:var(--err)}
       <label>✂️ Lungimea urmează mesajul tău (la un mesaj scurt, răspuns scurt)</label>
       <div class="seg" id="stLenAuto"><button data-v="on">Pornit</button><button data-v="off">Oprit</button></div>
       <h3 class="sh">💸 Cost mai mic, aceeași calitate</h3>
-      <label>⚡ Model inteligent: mesajele simple („ok”, „haha”, „noapte bună”) le scrie modelul economic (Haiku 5.5, de ~15× mai ieftin), cu tot ce știe personajul; restul, modelul principal. Pe un răspuns economic, butonul ↻ ⚡→🧠 îl reface cu modelul principal.</label>
-      <div class="seg" id="stSmart"><button data-v="on">Pornit</button><button data-v="off">Oprit</button></div>
+      <label>⚡ Amestec Sonnet / Haiku: mesajele simple le scrie Haiku 5.5 (de ~15× mai ieftin), cu tot ce știe personajul; tot ce contează (emoție, scene, sfaturi, planuri, întrebări serioase, poze) rămâne pe modelul principal. La orice dubiu, modelul principal. Pe un răspuns Haiku, ↻ ⚡→🧠 îl reface pe modelul principal, iar conversația aceea stă 45 min doar pe el.</label>
+      <div class="seg" id="stSmart"><button data-v="off">Doar principal</button><button data-v="putin">Puțin</button><button data-v="echilibrat">Echilibrat</button><button data-v="mult">Mult</button></div>
+      <p class="hint">Puțin: doar „ok / haha / noapte bună”. Echilibrat: și replicile scurte de zi cu zi; în grup, cele care se alătură discuției. Mult: și replicile mai lungi, fără emoție sau decizii; modelul principal scrie tot regulat, ca personajul să-și păstreze vocea.</p>
       <label>⏱️ Cache-ul conversației: „1 oră” e cel mai ieftin de obicei; „5 min” doar dacă scrii mereu în rafale, fără pauze (după o pauză mai lungă tot istoricul se rescrie)</label>
       <div class="seg" id="stCacheTtl"><button data-v="1h">1 oră</button><button data-v="auto">Rafale</button><button data-v="5m">5 min</button></div>
       <label>Câte mesaje recente primește personajul (restul e în rezumat)</label>
