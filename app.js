@@ -1,5 +1,5 @@
 window.__taifas = true;   // 8.20.1: semn pentru index.html că app.js s-a încărcat
-const APP_VER = '9.63';
+const APP_VER = '9.64';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -202,9 +202,22 @@ function photoNow(c){
   return c.avs[avKeyNow(c)] || c.photo;
 }
 function avatarHTML(c, cls = 'av'){
+  if(duoOn(c)) return duoAvHTML(c, cls);   // 9.64: două cercuri, câte unul pentru fiecare
   if(c && c.photo) return `<img class="${cls}" data-k="${esc(photoNow(c))}"${cls === 'av' || cls.startsWith('av"') ? ' data-t="s"' : ''} alt="">`;
   return `<span class="${cls}" style="background:${colorFor(c)}">${esc((c?.name || '?')[0].toUpperCase())}</span>`;
 }
+/* 9.64: avatarul pentru două personaje: două cercuri suprapuse (poza fiecăreia, dacă are, altfel inițiala în culoarea ei din chat) */
+const duoPic = (c, k) => k ? (c.duo.b.photo || '') : (c.photo ? photoNow(c) : '');
+const duoNm = (c, k) => (k ? c.duo.b.name : c.duo.a.name) || '?';
+function duoOne(c, k, view){
+  const src = duoPic(c, k);
+  return src ? `<img data-k="${esc(src)}" data-t="s"${view ? ` data-view="${esc(src)}"` : ''} alt="">` : `<i style="background:${k ? 'linear-gradient(135deg,#2f8fd8,#1c5a8c)' : colorFor(c)}">${esc(duoNm(c, k)[0].toUpperCase())}</i>`;
+}
+// 9.64: fundalul cardurilor (Acasă) pentru două personaje: două jumătăți, câte una pentru fiecare
+function duoHalves(c, cls = 'ph', t = 'm'){
+  return `<div class="${cls} duofill">${[0, 1].map(k => `<div class="dh" style="background:${k ? 'linear-gradient(135deg,#2f8fd8,#1c5a8c)' : colorFor(c)}">${duoPic(c, k) ? `<img data-k="${esc(duoPic(c, k))}" data-t="${t}" alt="">` : `<span>${esc(duoNm(c, k)[0].toUpperCase())}</span>`}</div>`).join('')}</div>`;
+}
+function duoAvHTML(c, cls){ return `<span class="duoav ${cls}" title="${esc(c.name)}">${duoOne(c, 0)}${duoOne(c, 1)}</span>`; }
 function colorFor(c){ let h = 0; for(const ch of (c?.id || 'x')) h = (h * 31 + ch.charCodeAt(0)) % 360; return `linear-gradient(135deg,hsl(${h} 55% 38%),hsl(${(h + 50) % 360} 55% 28%))`; }
 
 /* ───────── text: formatare ───────── */
@@ -1702,7 +1715,7 @@ function homeHeroHTML(recent){
   const sub = [lf && lf.w ? LIFE_E[lf.b] + ' ' + lf.w : '', mood].filter(Boolean).join(' · ');
   const last = String(c.last || '').replace(/^Tu: /, '');
   const mine = /^Tu: /.test(c.last || '');
-  let h = `<button class="hhero${c.unread ? ' unr' : ''}" data-open="${c.id}">${c.photo ? `<img class="hhbg" data-k="${esc(photoNow(c))}" alt="">` : `<span class="hhbg ph" style="background:${colorFor(c)}"></span>`}
+  let h = `<button class="hhero${c.unread ? ' unr' : ''}" data-open="${c.id}">${duoOn(c) ? duoHalves(c, 'hhbg ph') : c.photo ? `<img class="hhbg" data-k="${esc(photoNow(c))}" alt="">` : `<span class="hhbg ph" style="background:${colorFor(c)}"></span>`}
     <span class="hhov"><span class="hhtop">${online ? '<i class="on"></i>online' : esc(when(c.lastAt))}${c.unread ? ` · <em>${c.unread === 1 ? 'un mesaj nou' : c.unread + ' mesaje noi'}</em>` : ''}${clockHTML(c, 'hhclk', true)}</span>
     <b>${esc(c.name)}</b>${sub ? `<small>${esc(sub)}</small>` : ''}
     ${last ? `<span class="hhmsg${mine ? ' mine' : ''}">${mine ? 'Tu: ' : ''}${esc(last)}</span>` : ''}
@@ -1737,7 +1750,7 @@ function renderHome(){
   // 9.15: doar cardurile schimbate se refac (înainte, la fiecare întoarcere pe Acasă se refăcea tot, cu pozele decodate din nou)
   patchKeyed($('#homeChars'), [['bk', bk], ['top', top], ['empty', !chars.length ? `<button class="card empty" data-new><b>Niciun personaj încă</b>Apasă ＋ jos ca să creezi primul personaj, din poză sau din imaginație.</button>` : ''],
     ...shown.map(c => ['card:' + c.id, `<button class="card${c.fav ? ' isfav' : ''}" data-open="${c.id}">${c.fav ? '<span class="fav">⭐</span>' : ''}${c.unread ? `<span class="ubadge">${c.unread > 9 ? '9+' : c.unread}</span>` : ''}${c.lastAt && c.last || clockHTML(c) ? `<span class="tl">${c.lastAt && c.last ? `<span class="when">${when(c.lastAt)}</span>` : ''}${clockHTML(c, 'when clk')}</span>` : ''}
-      ${c.photo ? `<img data-k="${esc(photoNow(c))}" data-t="m" alt="">` : `<div class="ph" style="background:${colorFor(c)}">${esc(c.name[0] || '?')}</div>`}
+      ${duoOn(c) ? duoHalves(c) : c.photo ? `<img data-k="${esc(photoNow(c))}" data-t="m" alt="">` : `<div class="ph" style="background:${colorFor(c)}">${esc(c.name[0] || '?')}</div>`}
       <div class="ov"><b>${esc(c.name)}</b>${c.tag ? `<small>${esc(c.tag)}</small>` : ''}${cardStatus(c)}${c.rel ? `<span class="crel">💞 ${esc(relOf(c).name)}</span>` : ''}${c.last ? `<em class="lm">${esc(c.last)}</em>` : ''}</div></button>`]), ['new', chars.length && !q ? `<button class="card new" data-new><span>＋</span><em>Personaj nou</em></button>` : '']].filter(b => b[1]), homeStore.chars);
   const withChat = chars.filter(c => c.last).sort((a, b) => (b.lastAt || 0) - (a.lastAt || 0));
   const pinned = withChat.filter(c => c.pinned), rest = withChat.filter(c => !c.pinned);
@@ -4474,6 +4487,7 @@ function heroHTML(){
   const chips = [online ? '<span class="on">● online</span>' : '', cur.rel ? `<span>💞 ${esc(relOf(cur).name)}</span>` : '', wi ? `<span>📍 ${esc(wi)}</span>` : lf && lf.w ? `<span>${LIFE_E[lf.b]} ${esc(lf.w)}</span>` : ''].filter(Boolean).join('');
   const ov = `<div class="ov"><b>${esc(cur.name)}</b>${cur.tag ? `<small>${esc(cur.tag)}</small>` : ''}${chips ? `<div class="hchips">${chips}</div>` : ''}</div>`;
   if(clear) return `<div class="hero clear">${ov}</div>`;
+  if(duoOn(cur)) return `<div class="hero duohero">${[0, 1].map(k => `<div class="dh d${k}">${duoPic(cur, k) ? `<img data-k="${esc(duoPic(cur, k))}" alt="">` : `<div class="ph" style="background:${k ? 'linear-gradient(135deg,#2f8fd8,#1c5a8c)' : colorFor(cur)}">${esc(duoNm(cur, k)[0])}</div>`}</div>`).join('')}${ov}</div>`;   // 9.64
   return `<div class="hero">${cur.photo ? `<img data-k="${esc(photoNow(cur))}" alt="">` : `<div class="ph" style="background:${colorFor(cur)}">${esc((cur.name || '?')[0])}</div>`}${ov}</div>`;
 }
 function renderMsgs(toBottom, keep){
@@ -5679,6 +5693,34 @@ function pfTabsInit(){
   tabs.querySelectorAll('[data-pt]').forEach(b => b.onclick = () => { set(b.dataset.pt); const y = tabs.offsetTop - 70; if($('#pfScroll').scrollTop > y) $('#pfScroll').scrollTo({top:y, behavior:'smooth'}); });
   set(profTab);
 }
+/* 9.64: profilul pentru două personaje: câte o fișă pentru fiecare (cine e, cum arată, cum vorbește), relația lor, poza fiecăreia */
+function duoCardsHTML(c){
+  const f = k => k ? c.duo.b : {name:c.duo.a.name, persona:c.persona, aspect:c.aspect, speech:c.speech};
+  const card = k => { const x = f(k);
+    return `<div class="duocard d${k}" style="--dc:${DUO_COL[k]}">
+      <div class="dctop"><span class="dcav">${duoOne(c, k, true)}</span><b>${esc(x.name || '?')}</b></div>
+      ${x.persona ? `<p class="clamp3" data-dcm="${k}">${esc(x.persona)}</p><button type="button" class="more" data-dcmore="${k}" hidden>mai mult</button>` : '<p class="hint">Fără descriere încă.</p>'}
+      ${x.aspect ? `<p class="dcl"><b>Cum arată</b> ${esc(x.aspect)}</p>` : ''}
+      ${x.speech ? `<p class="dcl"><b>Cum vorbește</b> ${esc(x.speech)}</p>` : ''}
+      <div class="btns dcb">${k ? `<button type="button" class="btn sm" data-dcpic>📷 ${c.duo.b.photo ? 'Altă poză' : 'Pune o poză'}</button>${c.duo.b.photo ? '<button type="button" class="btn sm" data-dcdel>✕ Scoate poza</button>' : ''}` : `<button type="button" class="btn sm" data-dcedit>📷 Poza ei (din ✏️)</button>`}</div>
+    </div>`; };
+  return `<div class="pfSec pfDuo"><h3><span>👯 Ele două</span><button type="button" class="btn sm" data-dcedit>✏️ Editează fișele</button></h3>${c.duo.rel ? `<p class="dcrel">${esc(c.duo.rel)}</p>` : ''}<div class="duocards">${card(0)}${card(1)}</div><input type="file" accept="image/*" id="dcFile" hidden></div>`;
+}
+function duoCardsWire(c){
+  const body = $('#pfBody');
+  requestAnimationFrame(() => body.querySelectorAll('[data-dcm]').forEach(p => { const b = body.querySelector(`[data-dcmore="${p.dataset.dcm}"]`); if(b && p.scrollHeight > p.clientHeight + 4){ b.hidden = false; b.onclick = () => { p.classList.remove('clamp3'); b.hidden = true; }; } }));
+  body.querySelectorAll('[data-dcedit]').forEach(b => b.onclick = () => openEditor(c.id));
+  const pick = body.querySelector('[data-dcpic]'), file = $('#dcFile');
+  if(pick) pick.onclick = () => file.click();
+  file.onchange = async () => {
+    const f = file.files && file.files[0]; file.value = ''; if(!f) return;
+    try{ const blob = await toJpeg(f, 1024, .9), old = c.duo.b.photo; c.duo.b.photo = await saveImg(blob); await saveChars(); if(old) await delImg(old).catch(() => {});
+      toast('📷 Poza lui ' + c.duo.b.name + ' e pusă'); charProfile(c.id, false); renderHome(); }
+    catch(e){ toast('N-am putut citi poza: ' + (e.message || e)); }
+  };
+  const del = body.querySelector('[data-dcdel]');
+  if(del) del.onclick = () => confirmSheet('Scoți poza lui ' + c.duo.b.name + '?', 'Scoate', async () => { const old = c.duo.b.photo; delete c.duo.b.photo; await saveChars(); if(old) await delImg(old).catch(() => {}); charProfile(c.id, false); renderHome(); });
+}
 async function charProfile(id, push = true){
   const c = charById(id); if(!c) return;
   profId = id;
@@ -5700,7 +5742,7 @@ async function charProfile(id, push = true){
   const fromChat = !$('#vChat').hidden && cur && cur.id === id;
   $('#pfTopName').textContent = c.name;
   $('#pfBody').innerHTML = `
-    <div class="pfHero">${c.photo ? `<img data-k="${esc(photoNow(c))}" data-view="${esc(photoNow(c))}" alt="">` : `<div class="ph" style="background:${colorFor(c)}">${esc(c.name[0])}</div>`}${c.photoFull ? '<button type="button" class="pfFull" id="pfFullBtn">🧍 Poza întreagă</button>' : c.photo && S.imgProv !== 'none' ? '<button type="button" class="pfFull" id="pfMakeFull">🧍 Fă-i poza întreagă</button>' : ''}</div>
+    <div class="pfHero">${duoOn(c) ? `<div class="pfDuoHero">${[0, 1].map(k => `<div class="dh">${duoPic(c, k) ? `<img data-k="${esc(duoPic(c, k))}" data-view="${esc(duoPic(c, k))}" alt="">` : `<div class="ph" style="background:${k ? 'linear-gradient(135deg,#2f8fd8,#1c5a8c)' : colorFor(c)}">${esc(duoNm(c, k)[0])}</div>`}</div>`).join('')}</div>` : c.photo ? `<img data-k="${esc(photoNow(c))}" data-view="${esc(photoNow(c))}" alt="">` : `<div class="ph" style="background:${colorFor(c)}">${esc(c.name[0])}</div>`}${c.photoFull ? '<button type="button" class="pfFull" id="pfFullBtn">🧍 Poza întreagă</button>' : c.photo && S.imgProv !== 'none' ? '<button type="button" class="pfFull" id="pfMakeFull">🧍 Fă-i poza întreagă</button>' : ''}</div>
     <div class="igHead">
       <button class="igAv${hasStory ? ' ring' + (storyUn ? ' un' : '') : ''}" id="pfAvBtn" aria-label="${hasStory ? 'Vezi story-ul' : 'Poza de profil'}">${avatarHTML(c)}</button>
       <div class="igStats">
@@ -5709,7 +5751,8 @@ async function charProfile(id, push = true){
         <div><b>${pics.length}</b><small>${pics.length === 1 ? 'poză' : 'poze'}</small></div>
       </div>
     </div>
-    <div class="igBio"><h1>${esc(c.name)}</h1>${c.tag ? `<p class="igTag">${esc(c.tag)}</p>` : ''}${c.persona ? `<p class="clamp3" id="pfAbout">${esc(c.persona)}</p><button class="more" id="pfMore" hidden>mai mult</button>` : ''}${pfChips(c)}</div>
+    <div class="igBio"><h1>${esc(c.name)}</h1>${c.tag ? `<p class="igTag">${esc(c.tag)}</p>` : ''}${duoOn(c) ? '' : c.persona ? `<p class="clamp3" id="pfAbout">${esc(c.persona)}</p><button class="more" id="pfMore" hidden>mai mult</button>` : ''}${pfChips(c)}</div>
+    ${duoOn(c) ? duoCardsHTML(c) : ''}
     <div class="igActs">
       <button class="btn pri" id="pfChat">💬 ${fromChat ? 'Înapoi la chat' : 'Mesaj'}</button>
       <button class="btn" id="pfCall" aria-label="Sună">📞</button>
@@ -5720,7 +5763,7 @@ async function charProfile(id, push = true){
     ${hiDays.length ? `<div class="igHi">${hiDays.map((h, k) => `<button data-hi="${k}"><span><img data-k="${esc(h.items[0].k)}" alt=""></span><small>${esc(hiLabel(h.d))}</small></button>`).join('')}</div>` : ''}
     <div class="pftabs ig" id="pfTabs"><button data-pt="poze"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>Poze</button><button data-pt="despre">✨ Despre</button><button data-pt="memorie">🧠 Memorie</button></div>
     <div class="pfSec igGrid"><div class="pfGal">${pics.length ? pics.map(k => `<button data-view="${esc(k)}">${picMeta[k].story ? '<i>📸</i>' : ''}<img data-lk="${esc(k)}" data-t="m" alt="" loading="lazy"></button>`).join('') : ''}</div>${pics.length ? '' : `<p class="igEmpty">📷<br>Încă nicio poză de la ${esc(c.name)}.<br><small>Cere-i una din ＋ în conversație.</small></p>`}</div>
-    ${c.aspect ? `<div class="pfSec"><h3>Cum arată</h3><p>${esc(c.aspect)}</p></div>` : ''}
+    ${c.aspect && !duoOn(c) ? `<div class="pfSec"><h3>Cum arată</h3><p>${esc(c.aspect)}</p></div>` : ''}
     <div class="pfSec"><h3><span>💞 Relația voastră</span></h3><div class="relbox"><span class="lv" id="pfRelName"></span><small id="pfRelSub"></small><button class="btn sm" id="pfRelSet" style="margin-left:auto">Schimbă</button></div><div class="relbar"><i id="pfRelBar"></i></div><div id="pfBond" class="bond"></div></div>
     <div class="pfSec" id="pfPrefsSec"><h3>🎯 Ce a învățat din notele tale</h3><ul class="facts" id="pfPrefs"></ul></div>
     <div class="pfSec"><h3><span>📍 Orașul ${esc(c.name)}</span></h3><div class="cityrow"><input id="pfCity" placeholder="ex. Brașov" value="${esc(c.city || '')}" autocomplete="off"><button class="btn sm" id="pfCitySave">Salvează</button></div><p class="hint" id="pfWx">Vremea reală de acolo intră în conversații și în poze (Open-Meteo, gratuit).</p></div>
@@ -5739,6 +5782,7 @@ async function charProfile(id, push = true){
     </div>
     <div class="pfFoot">Creat pe ${new Date(c.created || first).toLocaleDateString('ro-RO', {day:'numeric', month:'long', year:'numeric'})} · cost estimat ${usd(spent)}</div>`;
   const body = $('#pfBody');
+  if(duoOn(c)) duoCardsWire(c);   // 9.64
   hydrate(body);
   // 9.15: grila de poze se încarcă după ce s-a așezat profilul (nu în timpul glisării), din miniaturi
   afterShow(() => { body.querySelectorAll('img[data-lk]').forEach(i => { i.dataset.k = i.dataset.lk; i.removeAttribute('data-lk'); }); hydrate(body); });
@@ -8796,6 +8840,7 @@ async function deleteChar(cc){
       await DB.del(chatKey(c.id, t.id));
     }
     await delImg(c.photo);
+    if(c.duo && c.duo.b && c.duo.b.photo) await delImg(c.duo.b.photo).catch(() => {});   // 9.64
     for(const k of Object.values(c.avs || {})) await delImg(k).catch(() => {});
     for(const x of c.stickers || []) await delImg(x.k).catch(() => {});
     for(const k of c.refs || []) await delImg(k).catch(() => {});
@@ -9539,6 +9584,7 @@ function cspSync(boot){
   let have = null; try{ have = localStorage.getItem('taifas-csp'); }catch(e){ return false; }
   if(have === want) return false;
   try{ localStorage.setItem('taifas-csp', want); }catch(e){ return false; }
+  if(have === null && want === '[]') return false;   // 9.64: prima pornire fără adrese: politica e deja aceeași (index.html citește lipsa ca []), nu repornim degeaba
   if(boot){ location.reload(); return true; }
   toast('Adresă nouă salvată. Repornesc aplicația…', 1500);
   setTimeout(() => { location.href = location.pathname + '?go=set'; }, 900);

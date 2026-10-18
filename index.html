@@ -454,6 +454,18 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
 .grrow i{width:10px;height:10px;border-radius:50%;flex:none}
 .grrow span{margin-left:auto;color:var(--tx2);text-align:right}
 .grlog{font-size:.8rem;color:var(--tx2);padding:2px 0}
+.duofill{display:flex!important;align-items:stretch!important;justify-items:stretch!important;padding:0!important;background:none!important}.duofill .dh{flex:1;position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center}.duofill .dh+.dh{border-left:2px solid rgba(0,0,0,.35)}.duofill .dh img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}.duofill .dh span{font-size:3rem;font-weight:700;color:rgba(255,255,255,.7)}
+.duoav{position:relative;display:inline-block;background:none!important;overflow:visible;flex:none}
+.duoav>img,.duoav>i{position:absolute;width:74%;height:74%;border-radius:50%;object-fit:cover;display:flex;align-items:center;justify-content:center;font-style:normal;font-weight:700;color:#fff;font-size:.82em;border:2px solid var(--bg);box-sizing:border-box}
+.duoav>:first-child{left:0;top:0;z-index:1}.duoav>:last-child{right:0;bottom:0;z-index:2}
+.duohero,.pfDuoHero{display:flex}.duohero .dh,.pfDuoHero .dh{flex:1;position:relative;overflow:hidden}.duohero .dh img,.pfDuoHero .dh img{width:100%;height:100%;object-fit:cover}.pfDuoHero{position:absolute;inset:0}.pfDuoHero .ph,.duohero .ph{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:4rem;font-weight:700;color:rgba(255,255,255,.75)}
+.pfDuoHero .dh+.dh,.duohero .dh+.dh{border-left:2px solid var(--bg)}
+.pfDuo h3{display:flex;align-items:center;justify-content:space-between;gap:8px}.dcrel{color:var(--tx2);margin:0 0 10px}
+.duocards{display:grid;grid-template-columns:1fr;gap:10px}@media (min-width:560px){.duocards{grid-template-columns:1fr 1fr}}
+.duocard{border:1px solid var(--line);border-left:3px solid var(--dc);border-radius:14px;padding:12px;background:color-mix(in srgb,var(--dc) 6%,transparent)}
+.duocard .dctop{display:flex;align-items:center;gap:10px;margin-bottom:6px}.duocard .dctop b{color:var(--dc);font-size:1.05rem}
+.duocard .dcav img,.duocard .dcav i{width:44px;height:44px;border-radius:50%;object-fit:cover;display:flex;align-items:center;justify-content:center;font-style:normal;font-weight:700;color:#fff}
+.duocard p{margin:4px 0}.duocard .dcl b{display:block;font-size:.76rem;color:var(--tx3);font-weight:600}.duocard .dcb{margin-top:8px;justify-content:flex-start}
 .duob .duo+.duo{margin-top:8px;padding-top:8px;border-top:1px solid color-mix(in srgb,var(--tx) 10%,transparent)}.duo .dnm{display:block;font-size:.78rem;font-weight:700;color:var(--dc);margin-bottom:2px}
 .vrow{display:flex;gap:6px;align-items:center}.vrow .opt{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.vrow .btn{flex:none;padding:8px 12px}.vrow.on .opt{color:var(--acc)}
 .grbtn{width:100%;background:none;border:0;border-bottom:1px solid var(--line);color:inherit;text-align:left;font:inherit;cursor:pointer}
