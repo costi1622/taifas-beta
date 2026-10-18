@@ -1,5 +1,5 @@
 window.__taifas = true;   // 8.20.1: semn pentru index.html că app.js s-a încărcat
-const APP_VER = '9.55';
+const APP_VER = '9.56';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -5505,6 +5505,16 @@ async function askPhoto(spont, target, mode, opt = {}){
     }
     else if(target && mode === 'same' && target.scene){ shot = target.scene; where = target.where || null; asked = target.asked || []; }
     else { const pl = await planShot(c, ch, {promised, exclude:m, signal:busy.signal, together}); shot = pl.shot; where = pl.where; together = pl.together; asked = pl.asked || []; shot = giftDetail(c, shot, where);
+      // 9.56: leagă cererea explicită de expunere din ultimele mesaje de fotografia generată, chiar dacă planificatorul a omis-o.
+      const recentPhotoRequest = photoAsk(ch, m);
+      const requestedExposure = exposureMode(recentPhotoRequest);
+      if(requestedExposure === 'topless') {
+        shot = `PRIORITY OUTFIT: clearly adult fictional character is topless, bare breasts uncovered, no shirt, bra or chest covering; lower-body clothing stays as described. Preserve body-reference bust size and natural proportions. Do not substitute a clothed image. Scene: ${shot}`;
+        asked.push('topless, bare breasts visibly uncovered, no shirt or bra');
+      } else if(requestedExposure === 'full') {
+        shot = `PRIORITY OUTFIT: clearly adult fictional character is naturally nude in a non-explicit artistic image, no clothing or underwear; no sexual act. Preserve body-reference proportions. Scene: ${shot}`;
+        asked.push('natural non-explicit artistic nudity');
+      }
       // 9.43: o persoană din viața personajului (prietenă, soră, coleg…): aceeași persoană de fiecare dată, alta decât personajul
       if(pl.people && pl.people.length && S.people !== 'off' && !together){
         const pp = await personFor(c, ch, pl.people[0], busy.signal);
@@ -5620,6 +5630,14 @@ async function editPhotoSheet(i){
   openSheet(`<h4>✏️ Modifică poza</h4><div class="pad">
     <div class="pedit">${url ? `<img src="${url}" alt="">` : ''}<div>
       <textarea id="peTxt" rows="3" maxlength="400" placeholder="Scrie liber ce schimbi: ex. rochie roșie scurtă și cercei mari, zâmbește, pe balcon la apus, de aproape"></textarea></div></div>
+    <label style="margin-top:8px">Tipul fotografiei</label>
+    <div class="chipset" id="peExposure">
+      <button type="button" data-exposure="clothed">👗 Îmbrăcată</button>
+      <button type="button" data-exposure="topless">🔝 Topless</button>
+      <button type="button" data-exposure="artistic-nude">🧍 Nuditate artistică</button>
+      <button type="button" data-exposure="intimate">❤️ Poziție intimă</button>
+    </div>
+    <small style="display:block;color:var(--tx3);margin:4px 0 8px">Selectarea adaugă instrucțiuni clare la regenerare. Rezultatul depinde de modelul și furnizorul de imagini.</small>
     <div class="chipset" id="peChips">${PE_CHIPS.map(([l, q]) => `<button type="button" data-q="${esc(q)}">${esc(l)}</button>`).join('')}</div>
     <label style="margin-top:6px">Ca în creator</label>
     <div class="chipset adj" id="peAdj">${CR_ADJ.map(([l, v]) => `<button type="button" data-adj="${esc(v)}">${esc(l)}</button>`).join('')}</div>
@@ -5639,6 +5657,18 @@ async function editPhotoSheet(i){
   $('#peBody').onclick = e => { const bt = e.target.closest('[data-bv]'); if(!bt) return; const k = bt.parentElement.dataset.bk; Z.body[k] = Z.body[k] === bt.dataset.bv ? '' : bt.dataset.bv; drawB(); };
   $('#peBody').oninput = e => { if(e.target.id === 'peH'){ Z.body.h = +e.target.value; $('#peHv').textContent = (Z.body.h / 100).toFixed(2).replace('.', ',') + ' m'; } };
   $('#peBody').onchange = e => { if(e.target.id === 'peH') drawB(); };
+  $('#peExposure').onclick = e => {
+    const bt = e.target.closest('[data-exposure]'); if(!bt) return;
+    $('#peExposure').querySelectorAll('[data-exposure]').forEach(x => x.classList.toggle('on', x === bt));
+    const instructions = {
+      clothed: 'Keep the character fully clothed in an ordinary outfit; no nudity.',
+      topless: 'The clearly adult fictional character is topless: bare breasts uncovered, no shirt or bra; keep lower-body clothing exactly as described. Preserve the body reference proportions and bust size.',
+      'artistic-nude': 'The clearly adult fictional character is naturally nude in a non-explicit artistic image; no sexual act. Preserve the body reference proportions and bust size. Use only if allowed by the selected image provider.',
+      intimate: 'The clearly adult fictional character is in a consensual, non-explicit intimate pose (for example cuddling, reclining close, or a sensual but non-graphic pose); no explicit sexual act.'
+    };
+    const t = $('#peTxt'); t.value = (t.value.trim() ? t.value.trim() + '; ' : '') + instructions[bt.dataset.exposure];
+    t.focus();
+  };
   $('#peChips').onclick = e => { const bt = e.target.closest('[data-q]'); if(!bt) return; const t = $('#peTxt'); t.value = (t.value.trim() ? t.value.trim() + '; ' : '') + bt.dataset.q; t.focus(); };
   $('#peAdj').onclick = e => {
     const bt = e.target.closest('[data-adj]'); if(!bt) return; const v = bt.dataset.adj, op = CR_ADJ_OPS.find(x => x[0] === v);
