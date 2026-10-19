@@ -1,5 +1,5 @@
 window.__taifas = true;   // 8.20.1: semn pentru index.html că app.js s-a încărcat
-const APP_VER = '9.72';
+const APP_VER = '9.74';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -340,6 +340,10 @@ function apiHeaders(svc, extra = {}){
 const hasKey = svc => vaultOn() ? !(S.vaultHas && S.vaultHas[svc] === false) : !!String({anthropic:S.key}[svc] || '').trim();
 // adresele întoarse de Anthropic (results_url) trec și ele prin seif
 function anthUrl(u){ try{ const x = new URL(u); if(x.host !== 'api.anthropic.com') throw 0; return apiUrl('anthropic', x.pathname); }catch(e){ throw new Error('Adresă neașteptată de la Anthropic.'); } }
+// 9.73: JSON sigur pentru API: un text tăiat la mijlocul unui emoji (jumătate de pereche surogat, ex. din .slice(0, n))
+// ajungea ca „\ud83d” singur, iar Anthropic refuza toată cererea („400: … unexpected end of hex escape”). Orice jumătate rămasă devine „�”.
+const wellFormed = t => typeof t.toWellFormed === 'function' ? t.toWellFormed() : t.replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g, '\uFFFD');
+const safeJSON = o => JSON.stringify(o, (k, v) => typeof v === 'string' ? wellFormed(v) : v);
 async function stream(sys, msgs, opts = {}){
   try{ return await streamOnce(sys, msgs, opts); }
   catch(e){
@@ -359,7 +363,7 @@ async function streamOnce(sys, msgs, {max = 700, signal, onText, cid, aux, meta,
   if(!hasKey('anthropic')) throw new Error(vaultOn() ? 'Seiful (Worker-ul) nu are cheia Anthropic.' : 'Lipsește cheia Anthropic. Deschide Setări.');
   const res = await fetch(apiUrl('anthropic', '/v1/messages'), {method:'POST', signal, headers:apiHeaders('anthropic', {
         'content-type':'application/json', 'anthropic-version':'2023-06-01'}),
-        body: JSON.stringify({model, max_tokens:max, stream:true,
+        body: safeJSON({model, max_tokens:max, stream:true,
           system:[{type:'text', text:sys, ...(conv ? {cache_control:ttl ? {type:'ephemeral', ttl:'1h'} : {type:'ephemeral'}} : {})}], messages:provMsgs(conv ? msgs : msgs.map(x => x._cache || x._cacheAt != null ? {...x, _cache:false, _cacheAt:null} : x), httl)})});
   if(!res.ok) throw new Error(await errText(res));
   const rd = res.body.getReader(), dec = new TextDecoder();
@@ -1591,7 +1595,7 @@ async function rwRun(prompt, refs, w, h, signal, mdl = RW_MODEL){
   const direct = rwDirect(), url = direct ? RW_URL : wkUrl() + '/proxy/runware/v1';
   const t0 = performance.now();
   let r;
-  try{ r = await fetch(url, {method:'POST', signal, headers:{'content-type':'application/json', authorization:'Bearer ' + (direct ? S.rwKey : S.wkTok).trim()}, body:JSON.stringify([task])}); }
+  try{ r = await fetch(url, {method:'POST', signal, headers:{'content-type':'application/json', authorization:'Bearer ' + (direct ? S.rwKey : S.wkTok).trim()}, body:safeJSON([task])}); }
   catch(e){ if(e.name === 'AbortError') throw e; throw new Error('Runware nu răspunde' + (direct ? ' din browser. Pune cheia în Worker (secretul RUNWARE_KEY) și golește câmpul din telefon.' : ' (rețea).')); }
   let d = null; try{ d = await r.json(); }catch(e){}
   const errs = d && (d.errors || (d.error ? [d.error] : null));
@@ -1824,7 +1828,7 @@ const gClamp = v => Math.max(0, Math.min(100, Math.round(Number(v) || 0)));
 function gMeOf(gc, c){
   const m = gc && gc.me && gc.me[c.id]; if(m) return m;
   const b = bondOf(c), care = gClamp((b.warm + b.trust) / 2);
-  return {care, help:gClamp(care - (b.tension || 0) / 2), auto:true};
+  return {care, help:b.help != null ? gClamp(b.help) : gClamp(care - (b.tension || 0) / 2), auto:true};   // 9.74: „cât te ajută” setat în privat
 }
 const gCareHint = v => v >= 80 ? 'Ține enorm la tine; ești printre cei mai importanți oameni pentru ea.' : v >= 60 ? 'Ține mult la tine; îi pasă sincer ce faci.' : v >= 40 ? 'Ține la tine ca la un prieten bun.' : v >= 20 ? 'Te place, dar cu rezervă.' : 'Nu prea îi pasă de tine; e rece și distantă.';
 const gHelpHint = v => v >= 80 ? 'Face orice ca să te ajute; e primul om pe care te poți baza.' : v >= 60 ? 'Te ajută repede și concret, chiar dacă nu ceri.' : v >= 40 ? 'Te ajută când îi ceri, cu sfaturi și puțin timp.' : v >= 20 ? 'Ajută doar dacă o rogi direct și nu o costă mult.' : 'Nu-și bate capul să te ajute; mai degrabă evită.';
@@ -2311,7 +2315,8 @@ JSON: {"pairs":[{"a":"nume exact","b":"nume exact","how":"","t":"","s":1}]}`, 30
       const a = find(r && r.a), b = find(r && r.b); if(!a || !b || a === b) continue;
       const k = pairKey(a.id, b.id), how = faraLiniute(String(r.how || '')).replace(/[„”"]/g, '').trim().slice(0, 80), t = faraLiniute(String(r.t || '')).replace(/[.„”"]/g, '').trim().slice(0, 50);
       if(how.length > 3 && !S.socRel[k]){ S.socRel[k] = how; n++; }
-      if(t && !gc.rel[k]){ gc.rel[k] = {t, s:Math.max(-2, Math.min(2, Math.round(Number(r.s) || 0))), at:Date.now()}; n++; }
+      const sn = (S.socNow || {})[k];   // 9.74: ce ai setat în profilul personajului are prioritate
+      if((t || sn) && !gc.rel[k]){ gc.rel[k] = sn ? {t:sn.t, s:sn.s, at:Date.now()} : {t, s:Math.max(-2, Math.min(2, Math.round(Number(r.s) || 0))), at:Date.now()}; n++; }
     }
     if(n){ saveSettings(); if(!gc.dead) await gSave(g, gc); if(grp === g) renderGroup(); }
     return n;
@@ -2913,6 +2918,7 @@ function turnExtras(c, ch, opts = {}){
   let x = '';
   const chat = ch;   // 7.8: conversația pentru care se scrie răspunsul (nu cea deschisă pe ecran)
   const freshTurn = !opts.pro && !opts.sched && !opts.cont;   // răspuns la un mesaj nou de-al tău
+  x += cRulesNote(c);   // 9.74: regulile voastre, la fiecare tură
   // dacă ultimele răspunsuri s-au terminat toate cu întrebări, cerem explicit o pauză de la întrebări
   const ais = (chat && chat.msgs || []).filter(m => m.role === 'ai' && m.text && !m.err && !m.pending).slice(-3);
   const q = ais.filter(m => /\?\s*(\*[^*]*\*\s*)?$/.test(stripMood(m.text).trim())).length;
@@ -3362,7 +3368,7 @@ LATER.cerc = async (out, d, cid) => {
 function circleFor(c){   // pentru promptul de sistem (se schimbă rar, deci nu strică cache-ul)
   const list = circleOf(c); if(!list.length) return '';
   const u = S.userName.trim() || 'el';
-  return `## Oameni pe care îi cunoști\n${list.map(o => `- ${o.name}${o.tag ? ' (' + o.tag + ')' : ''}: ${relBetween(c, o)}`).join('\n')}\n${u} îi cunoaște și el. Îi pomenești rar și firesc (o întâmplare cu ei, ceva ce au postat), nu în fiecare mesaj. Nu știi ce vorbește ${u} cu ei între patru ochi și nu inventa asta.`;
+  return `## Oameni pe care îi cunoști\n${list.map(o => { const nw = socNowOf(c, o); return `- ${o.name}${o.tag ? ' (' + o.tag + ')' : ''}: ${relBetween(c, o)}${nw ? '; acum: ' + nw.t + ' (' + G_RELN[String(nw.s)].toLowerCase() + ')' : ''}`; }).join('\n')}\n${u} îi cunoaște și el. Îi pomenești rar și firesc (o întâmplare cu ei, ceva ce au postat), nu în fiecare mesaj. Nu știi ce vorbește ${u} cu ei între patru ochi și nu inventa asta.`;
 }
 function socialExtras(c, opts){
   if(S.social === 'off' || opts.cont || Math.random() > .5) return '';
@@ -3404,7 +3410,7 @@ function bondFor(c){   // pentru promptul de sistem
   const arcs = (c.arcs || []).slice(-4).map(a => `- ${a.t} (${new Date(a.ts).toLocaleDateString('ro-RO', {day:'numeric', month:'long'})})`).join('\n');
   return `## Cum stați acum, tu și ${u}
 (Dacă descrierea ta stabilește deja ce relație aveți, aceea are prioritate; asta arată doar nuanța de acum.)
-Încredere: ${bondWord(b.trust, ['încă te ții în rezervă cu lucrurile personale', 'îi spui lucruri personale, dar nu chiar tot', 'ai încredere în el, îi spui și ce te frământă', 'ai încredere deplină; îi spui orice'])}. Apropiere: ${bondWord(b.warm, ['politicos, încă puțin distant', 'cald și prietenos', 'foarte cald, îți e drag', 'atașament profund, îți e dor de el când nu vorbiți'])}.${b.tension >= 45 && b.why ? `\nTensiune acum: ești puțin supărat(ă) sau rănit(ă) pentru că ${b.why}. Se simte discret (mai scurt, mai rece, o aluzie), fără scene. Dacă el își cere scuze sau lămurește, te înmoi treptat, nu brusc.` : ''}${arcs ? `\nMomente-cheie din relația voastră (le ții minte, le poți pomeni):\n${arcs}` : ''}`;
+Încredere: ${bondWord(b.trust, ['încă te ții în rezervă cu lucrurile personale', 'îi spui lucruri personale, dar nu chiar tot', 'ai încredere în el, îi spui și ce te frământă', 'ai încredere deplină; îi spui orice'])}. Apropiere: ${bondWord(b.warm, ['politicos, încă puțin distant', 'cald și prietenos', 'foarte cald, îți e drag', 'atașament profund, îți e dor de el când nu vorbiți'])}.${b.tension >= 45 && b.why ? `\nTensiune acum: ești puțin supărat(ă) sau rănit(ă) pentru că ${b.why}. Se simte discret (mai scurt, mai rece, o aluzie), fără scene. Dacă el își cere scuze sau lămurește, te înmoi treptat, nu brusc.` : ''}${arcs ? `\nMomente-cheie din relația voastră (le ții minte, le poți pomeni):\n${arcs}` : ''}${b.help != null ? `\nCât îl ajuți: ${gHelpWord(b.help)}.` : ''}${b.lock && b.why && b.tension < 45 ? `\nDe știut: ${b.why}.` : ''}`;
 }
 async function bondAnalyze(c, ch){
   if(!aiReady()) return;
@@ -3426,8 +3432,8 @@ Cum s-a schimbat relația din perspectiva lui ${c.name}, realist (schimbările s
 - moment: doar dacă s-a întâmplat ACUM ceva memorabil și nou: secret (și-au spus un secret), gluma (o glumă doar a lor), sprijin (el a susținut-o la greu sau invers), cearta (o neînțelegere), impacare, incredere (s-a deschis prima dată despre ceva), amintire (un moment frumos), dor, surpriza. Altfel null.
 JSON: {"trust":0,"warm":0,"tension":0,"why":"motivul tensiunii, scurt, sau gol","moment":null sau {"tip":"secret","t":"propoziție scurtă, persoana a II-a plural, ex: V-ați spus primul secret: frica ei de înălțime."}}`}], {max:300, aux:true, cid:c.id});
     const j = parseJSON(out), cl = (x, lo, hi) => Math.max(lo, Math.min(hi, Math.round(+x || 0)));
-    const nb = {trust:cl(b.trust + cl(j.trust, -15, 15), 0, 100), warm:cl(b.warm + cl(j.warm, -15, 15), 0, 100), tension:cl(b.tension + cl(j.tension, -40, 40), 0, 100)};
-    nb.why = nb.tension >= 25 ? String(j.why || b.why || '').trim().slice(0, 140) : '';
+    const nb = b.lock ? {...b} : {...b, trust:cl(b.trust + cl(j.trust, -15, 15), 0, 100), warm:cl(b.warm + cl(j.warm, -15, 15), 0, 100), tension:cl(b.tension + cl(j.tension, -40, 40), 0, 100)};   // 9.74
+    if(!b.lock) nb.why = nb.tension >= 25 ? String(j.why || b.why || '').trim().slice(0, 140) : '';
     const wasT = b.tension >= 45;
     c.bond = nb;
     const mo = j.moment && j.moment.t && ARC_E[j.moment.tip] ? {tip:j.moment.tip, t:faraLiniute(String(j.moment.t)).trim().slice(0, 160), ts:Date.now()} : (wasT && nb.tension < 25 ? {tip:'impacare', t:'V-ați lămurit și v-ați împăcat.', ts:Date.now()} : null);
@@ -3442,8 +3448,8 @@ JSON: {"trust":0,"warm":0,"tension":0,"why":"motivul tensiunii, scurt, sau gol",
 // 8.17: un singur job de fundal la 6 răspunsuri: fapte noi + cum a evoluat relația, dintr-o singură citire a conversației (Haiku)
 function applyBond(c, j){
   const b = bondOf(c), cl = (x, lo, hi) => Math.max(lo, Math.min(hi, Math.round(+x || 0)));
-  const nb = {trust:cl(b.trust + cl(j.trust, -15, 15), 0, 100), warm:cl(b.warm + cl(j.warm, -15, 15), 0, 100), tension:cl(b.tension + cl(j.tension, -40, 40), 0, 100)};
-  nb.why = nb.tension >= 25 ? String(j.why || b.why || '').trim().slice(0, 140) : '';
+  const nb = b.lock ? {...b} : {...b, trust:cl(b.trust + cl(j.trust, -15, 15), 0, 100), warm:cl(b.warm + cl(j.warm, -15, 15), 0, 100), tension:cl(b.tension + cl(j.tension, -40, 40), 0, 100)};   // 9.74: fixată de tine = cifrele nu se mișcă
+  if(!b.lock) nb.why = nb.tension >= 25 ? String(j.why || b.why || '').trim().slice(0, 140) : '';
   const wasT = b.tension >= 45;
   c.bond = nb;
   const mo = j.moment && j.moment.t && ARC_E[j.moment.tip] ? {tip:j.moment.tip, t:faraLiniute(String(j.moment.t)).trim().slice(0, 160), ts:Date.now()} : (wasT && nb.tension < 25 ? {tip:'impacare', t:'V-ați lămurit și v-ați împăcat.', ts:Date.now()} : null);
@@ -3495,9 +3501,121 @@ LATER.analiza = async (out, d, cid) => {   // 8.19: rezultatul analizei (direct 
 function drawBond(c){
   const box = $('#pfBond'); if(!box) return;
   const b = bondOf(c), bar = (lbl, v, cls) => `<div class="bdrow"><span>${lbl}</span><div class="bdbar ${cls}"><i style="width:${v}%"></i></div><b>${v}</b></div>`;
-  box.innerHTML = bar('🔐 Încredere', b.trust, 'tr') + bar('💗 Apropiere', b.warm, 'wm') + bar('⚡ Tensiune', b.tension, 'tn')
+  box.innerHTML = bar('🔐 Încredere', b.trust, 'tr') + bar('💗 Apropiere', b.warm, 'wm') + (b.help != null ? bar('🤝 Te ajută', b.help, 'wm') : '') + bar('⚡ Tensiune', b.tension, 'tn')
+    + `<div class="bdedit"><small>${b.lock ? '🔒 fixată de tine' : 'se schimbă singură din conversații'}</small><button type="button" class="btn sm" id="pfBondEd">✏️ Ajustează</button></div>`
     + (b.tension >= 45 && b.why ? `<p class="bdwhy">E puțin supărat(ă): ${esc(b.why)}</p>` : '')
     + ((c.arcs || []).length ? `<div class="bdarcs">${c.arcs.slice(-6).reverse().map(a => `<div><i>${ARC_E[a.tip] || '💫'}</i><span>${esc(a.t)}<small>${new Date(a.ts).toLocaleDateString('ro-RO', {day:'numeric', month:'short'})}</small></span></div>`).join('')}</div>` : '<p class="hint" style="margin:8px 0 0">Momentele-cheie apar singure din conversații: primul secret, o glumă doar a voastră, o neînțelegere și împăcarea.</p>');
+  const ed = $('#pfBondEd'); if(ed) ed.onclick = () => bondEdit(c, () => drawBond(c));   // 9.74
+}
+
+/* ───────── 📌 9.74: regulile și relațiile din grupuri, aduse în chatul cu un singur personaj ─────────
+   (1) Regulile voastre (`c.rules = [{t, ts, by}]`, cel mult 10): spuse în chat („de acum…”, „nu mai…”, „mereu să…”) le prinde Haiku
+       (`cRuleCheck`, doar dacă mesajul arată a regulă, în paralel cu răspunsul, fără întârziere) sau le scrii în 📌; intră în fiecare tură
+       (după punctul de cache, ca în grup), deci și în apeluri.
+   (2) Relația cu tine, ajustabilă și fixabilă (`bondEdit`): încredere, apropiere, tensiune cu motivul ei și, nou, 🤝 cât te ajută;
+       🔒 fixat = analiza din fundal nu mai mișcă cifrele (momentele-cheie se notează în continuare); „↺ Lasă-le pe AI”.
+       Ce setezi aici e și punctul de pornire în grupurile noi (`gMeOf`).
+   (3) Oamenii pe care îi cunoaște (`cSocSheet`, `cSocEdit`): toate celelalte personaje, cum se cunosc (`S.socRel`, același ca în grupuri)
+       și cum sunt acum (`S.socNow[k] = {t, s:-2..2}`), în promptul ei (`circleFor`) și ca relație de pornire în grupurile noi (`gKnow`). */
+const C_RULE_MAX = 10;
+const C_RULE_RE = /(?<!\p{L})(de acum|de-acum|de azi [îi]nainte|de ast[ăa]zi|[îi]ncep[âa]nd (de )?(acum|azi|de azi)|de fiecare dat[ăa]|ori de c[âa]te ori|niciodat[ăa]|mereu s[ăa]|[îi]ntotdeauna|regul[ăa]|regula|regulile|s[ăa] nu mai|nu mai (vreau|face|f[ăa]|zice|spune|scrie|folosi|folosește|pune|trimite|vorbi|vorbe[șs]ti|[îi]mi spune|[îi]mi zice)|anuleaz[ăa]|uit[ăa] (ce|regula)|po[țt]i s[ăa] (renun[țt]i|nu mai))(?!\p{L})/iu;
+const cRuleNorm = v => faraLiniute(String(v || '')).replace(/[„”"«»]/g, '').replace(/\s+/g, ' ').trim().slice(0, 160);
+function cRuleApply(c, rule, unrule, by = 'chat'){
+  if(!c) return {added:'', removed:''};
+  const r = cRuleNorm(rule), ur = cRuleNorm(unrule); c.rules = c.rules || []; let added = '', removed = '';
+  if(ur){ const k = c.rules.findIndex(x => pnorm(x.t).includes(pnorm(ur).slice(0, 24)) || pnorm(ur).includes(pnorm(x.t).slice(0, 24))); if(k >= 0) removed = c.rules.splice(k, 1)[0].t; }
+  if(r && r.length > 3 && !c.rules.some(x => pnorm(x.t) === pnorm(r))){ c.rules.push({t:r, ts:Date.now(), by}); c.rules = c.rules.slice(-C_RULE_MAX); added = r; }
+  return {added, removed};
+}
+async function cRuleCheck(c, text){
+  if(!c || !aiReady() || !C_RULE_RE.test(String(text || ''))) return null;
+  const u = S.userName.trim() || 'el', list = (c.rules || []).map(x => '- ' + x.t).join('\n') || '(niciuna)';
+  try{
+    const out = await stream('Recunoști reguli durabile puse într-o conversație. Răspunzi DOAR cu JSON valid, în română.', [{role:'user', text:
+`Mesajul lui ${u} către ${c.name}, într-un chat: „${plain(String(text)).slice(0, 500)}”
+Regulile lor de acum:
+${list}
+
+Stabilește ${u} prin mesajul ăsta o REGULĂ care să țină de acum înainte (cum să se poarte ${c.name}, cum să vorbească, cum să-i spună, ce să facă sau să nu mai facă mereu)? O cerere pentru acum (o poză, o întrebare, „spune-mi o glumă”) NU e regulă. Sau anulează una din regulile de acum?
+- "rule": regula nouă, scurtă (cel mult 14 cuvinte), ca indicație pentru ${c.name}, la persoana a II-a (ex. Îi spui mereu iubire; Nu mai folosești emoji; Vorbiți doar în engleză); altfel "".
+- "unrule": regula anulată, exact ca în listă; altfel "".
+JSON: {"rule":"","unrule":""}`}], {max:160, aux:true, cid:c.id});
+    const j = parseJSON(out) || {}, res = cRuleApply(c, j.rule, j.unrule, 'chat');
+    if(res.added || res.removed){
+      await saveChars();
+      if(res.added) toast(`📌 Regulă nouă cu ${c.name}: ${res.added}`, 4500); else toast(`📌 Regula „${res.removed}” nu mai e`, 4000);
+    }
+    return res;
+  }catch(e){ return null; }
+}
+function cRulesNote(c){   // pentru fiecare tură (după punctul de cache, nu strică cache-ul)
+  const rs = (c && c.rules || []).map(r => r.t); if(!rs.length) return '';
+  const u = S.userName.trim() || 'el';
+  return ` (regulile stabilite de ${u} cu tine, le respecți mereu, chiar dacă nu le mai pomenește: ${rs.join('; ')})`;
+}
+function cRulesSheet(c, done){
+  if(!c) return;
+  const list = () => (c.rules || []).map((r, k) => `<li><span>${esc(r.t)}</span><button type="button" data-rx="${k}" aria-label="Șterge">✕</button></li>`).join('') || '<li><span style="color:var(--tx3)">Nicio regulă încă. Le poți scrie aici sau direct în chat („de acum…”, „nu mai…”).</span></li>';
+  openSheet(`<h4>📌 Regulile tale cu ${esc(c.name)}</h4><div class="pad">
+    <ul class="facts" id="crRules">${list()}</ul>
+    <div class="addfact"><input id="crRuleIn" maxlength="160" placeholder="ex. îmi spui mereu pe nume"><button class="btn sm" id="crRuleAdd">＋</button></div>
+    <p class="hint">Cele spuse în chat („de acum…”, „nu mai…”, „mereu să…”) apar singure aici. Le respectă în chat și în apeluri; cel mult ${C_RULE_MAX}.</p></div>`);
+  const redraw = () => { $('#crRules').innerHTML = list(); done && done(); };
+  $('#crRules').onclick = async e => { const b = e.target.closest('[data-rx]'); if(!b) return; c.rules.splice(+b.dataset.rx, 1); await saveChars(); redraw(); };
+  $('#crRuleAdd').onclick = async () => { const v = $('#crRuleIn').value.trim(); if(!v) return; cRuleApply(c, v, '', 'me'); $('#crRuleIn').value = ''; await saveChars(); redraw(); };
+  $('#crRuleIn').onkeydown = e => { if(e.key === 'Enter'){ e.preventDefault(); $('#crRuleAdd').click(); } };
+}
+// (2) relația cu tine, ajustabilă și fixabilă
+const bondHelpOf = b => b.help != null ? b.help : gClamp(((b.warm + b.trust) / 2) - (b.tension || 0) / 2);
+function bondEdit(c, done){
+  const b = bondOf(c), hv0 = bondHelpOf(b);
+  const row = (id, lbl, v) => `<div class="crrow"><span>${lbl}</span><input type="range" id="${id}" min="0" max="100" step="1" value="${v}"><b id="${id}v">${v}</b></div><p class="hint" id="${id}w"></p>`;
+  openSheet(`<h4>💞 ${esc(c.name)} și tu, acum</h4><div class="pad">
+    ${row('bdT', '🔐 Încredere', b.trust)}${row('bdW', '💗 Apropiere', b.warm)}${row('bdH', '🤝 Cât te ajută', hv0)}${row('bdX', '⚡ Tensiune', b.tension)}
+    <label for="bdWhy">De ce (opțional; motivul supărării sau al relației, ea știe)</label><input id="bdWhy" maxlength="140" placeholder="ex. am uitat de ziua ei; m-a ajutat la mutare" value="${esc(b.why || '')}">
+    <label class="chk" style="margin-top:12px"><input type="checkbox" id="bdLock" checked> 🔒 Fixată de mine (AI-ul nu mai mișcă cifrele; momentele-cheie se notează în continuare)</label>
+    <div class="btns">${b.lock ? '<button class="btn" id="bdAuto">↺ Lasă-le pe AI</button>' : ''}<button class="btn pri" id="bdGo">Salvează</button></div></div>`);
+  const W = {bdT:['încă se ține în rezervă cu lucrurile personale', 'îți spune lucruri personale, dar nu chiar tot', 'are încredere în tine, îți spune și ce o frământă', 'încredere deplină; îți spune orice'],
+    bdW:['politicoasă, încă puțin distantă', 'caldă și prietenoasă', 'foarte caldă, îi ești drag', 'atașament profund, îi e dor de tine când nu vorbiți'],
+    bdX:['nicio supărare', 'o umbră mică de supărare', 'e supărată pe tine; se simte (mai scurtă, mai rece)', 'foarte supărată; are nevoie de o lămurire sau de scuze']};
+  const sync = () => {
+    for(const id of ['bdT', 'bdW', 'bdH', 'bdX']){ const v = +$('#' + id).value; $('#' + id + 'v').textContent = v;
+      $('#' + id + 'w').textContent = id === 'bdH' ? gHelpHint(v) : id === 'bdX' ? W.bdX[v >= 70 ? 3 : v >= 45 ? 2 : v >= 20 ? 1 : 0] : bondWord(v, W[id]); }
+  };
+  for(const id of ['bdT', 'bdW', 'bdH', 'bdX']) $('#' + id).oninput = sync; sync();
+  $('#bdGo').onclick = async () => {
+    const nb = {trust:gClamp($('#bdT').value), warm:gClamp($('#bdW').value), tension:gClamp($('#bdX').value), help:gClamp($('#bdH').value),
+      why:faraLiniute($('#bdWhy').value).replace(/[„”"]/g, '').trim().slice(0, 140), lock:$('#bdLock').checked, at:Date.now()};
+    c.bond = {...(c.bond || {}), ...nb}; await saveChars(); closeSheet(); done && done(); toast('💞 Salvat' + (nb.lock ? ' și fixat 🔒' : ''));
+  };
+  if($('#bdAuto')) $('#bdAuto').onclick = async () => { c.bond.lock = false; await saveChars(); closeSheet(); done && done(); toast('↺ AI-ul le poate schimba din nou'); };
+}
+// (3) oamenii pe care îi cunoaște
+const socNowOf = (a, b) => (S.socNow || {})[pairKey(a.id, b.id)] || null;
+function cSocList(c){ return chars.filter(o => o.id !== c.id).sort((a, b) => (!!relBetween(c, b) - !!relBetween(c, a)) || ((b.lastAt || 0) - (a.lastAt || 0))).slice(0, 14); }
+function cSocHTML(c){
+  const L = cSocList(c); if(!L.length) return '<p class="hint" style="margin:0">Când mai ai și alte personaje, aici apare cum se cunosc între ele.</p>';
+  return `<div class="csoc">${L.map(o => { const how = relBetween(c, o), nw = socNowOf(c, o);
+    return `<button type="button" class="csocr" data-soc="${esc(o.id)}">${avatarHTML(o)}<span><b>${esc(o.name)}</b><small>${how ? esc(how) : '<i>setează cum se cunosc</i>'}${nw ? ` · <em style="color:${G_RELC[String(nw.s)]}">${esc(nw.t)}</em>` : ''}</small></span><i>›</i></button>`; }).join('')}</div>`;
+}
+function cSocEdit(c, o, done){
+  const k = pairKey(c.id, o.id), how = relBetween(c, o), nw = socNowOf(c, o); let sc = nw ? nw.s : 0;
+  openSheet(`<h4>${esc(c.name)} ↔ ${esc(o.name)}</h4><div class="pad">
+    <label for="csHow">Cum se cunosc (și în grupuri)</label><input id="csHow" maxlength="80" placeholder="ex. prietene din liceu, surori, colege de birou" value="${esc(how)}">
+    <label for="csT" style="margin-top:10px">Cum sunt acum</label><input id="csT" maxlength="50" placeholder="ex. rivale, se tachinează, cele mai bune prietene" value="${esc(nw ? nw.t : '')}">
+    <label style="margin-top:10px">Cât de apropiate</label>
+    <div class="seg grseg" id="csS">${[-2, -1, 0, 1, 2].map(v => `<button type="button" data-v="${v}" class="${v === sc ? 'on' : ''}" style="--sc:${G_RELC[String(v)]}">${G_RELN[String(v)]}</button>`).join('')}</div>
+    <p class="hint">${esc(c.name)} vorbește despre ${esc(o.name)} după asta, iar într-un grup nou cu amândouă pornesc de aici.</p>
+    <div class="btns">${how || nw ? '<button class="btn" id="csDel">Șterge legătura</button>' : ''}<button class="btn pri" id="csGo">Salvează</button></div></div>`);
+  $('#csS').onclick = e => { const x = e.target.closest('[data-v]'); if(!x) return; sc = +x.dataset.v; $$('#csS button').forEach(y => y.classList.toggle('on', y === x)); };
+  $('#csGo').onclick = async () => {
+    const h = faraLiniute($('#csHow').value).replace(/[„”"]/g, '').trim().slice(0, 80), t = faraLiniute($('#csT').value).replace(/[.„”"]/g, '').trim().slice(0, 50);
+    S.socRel = S.socRel || {}; S.socNow = S.socNow || {};
+    if(h) S.socRel[k] = h; else delete S.socRel[k];
+    if(t || sc) S.socNow[k] = {t:t || G_RELN[String(sc)].toLowerCase(), s:sc, at:Date.now()}; else delete S.socNow[k];
+    saveSettings(); closeSheet(); done && done(); toast('👯 Salvat');
+  };
+  if($('#csDel')) $('#csDel').onclick = () => { if(S.socRel) delete S.socRel[k]; if(S.socNow) delete S.socNow[k]; saveSettings(); closeSheet(); done && done(); toast('Legătura e ștearsă'); };
 }
 
 /* ───────── 🌍 8.15: mod „învață o limbă” ───────── */
@@ -5140,7 +5258,7 @@ const aHeaders = () => apiHeaders('anthropic', {'content-type':'application/json
 let batchBroken = false;
 async function jrnBatchSubmit(items){
   const reqs = items.map((x, i) => ({custom_id:('j' + i + '_' + x.c.id + '_' + x.day).replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 64), params:{model:modelFor(false), max_tokens:600, system:x.sys, messages:[{role:'user', content:x.prompt}]}}));
-  const r = await fetch(batchUrl(), {method:'POST', headers:aHeaders(), body:JSON.stringify({requests:reqs})});
+  const r = await fetch(batchUrl(), {method:'POST', headers:aHeaders(), body:safeJSON({requests:reqs})});
   if(!r.ok) throw new Error(await errText(r));
   const j = await r.json(); if(!j.id) throw new Error('batch fără id');
   S.jrnPend = {id:j.id, at:Date.now(), items:items.map((x, i) => ({cid:x.c.id, day:x.day, key:reqs[i].custom_id}))}; saveSettings();
@@ -5218,7 +5336,7 @@ async function laterFlush(){
     if(!canBatch()) throw new Error('fără lot');
     const pre = Date.now().toString(36);
     const reqs = items.map((x, i) => ({custom_id:'b' + pre + '_' + i, params:{model:modelFor(true), max_tokens:x.max, system:x.sys, messages:[{role:'user', content:x.text}]}}));
-    const r = await fetch(batchUrl(), {method:'POST', headers:aHeaders(), body:JSON.stringify({requests:reqs})});
+    const r = await fetch(batchUrl(), {method:'POST', headers:aHeaders(), body:safeJSON({requests:reqs})});
     if(!r.ok) throw new Error(await errText(r));
     const j = await r.json(); if(!j.id) throw new Error('lot fără id');
     items.forEach((x, i) => x.key = reqs[i].custom_id);
@@ -5322,6 +5440,7 @@ async function send(){
   chat.msgs.push(um);
   await saveChat(); renderMsgs(true);
   relBump(cur, 1, 'msg');
+  cRuleCheck(cur, t);   // 9.74: în paralel cu răspunsul (ea vede oricum mesajul; regula rămâne pentru data viitoare)
   await reply();
 }
 /* 9.49: costuri mai mici, aceeași calitate
@@ -6045,6 +6164,8 @@ async function charProfile(id, push = true){
     <div class="pfSec igGrid"><div class="pfGal">${pics.length ? pics.map(k => `<button data-view="${esc(k)}">${picMeta[k].story ? '<i>📸</i>' : ''}<img data-lk="${esc(k)}" data-t="m" alt="" loading="lazy"></button>`).join('') : ''}</div>${pics.length ? '' : `<p class="igEmpty">📷<br>Încă nicio poză de la ${esc(c.name)}.<br><small>Cere-i una din ＋ în conversație.</small></p>`}</div>
     ${c.aspect && !duoOn(c) ? `<div class="pfSec"><h3>Cum arată</h3><p>${esc(c.aspect)}</p></div>` : ''}
     <div class="pfSec"><h3><span>💞 Relația voastră</span></h3><div class="relbox"><span class="lv" id="pfRelName"></span><small id="pfRelSub"></small><button class="btn sm" id="pfRelSet" style="margin-left:auto">Schimbă</button></div><div class="relbar"><i id="pfRelBar"></i></div><div id="pfBond" class="bond"></div></div>
+    <div class="pfSec"><h3><span>📌 Regulile voastre</span><button class="btn sm" id="pfRules">Vezi / adaugă</button></h3><ul class="facts" id="pfRulesL"></ul></div>
+    <div class="pfSec"><h3><span>👯 Oameni pe care îi cunoaște</span></h3><div id="pfSoc"></div></div>
     <div class="pfSec" id="pfPrefsSec"><h3>🎯 Ce a învățat din notele tale</h3><ul class="facts" id="pfPrefs"></ul></div>
     <div class="pfSec"><h3><span>📍 Orașul ${esc(c.name)}</span></h3><div class="cityrow"><input id="pfCity" placeholder="ex. Brașov" value="${esc(c.city || '')}" autocomplete="off"><button class="btn sm" id="pfCitySave">Salvează</button></div><p class="hint" id="pfWx">Vremea reală de acolo intră în conversații și în poze (Open-Meteo, gratuit).</p></div>
     <div class="pfSec"><h3><span>🗓️ Ziua ${esc(c.name)}</span></h3><div id="pfLife"></div></div>
@@ -6102,6 +6223,11 @@ async function charProfile(id, push = true){
   const drawRel = () => { const r = relOf(c), lk = c.rel && c.rel.lock; $('#pfRelName').textContent = r.name; $('#pfRelSub').textContent = `nivel ${r.lv} din ${RELS.length}` + (lk ? ' · 🔒 fixat' : r.next ? ` · ${r.pc}% până la „${r.next}”` : ''); $('#pfRelBar').style.width = (lk ? 100 : r.pc) + '%'; };
   relInit(c).then(drawRel); drawBond(c);
   $('#pfRelSet').onclick = () => relSheet(c, drawRel);
+  // 9.74: regulile voastre și oamenii pe care îi cunoaște
+  const drawRules = () => { const L = $('#pfRulesL'); if(L) L.innerHTML = (c.rules || []).map(r => `<li><span>📌 ${esc(r.t)}</span></li>`).join('') || '<li><span style="color:var(--tx3)">Nicio regulă. Spune-i în chat „de acum…” sau adaugă una aici.</span></li>'; };
+  drawRules(); $('#pfRules').onclick = () => cRulesSheet(c, drawRules);
+  const drawSoc = () => { const box = $('#pfSoc'); if(!box) return; box.innerHTML = cSocHTML(c); hydrate(box); box.onclick = e => { const b = e.target.closest('[data-soc]'); if(b){ const o = charById(b.dataset.soc); if(o) cSocEdit(c, o, drawSoc); } }; };
+  drawSoc();
   const drawPrefs = () => {
     const ps = c.prefs || [], lk = c.liked || [];
     $('#pfPrefs').innerHTML = ps.map((x, k) => `<li><span>${esc(x.t)}</span><button data-px="${k}" aria-label="Șterge">✕</button></li>`).join('')
@@ -6532,6 +6658,7 @@ function chatMenu(){
     ['⏰', (() => { const k = (cur.sched || []).filter(x => x.tid === (chat.tid || 'main')).length; return k ? `Mesaje programate (${k})` : 'Mesaje programate'; })(), schedSheet],
     ['📖', 'Albumul vostru', () => openAlbum(cur)],
     ['📱', `Telefonul lui ${cur.name}`, () => openPhone(cur)],
+    ['📌', 'Regulile voastre' + ((cur.rules || []).length ? ' · ' + cur.rules.length : ''), () => setTimeout(() => cRulesSheet(cur), 60)],   // 9.74
     ['🌍', learnOn(cur) ? `Învață ${LANGS[cur.learn.lang][0].toLowerCase()} (pornit)` : 'Învață o limbă', () => learnSheet(cur)],
     ['👤', 'Profil, memorie și editare', () => charProfile(cur.id)],
     ['⋯', 'Mai mult', moreMenu],
@@ -6769,7 +6896,7 @@ async function pushEnable(){
 }
 function pushAt(id, at, title, body, go){
   if(!S.pushOn || !S.wkBase) return;
-  wkFetch('/push/at', {method:'POST', body:JSON.stringify({id, at, title, body, url:'./?go=' + encodeURIComponent(go || 'last')})}).catch(e => console.warn('push', e.message));
+  wkFetch('/push/at', {method:'POST', body:safeJSON({id, at, title, body, url:'./?go=' + encodeURIComponent(go || 'last')})}).catch(e => console.warn('push', e.message));
 }
 function pushCancel(id){ if(S.pushOn && S.wkBase) wkFetch('/push/at?id=' + encodeURIComponent(id), {method:'DELETE'}).catch(() => {}); }
 // „îți scrie primul” după PRO_H ore de liniște: notificarea se reprogramează după fiecare mesaj din conversație
