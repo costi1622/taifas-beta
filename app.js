@@ -1,5 +1,5 @@
 window.__taifas = true;   // 8.20.1: semn pentru index.html că app.js s-a încărcat
-const APP_VER = '9.65';
+const APP_VER = '9.67';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -1795,6 +1795,7 @@ const G_TONES = {
   normal:{e:'💬', n:'Firesc', dir:'natural everyday group chat', sys:'', life:'6-10', pace:1, max:3},
   calm:{e:'🌿', n:'Liniștit', dir:'calm and gentle: usually only ONE character replies, short and warm; more emoji reactions or just reading', sys:'Grupul e liniștit: mesaje calme, puține și blânde, fără agitație.', life:'4-6', pace:1.35, max:2},
   haos:{e:'🌪️', n:'Haotic', dir:'chaotic: 2-3 characters reply, they interrupt and tease each other, inside jokes, double-texting, many emoji reactions', sys:'Grupul e haotic: vă întrerupeți, glume interne, mesaje scurte și dese, emoji, entuziasm, uneori majuscule.', life:'9-12', pace:.6, max:3},
+  romantic:{e:'💞', n:'Romantic', dir:'romantic: warm, affectionate and flirty toward the user; compliments, tender teasing, sweet hints; a little playful jealousy between characters for the user\'s attention; 1-3 replies, never crude', sys:'Grupul e romantic: tandrețe, flirt jucăuș și complimente pentru el, aluzii dulci, fiecare în stilul ei; puțină gelozie jucăușă între ele pentru atenția lui, fără răutate. Romantic, nu vulgar: în grup nimic explicit.', life:'6-9', pace:1.1, max:3},   // 9.67
   drama:{e:'🎭', n:'Dramatic', dir:'romantic-dramatic: big emotional reactions, strong opinions, small conflicts and reconciliations, gossip', sys:'Grupul e romantic-dramatic: emoții mari, opinii tari, mici tensiuni și împăcări, bârfă, ofuri.', life:'7-10', pace:1, max:3},
   munca:{e:'💼', n:'De muncă', dir:'work group: to the point, organized, polite, task-oriented, light humor; nothing intimate', sys:'E un grup de muncă: la obiect, organizat, politicos, cu umor discret; fără nimic intim.', life:'4-7', pace:.9, max:2}
 };
@@ -1842,6 +1843,7 @@ function groupEditSheet(g){
     <label style="margin-top:10px">Tonul grupului</label>
     <div class="seg gtone" id="geTone">${Object.entries(G_TONES).map(([k, t]) => `<button type="button" data-v="${k}" class="${(g && g.tone || 'normal') === k ? 'on' : ''}">${t.e} ${t.n}</button>`).join('')}</div>
     <label class="chk" style="margin-top:10px"><input type="checkbox" id="geLife" ${!g || g.life !== false ? 'checked' : ''}> 🌙 Își scriu între ele și cât lipsești (când revii vezi ce au vorbit)</label>
+    <label class="chk" style="margin-top:6px"><input type="checkbox" id="geLead" ${!g || g.lead !== false ? 'checked' : ''}> 👑 Tu conduci grupul: ce ceri se face aici, iar regulile tale rămân</label>
     <div class="btns"><button class="btn pri" id="geGo">${g ? 'Salvează' : 'Creează grupul'}</button></div></div>`);
   hydrate($('.sheet'));
   let tone = g && g.tone || 'normal';
@@ -1850,10 +1852,10 @@ function groupEditSheet(g){
   $('#geGo').onclick = async () => {
     if(sel.size < 2){ toast('Alege cel puțin 2 personaje.'); return; }
     const ms = [...sel], name = $('#geName').value.trim() || ms.map(id => charById(id).name).join(', ');
-    if(g){ const t0 = g.tone || 'normal'; g.members = ms; g.name = name; g.topic = $('#geTopic').value.trim(); g.life = $('#geLife').checked; g.tone = tone; await saveGroups(); closeSheet();
+    if(g){ const t0 = g.tone || 'normal'; g.members = ms; g.name = name; g.topic = $('#geTopic').value.trim(); g.life = $('#geLife').checked; g.lead = $('#geLead').checked; g.tone = tone; await saveGroups(); closeSheet();
       if(grp === g && t0 !== tone && gchat){ gchat.msgs.push({id:uid(), role:'sys', text:`${gTone(g).e} Tonul grupului: ${gTone(g).n}`, ts:Date.now()}); await gSave(); }
       if(grp === g){ renderGroup(); gKnow(g, gchat, true).catch(() => {}); } renderHome(); return; }
-    const ng = {id:uid(), name, members:ms, topic:$('#geTopic').value.trim(), life:$('#geLife').checked, tone, created:Date.now(), lastAt:Date.now()};
+    const ng = {id:uid(), name, members:ms, topic:$('#geTopic').value.trim(), life:$('#geLife').checked, lead:$('#geLead').checked, tone, created:Date.now(), lastAt:Date.now()};
     groups.push(ng); await saveGroups(); closeSheet(); openGroup(ng.id);
   };
 }
@@ -1934,6 +1936,7 @@ function groupMenu(){
   sheet([
     ['👥', 'Membri, nume și subiect', () => setTimeout(() => groupEditSheet(grp), 60)],
     ['🕸️', 'Relațiile dintre ele (le poți schimba și fixa)', () => setTimeout(() => gRelSheet(), 60)],
+    ['📌', 'Regulile grupului' + ((gchat && gchat.rules || []).length ? ' · ' + gchat.rules.length : ''), () => setTimeout(() => gRulesSheet(), 60)],   // 9.67
     ['💗', 'Cât țin la tine și cât te ajută', () => setTimeout(() => gRelSheet(true), 60)],
     ['🎚️', 'Tonul grupului: ' + gTone(grp).e + ' ' + gTone(grp).n, () => setTimeout(() => groupEditSheet(grp), 60)],
     gSpect && gSpect.g === grp ? ['⏹', 'Oprește modul spectator', () => gSpectStop()] : ['👀', 'Mod spectator (te uiți cum vorbesc între ele)', () => gSpectStart(grp)],
@@ -1965,7 +1968,7 @@ function gMentioned(text, ms, namesOnly){
 const gLine = m => m.role === 'sys' ? '' : `${gName(m)}: ${m.re ? '(răspunde la ' + m.re.name + ': „' + m.re.text.slice(0, 60) + '”) ' : ''}${m.img ? '[poză] ' : ''}${plain(m.text || '').slice(0, 260)}`;
 /* regizorul: cine răspunde, cine doar reacționează, cine tace; poza cerută; cine îți scrie în privat */
 async function gDirector(g, ms, more, mentioned, photoAsk, toAll, gc = gchat, x = {}){
-  const u = S.userName.trim() || 'Utilizatorul', T = gTone(g);
+  const u = S.userName.trim() || 'Utilizatorul', T = gTone(g), lead = g.lead !== false && !more && !x.spect;   // 9.67
   const recent = gc.msgs.slice(-14).map(gLine).filter(Boolean).join('\n');
   const rels = gRelLines(gc, ms);
   try{
@@ -1973,17 +1976,24 @@ async function gDirector(g, ms, more, mentioned, photoAsk, toAll, gc = gchat, x 
 `Group "${g.name}"${g.topic ? ' (' + g.topic + ')' : ''}. Characters: ${ms.map(c => c.name + (c.tag ? ' (' + c.tag + ')' : '')).join('; ')}.
 ${gc.dyn ? 'Group dynamic (Romanian): ' + gc.dyn + '\n' : ''}${rels ? 'Relationships between them (Romanian): ' + rels + '\n' : ''}Toward ${u}: ${gMeLines(gc, ms)}. Characters who care more answer ${u} more often and more warmly; when ${u} asks for help or has a problem, the ones with high "helps" reply first with concrete help, low ones may only react or stay silent.
 Group tone: ${T.dir}.
-${gc.subj ? 'New topic set for the group (Romanian), they get into it naturally: ' + gc.subj + '\n' : ''}Recent messages:
+${(gc.rules || []).length ? 'Group rules set by ' + u + ' (Romanian), everyone follows them: ' + gc.rules.map(r => r.t).join('; ') + '\n' : ''}${lead ? `${u} LEADS this group. If ${u}'s last message asks the group or someone to DO something now (a task, a game, a round where each answers, a question for everyone, "each of you…", "Ana, sing…"), set "task" (Romanian, short and concrete: what exactly to do) and "who" ("all" or the names asked); everyone in "who" replies and does it, no refusing or dodging. If ${u} sets a standing rule for the group from now on ("from now on…", "no more…", "everyone always…"), set "rule" (Romanian, short). If ${u} cancels a rule, set "unrule" with that rule. Otherwise leave them null.\n` : ''}${gc.subj ? 'New topic set for the group (Romanian), they get into it naturally: ' + gc.subj + '\n' : ''}Recent messages:
 ${recent}
 ${x.spect ? 'The user is only watching silently now: the characters talk among themselves (answer each other, not the user); 1-' + T.max + ' replies.' : more ? 'The user wants the characters to keep talking among themselves now.' : 'The last message is from ' + u + '.'}${x.bomb ? ' The user just dropped big news: almost everyone reacts, most of them with text.' : ''}${mentioned.length ? ' The user addressed: ' + mentioned.map(c => c.name).join(', ') + ' (they reply first).' : ''}${toAll ? ' The user addressed everyone: most of them react (reply or emoji), but not necessarily all with text.' : ''}${photoAsk ? ' The user asked for a photo: decide who sends it ("photo": the names of who must be IN the photo, and "by": who sends it; a photo of several of them together is fine).' : ''}
 Like a real group chat: usually 1-2 characters reply (at most ${T.max}; one may answer another character); others may only react with an emoji to a specific message, or just read it. Not everyone talks every time. Optionally one character may later write privately to ${u} about the group ("dm"), only when something juicy happened.
-JSON: {"actions":[{"name":"","do":"reply|react|seen","emoji":"","to":"author name of the message they react to"}],"photo":${photoAsk ? '{"names":[],"by":""}' : 'null'},"dm":null}`}], {max:260, aux:true, tag:'fundal'});
+JSON: {"actions":[{"name":"","do":"reply|react|seen","emoji":"","to":"author name of the message they react to"}],"photo":${photoAsk ? '{"names":[],"by":""}' : 'null'},"dm":null${lead ? ',"task":null,"who":"all","rule":null,"unrule":null' : ''}}`}], {max:lead ? 380 : 260, aux:true, tag:'fundal'});
     const j = parseJSON(out), find = n => ms.find(x => pnorm(x.name) === pnorm(n) || pnorm(x.name.split(' ')[0]) === pnorm(String(n || '').split(' ')[0]));
     const acts = []; for(const a of Array.isArray(j.actions) ? j.actions : []){ const c = find(a && a.name); if(c && !acts.some(x => x.c === c)) acts.push({c, do:/react/.test(a.do) ? 'react' : /seen/.test(a.do) ? 'seen' : 'reply', emoji:G_REACT.find(e => e.replace(/\uFE0F/g, '') === String(a.emoji || '').replace(/\uFE0F/g, '')) || '❤️', to:String(a.to || '')}); }
     for(const c of mentioned.slice().reverse()){ const k = acts.findIndex(x => x.c === c); if(k >= 0) acts.splice(k, 1); acts.unshift({c, do:'reply'}); }
-    let n = 0; for(const a of acts) if(a.do === 'reply' && ++n > (x.bomb ? 3 : T.max)) a.do = 'seen';
+    // 9.67: ce a cerut liderul: toate cele numite (sau toate) răspund și fac asta, peste limita obișnuită de replici
+    const task = lead && j.task && String(j.task).trim() ? faraLiniute(String(j.task)).trim().slice(0, 240) : '';
+    let doers = [];
+    if(task){ doers = /^(all|toate|toți|toti|everyone)$/i.test(String(j.who || 'all').trim()) || !j.who ? ms.slice() : (Array.isArray(j.who) ? j.who : String(j.who).split(/,|\bși\b|\band\b/)).map(n => find(String(n).trim())).filter(Boolean);
+      if(!doers.length) doers = ms.slice();
+      for(const c of doers.slice().reverse()){ const k = acts.findIndex(a => a.c === c); if(k >= 0) acts.splice(k, 1); acts.unshift({c, do:'reply'}); } }
+    let n = 0; for(const a of acts) if(a.do === 'reply' && !doers.includes(a.c) && ++n > (x.bomb ? 3 : T.max)) a.do = 'seen';
+    if(lead) gRuleApply(gc, j.rule, j.unrule);
     const ph = j.photo && typeof j.photo === 'object' ? {names:(Array.isArray(j.photo.names) ? j.photo.names : []).map(find).filter(Boolean).slice(0, 4), by:find(j.photo.by)} : null;
-    if(acts.some(a => a.do === 'reply') || ph) return {acts, photo:ph, dm:find(j.dm)};
+    if(acts.some(a => a.do === 'reply') || ph) return {acts, photo:ph, dm:find(j.dm), task, doers};
   }catch(e){}
   const pick = mentioned.length ? mentioned : toAll ? ms.slice(0, 3) : ms.slice().sort(() => Math.random() - .5).slice(0, Math.random() < .5 ? 1 : 2);
   return {acts:pick.map(c => ({c, do:'reply'})).concat(ms.filter(c => !pick.includes(c)).map(c => ({c, do:'seen'}))), photo:null, dm:null};
@@ -1994,6 +2004,26 @@ JSON: {"actions":[{"name":"","do":"reply|react|seen","emoji":"","to":"author nam
    (2) `gTranscript`: conversația, la fel pentru toate, câte un bloc pe mesaj (fără reacții), cu punctul de cache la final;
    (3) `gTurn`: ce diferă de la una la alta (cine scrie acum, relațiile de acum, ce simte pentru tine, reacțiile recente, ce știe doar din privat),
    după punctul de cache, deci nu strică nimic. */
+/* 9.67: regulile grupului (gc.rules = [{t, ts}]): puse de tine („de acum…”, „nimeni nu mai…”), prin regizor sau din meniu (📌);
+   intră în rândul fiecărei personaje și în „cât ai lipsit”; cel mult 8. */
+function gRuleApply(gc, rule, unrule){
+  if(!gc) return;
+  const cl = v => faraLiniute(String(v || '')).replace(/[„”"]/g, '').trim().slice(0, 160);
+  const r = cl(rule), ur = cl(unrule); gc.rules = gc.rules || [];
+  if(ur){ const k = gc.rules.findIndex(x => pnorm(x.t).includes(pnorm(ur).slice(0, 24)) || pnorm(ur).includes(pnorm(x.t).slice(0, 24))); if(k >= 0){ const old = gc.rules.splice(k, 1)[0]; gc.msgs.push({id:uid(), role:'sys', text:'📌 Regula „' + old.t + '” nu mai e', ts:Date.now()}); } }
+  if(r && r.length > 3 && !gc.rules.some(x => pnorm(x.t) === pnorm(r))){ gc.rules.push({t:r, ts:Date.now()}); gc.rules = gc.rules.slice(-8); gc.msgs.push({id:uid(), role:'sys', text:'📌 Regulă nouă: ' + r, ts:Date.now()}); }
+}
+function gRulesSheet(){
+  if(!grp || !gchat) return;
+  const g = grp, gc = gchat, list = () => (gc.rules || []).map((r, k) => `<li><span>${esc(r.t)}</span><button type="button" data-rx="${k}" aria-label="Șterge">✕</button></li>`).join('') || '<li><span style="color:var(--tx3)">Nicio regulă încă. Le poți scrie aici sau direct în grup („de acum…”).</span></li>';
+  openSheet(`<h4>📌 Regulile grupului</h4><div class="pad">
+    <ul class="facts" id="grRules">${list()}</ul>
+    <div class="addfact"><input id="grRuleIn" maxlength="160" placeholder="ex. de acum vorbim doar în engleză"><button class="btn sm" id="grRuleAdd">＋</button></div>
+    <p class="hint">${g.lead !== false ? '👑 Tu conduci grupul: ce ceri în grup se face, iar regulile spuse acolo („de acum…”) apar singure aici.' : 'Pornește „👑 Tu conduci grupul” din 👥 ca regulile spuse în grup să apară singure aici.'}</p></div>`);
+  const redraw = () => { $('#grRules').innerHTML = list(); };
+  $('#grRules').onclick = async e => { const b = e.target.closest('[data-rx]'); if(!b) return; const old = gc.rules.splice(+b.dataset.rx, 1)[0]; if(old) gc.msgs.push({id:uid(), role:'sys', text:'📌 Regula „' + old.t + '” nu mai e', ts:Date.now()}); await gSave(g, gc); redraw(); if(grp === g) renderGroup(); };
+  $('#grRuleAdd').onclick = async () => { const v = $('#grRuleIn').value.trim(); if(!v) return; gRuleApply(gc, v); $('#grRuleIn').value = ''; await gSave(g, gc); redraw(); if(grp === g) renderGroup(); };
+}
 function gSharedSys(g, gc = gchat){
   const u = S.userName.trim() || 'utilizatorul', ms = gMembers(g), T = gTone(g);
   const pairs = []; for(let a = 0; a < ms.length; a++) for(let b = a + 1; b < ms.length; b++){ const how = relBetween(ms[a], ms[b]); pairs.push(`- ${ms[a].name} și ${ms[b].name}: ${how ? 'se cunosc: ' + how : 'se cunosc din grupul ăsta'}`); }
@@ -2033,6 +2063,8 @@ function gTurn(c, g, gc = gchat, x = {}){
     `## Tu și celelalte, acum\n${rels || '-'}`,
     `## Ce simți pentru ${u}, aici\n${gCareWord(m.care)} (${m.care}/100).${m.why ? ' De ce: ' + m.why + '.' : ''}\nCât îl ajuți: ${gHelpWord(m.help)} (${m.help}/100). Când ${u} cere ajutor sau are o problemă, asta decide cât de repede și cât de concret sari (sau nu). Arată asta prin fapte și ton, nu spunând cifrele.`,
     pn && (pn.mood || pn.carry || (pn.others || []).length || (pn.secrets || []).length) && `## Din discuțiile tale private cu ${u} (doar tu știi asta)\n${pn.mood ? 'Cum ești acum cu el: ' + pn.mood + '\n' : ''}${(pn.others || []).length ? 'Ce i-ai zis în privat despre celelalte: ' + pn.others.map(o => o.name + ': ' + o.t).join('; ') + '\n' : ''}${pn.carry ? 'Poți face aluzie firesc, fără să explici: ' + pn.carry + '\n' : ''}${(pn.secrets || []).length ? 'NU spui în grup și nu lași să se înțeleagă: ' + pn.secrets.join('; ') + '\n' : ''}Se simte în ton și în cum îi răspunzi (mai caldă, mai rece, complice), nu povestești conversația privată.`,
+    gc && (gc.rules || []).length && `## Regulile grupului (stabilite de ${u}; le respecți mereu)\n${gc.rules.map(r => '- ' + r.t).join('\n')}`,   // 9.67
+    x.task && `## Ce a cerut ${u} acum (el conduce grupul)\n${x.task}\nFă asta acum, în replica ta, concret și complet: nu doar promiți, nu comentezi și nu amâni. Dacă e un joc sau o rundă, joacă-ți rândul; dacă e o întrebare pentru toate, răspunde-i tu, cu răspunsul tău.`,
     gc && gc.dyn && `## Dinamica grupului acum\n${gc.dyn}`,
     gc && gc.subj && `## Subiectul nou din grup\n${gc.subj} (intrați în el firesc, fiecare cu părerea ei)`,
     recent && `## Reacții recente\n${recent}`,
@@ -2079,6 +2111,8 @@ async function gRespond(text, more, forcePhoto, x = {}){
     const named = text ? gMentioned(text, ms, true) : [];   // 9.57: numele pomenite au prioritate față de „toți”
     const toAll = !!text && ((!named.length && G_ALL.test(text)) || !!x.bomb), mentioned = toAll ? [] : named;   // „fetelor”: pentru toate, dar nu e obligatoriu să răspundă toate
     const plan = await gDirector(g, ms, more, mentioned, photoAsk, toAll, gc, x);
+    if(plan.task) x = {...x, task:plan.task};   // 9.67: ce a cerut liderul ajunge în rândul fiecăreia care o face
+    if(gc.msgs.length && gc.msgs[gc.msgs.length - 1].role === 'sys' && /^📌/.test(gc.msgs[gc.msgs.length - 1].text)){ await gSave(g, gc); if(grp === g) renderGroup(); }   // regulă nouă / scoasă
     if(lastU && !more) lastU.seen = ms.map(c => c.id);   // (2) „văzut de …”
     // reacțiile vin repede, înaintea răspunsurilor
     for(const a of plan.acts.filter(x => x.do === 'react')){
@@ -2141,8 +2175,9 @@ async function gRespond(text, more, forcePhoto, x = {}){
 /* 9.60: cine scrie pe Haiku în grup. Primul răspuns la mesajul tău rămâne pe Sonnet (în afară de „mult” + mesaj simplu);
    cele care se alătură după, pe Haiku, dacă mesajul nu e important; bomba, pozele și cele pomenite pe nume, pe Sonnet; ancoră pe personaj. */
 function gEco(k, c, text, more, x, mentioned, photo, gc){
-  const L = mixLvl(); if(L === 'off' || S.aux === 'off' || auxBroken || String(S.model || '').toLowerCase().includes('haiku')) return false;
+  const L = mixLvl(c); if(L === 'off' || S.aux === 'off' || auxBroken || String(S.model || '').toLowerCase().includes('haiku')) return false;
   if(x.bomb || (photo && photo.by === c)) return false;
+  if(x.task && L !== 'mult') return false;   // 9.67: ce a cerut liderul se face pe modelul principal
   const P = MIX_P[L]; gc.ecoRun = gc.ecoRun || {};
   if((gc.ecoRun[c.id] || 0) >= P.streak + 1) return false;   // ancora: personajul scrie din nou pe Sonnet
   const t = plain(String(text || '')).trim(), heavy = !!t && (MIX_HEAVY.test(t) || t.length > P.len);
@@ -2549,7 +2584,7 @@ async function gLife(g, opts = {}){
 `Grupul „${g.name}”${g.topic ? ' (' + g.topic + ')' : ''}. Personajele:
 ${ms.map(c => `- ${c.name}: ${String(c.persona || c.tag || '').slice(0, 220)}${c.speech ? ' Vorbește: ' + c.speech : ''}`).join('\n')}
 ${gc.dyn ? 'Dinamica grupului: ' + gc.dyn + '\n' : ''}${msgs.length ? 'Ultimele mesaje:\n' + gc.msgs.slice(-12).map(gLine).filter(Boolean).join('\n') : 'Grupul e nou, încă nu și-a scris nimeni.'}
-${u} a lipsit ${gapText(gap)} (acum e ${new Date().toLocaleString('ro-RO', {weekday:'long', hour:'2-digit', minute:'2-digit'})}). Între timp personajele și-au scris între ele, fără ${u}: ${gTone(g).life} mesaje scurte, ca într-un grup real.${gTone(g).sys ? ' ' + gTone(g).sys : ''}${gRelLines(gc, ms) ? ' Relațiile dintre ele: ' + gRelLines(gc, ms) + '.' : ''} Vorbesc UNA CU ALTA: își răspund, se tachinează, se contrazic, își povestesc ce au mai făcut, pun întrebări una alteia; fiecare în stilul ei; poate o pomenesc pe ${u} sau îl strigă la final. Să participe cel puțin două. Nu scrie mesaje de la ${u}.
+${u} a lipsit ${gapText(gap)} (acum e ${new Date().toLocaleString('ro-RO', {weekday:'long', hour:'2-digit', minute:'2-digit'})}). Între timp personajele și-au scris între ele, fără ${u}: ${gTone(g).life} mesaje scurte, ca într-un grup real.${(gc.rules || []).length ? ' Regulile grupului, stabilite de ' + u + ', le respectă: ' + gc.rules.map(r => r.t).join('; ') + '.' : ''}${gTone(g).sys ? ' ' + gTone(g).sys : ''}${gRelLines(gc, ms) ? ' Relațiile dintre ele: ' + gRelLines(gc, ms) + '.' : ''} Vorbesc UNA CU ALTA: își răspund, se tachinează, se contrazic, își povestesc ce au mai făcut, pun întrebări una alteia; fiecare în stilul ei; poate o pomenesc pe ${u} sau îl strigă la final. Să participe cel puțin două. Nu scrie mesaje de la ${u}.
 JSON: {"summary":"pe scurt, un rând: ce au vorbit cât ai lipsit","messages":[{"name":"","text":"","min":30}]}  ("name" = exact unul dintre: ${ms.map(c => c.name).join(', ')}; "min" = câte minute după ultimul mesaj, crescător, între 1 și ${mins})`}], {max:1800, signal:ac.signal, cid:ms[0].id, tag:'grup', aux:true});   // 9.60: „cât ai lipsit” pe Haiku
     const j = parseJSON(out) || {};
     const who = nm => { const a = pnorm(nm || ''), f = a.split(' ')[0]; return ms.find(c => pnorm(c.name) === a) || ms.find(c => pnorm(c.name.split(' ')[0]) === f) || ms.find(c => f && pnorm(c.name).includes(f)); };
@@ -5113,10 +5148,13 @@ const MIX_P = {
   echilibrat:{len:110, q:50, prevLong:700, streak:2, act:true},
   mult:{len:200, q:90, prevLong:1400, streak:4, act:true}
 };
-const mixLvl = () => S.smart === 'off' ? 'off' : MIX_P[S.smart] ? S.smart : 'echilibrat';
+const mixGlobal = () => S.smart === 'off' ? 'off' : MIX_P[S.smart] ? S.smart : 'echilibrat';
+// 9.66: nivelul se poate alege pe personaj (c.mix: off / putin / echilibrat / mult); fără alegere, cel din Setări
+const mixLvl = c => c && (c.mix === 'off' || MIX_P[c.mix]) ? c.mix : mixGlobal();
+const MIX_NAMES = {off:'Doar principal', putin:'Puțin', echilibrat:'Echilibrat', mult:'Mult'};
 const MIX_HEAVY = /(?<!\p{L})(te iubesc|iubesc|iubit\p{L}*|dragoste|dor|dorul|mi-e dor|îmi e dor|imi e dor|certat\p{L}*|cert[ăa]m|v-a[țt]i certat|ne cert[ăa]m|sărut\p{L}*|sarut\p{L}*|trist\p{L}*|pl[âa]ng\p{L}*|sup[ăa]r\p{L}*|nervos|nervoas[ăa]|enervat\p{L}*|furios|furioas[ăa]|gelos|geloas[ăa]|ceart[ăa]|ne-am certat|desp[ăa]r[țt]\p{L}*|de ce|ce s-a [îi]nt[âa]mplat|scuze|iart[ăa]\p{L}*|regret\p{L}*|sincer\p{L}*|probleme?|ajut\p{L}*|nu (mai )?pot|singur\p{L}*|fric[ăa]|speriat\p{L}*|anxios|anxioas[ăa]|stres\p{L}*|deprimat\p{L}*|bolnav\p{L}*|spital|doctor\p{L}*|a murit|moarte|înmormântare|inmormantare|accident|concediat\p{L}*|demisi\p{L}*|examen\p{L}*|interviu|povește\p{L}*|povesteste|poveste|spune-mi|zi-mi|explic\p{L}*|crezi|p[ăa]rerea|ce zici|ce p[ăa]rere|sfat\p{L}*|ce s[ăa] fac|ce-ar trebui|planu\p{L}*|hai s[ăa]|mâine|maine|weekend|secret\p{L}*|promi\p{L}*|important|serios|surpriz\p{L}*|cadou\p{L}*|ziua (mea|ta)|la mul[țt]i ani|frumoas[ăa]|sexy|dormim|pat|îmbr[ăa][țt]i\p{L}*|imbrati\p{L}*)(?!\p{L})/iu;
 function mixPick(um, ch, idx, c){
-  const L = mixLvl(), P = MIX_P[L], no = why => ({eco:false, why});
+  const L = mixLvl(c), P = MIX_P[L], no = why => ({eco:false, why});
   if(L === 'off') return no('oprit');
   if(L === 'putin') return ecoSimple(um, ch, idx) ? {eco:true, why:'simplu'} : no('nu e simplu');
   if(!um || um.img || um.gift || um.sticker || um.reply) return no('poză / cadou / citat');
@@ -5214,7 +5252,7 @@ async function reply(target, opts = {}){
     const sig = ctx.map(x => ({r:x.role, h:fnv(String(x.text || '')), i:!!(x.image || x.images), rt:/\(am reacționat/.test(String(x.text || ''))})), sigN = lastU ? ctx.lastIndexOf(lastU) : ctx.length;
     let meta = {}, full;
     // 9.49 (1): mesaj simplu → modelul mic; regenerarea (↻), mesajele ei din proprie inițiativă, apelurile și pozele rămân pe modelul principal
-    const mix = mixLvl() !== 'off' && S.aux !== 'off' && !auxBroken && !target && !opts.pro && !opts.sched && !opts.cont && !opts.fix && !opts.three && opts.tag !== 'apel' && !call && !opts.liveImg && !String(S.model || '').toLowerCase().includes('haiku') ? mixPick(um, ch, idx, c) : {eco:false, why:'regenerare / apel / mesaj trimis singur'};   // 9.60
+    const mix = mixLvl(c) !== 'off' && S.aux !== 'off' && !auxBroken && !target && !opts.pro && !opts.sched && !opts.cont && !opts.fix && !opts.three && opts.tag !== 'apel' && !call && !opts.liveImg && !String(S.model || '').toLowerCase().includes('haiku') ? mixPick(um, ch, idx, c) : {eco:false, why:'regenerare / apel / mesaj trimis singur'};   // 9.60
     const eco = mix.eco;
     const lastCall = ch._callAtS || ch._callAt || ([...ch.msgs.slice(0, idx)].reverse().find(x => x.role === 'ai' && !x.err && x.ts) || {}).ts || 0;   // 9.49: vârsta cache-ului modelului principal
     const cold = Date.now() - lastCall > 58 * 60e3;   // 8.19: cache-ul conversației a expirat: scriem ieftin (5 min), nu la 2×
@@ -5751,6 +5789,13 @@ function duoCardsWire(c){
   const del = body.querySelector('[data-dcdel]');
   if(del) del.onclick = () => confirmSheet('Scoți poza lui ' + c.duo.b.name + '?', 'Scoate', async () => { const old = c.duo.b.photo; delete c.duo.b.photo; await saveChars(); if(old) await delImg(old).catch(() => {}); charProfile(c.id, false); renderHome(); });
 }
+// 9.66: câte din ultimele ei răspunsuri au mers pe Haiku
+function pfMixStat(chats){
+  const ai = chats.flatMap(ch => ch.msgs.filter(m => m.role === 'ai' && !m.err && m.text)).sort((a, b) => (a.ts || 0) - (b.ts || 0)).slice(-50);
+  if(!ai.length) return 'Încă nu a răspuns nimic.';
+  const n = ai.filter(m => m.eco).length;
+  return `Din ultimele ${ai.length} răspunsuri ale ei: ${n} pe Haiku (${Math.round(n / ai.length * 100)}%).`;
+}
 async function charProfile(id, push = true){
   const c = charById(id); if(!c) return;
   profId = id;
@@ -5803,6 +5848,10 @@ async function charProfile(id, push = true){
     <div class="pfSec"><h3><span>📷 Poze de la ${esc(c.name)}</span></h3><div id="pfPics"></div></div>
     <div class="pfSec"><h3><span>🖼️ Avatar viu</span></h3><div id="pfAv"></div></div>
     <div class="pfSec"><h3><span>😺 Stickere</span></h3><div id="pfStk"></div></div>
+    <div class="pfSec" id="pfMixSec"><h3><span>⚡ Amestec Sonnet / Haiku</span></h3>
+      <div class="seg pfmix" id="pfMix">${[['', 'Ca în Setări (' + MIX_NAMES[mixGlobal()] + ')'], ['off', 'Doar principal'], ['putin', 'Puțin'], ['echilibrat', 'Echilibrat'], ['mult', 'Mult']].map(([v, l]) => `<button type="button" data-mx="${v}" class="${(c.mix || '') === v ? 'on' : ''}">${esc(l)}</button>`).join('')}</div>
+      <p class="hint" id="pfMixStat">${esc(pfMixStat(chats))}</p>
+      <p class="hint">Pentru conversațiile unde contează fiecare scenă: „Doar principal” sau „Echilibrat”. Pentru discuții ușoare, de zi cu zi: „Mult”. Emoția, sfaturile și cererile importante rămân pe modelul principal la orice nivel.</p></div>
     <div class="pfSec"><h3>🎙️ Vocea</h3><div class="pfVoice"><span id="pfVName">${esc(voiceLabel(c))}</span><button class="btn sm" id="pfVPlay">▶ Ascultă</button><button class="btn sm" id="pfVPick">Schimbă</button></div></div>
     <div class="pfSec"><h3><span>📔 Jurnal</span></h3><div id="pfJrn"></div>
       <div class="btns jbtn"><button class="btn sm" id="pfJrnToday">✍️ Scrie despre azi</button>${(c.journal || []).length > 3 ? '<button class="btn sm" id="pfJrnAll">Vezi tot</button>' : ''}</div></div>
@@ -5813,6 +5862,9 @@ async function charProfile(id, push = true){
     <div class="pfFoot">Creat pe ${new Date(c.created || first).toLocaleDateString('ro-RO', {day:'numeric', month:'long', year:'numeric'})} · cost estimat ${usd(spent)}</div>`;
   const body = $('#pfBody');
   if(duoOn(c)) duoCardsWire(c);   // 9.64
+  $('#pfMix').onclick = async e => { const b = e.target.closest('[data-mx]'); if(!b) return; const v = b.dataset.mx;   // 9.66
+    if(v) c.mix = v; else delete c.mix; await saveChars(); $$('#pfMix button').forEach(x => x.classList.toggle('on', x === b));
+    toast('⚡ ' + c.name + ': ' + (v ? MIX_NAMES[v] : 'ca în Setări (' + MIX_NAMES[mixGlobal()] + ')')); };
   hydrate(body);
   // 9.15: grila de poze se încarcă după ce s-a așezat profilul (nu în timpul glisării), din miniaturi
   afterShow(() => { body.querySelectorAll('img[data-lk]').forEach(i => { i.dataset.k = i.dataset.lk; i.removeAttribute('data-lk'); }); hydrate(body); });
