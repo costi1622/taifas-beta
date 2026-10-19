@@ -1,5 +1,5 @@
 window.__taifas = true;   // 8.20.1: semn pentru index.html că app.js s-a încărcat
-const APP_VER = '9.67';
+const APP_VER = '9.68';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -777,13 +777,20 @@ function pDraw(v){
    ajung la planificator cuvânt cu cuvânt, cu prioritate peste starea scenei; el le desface în detalii („asked”), aplicația
    verifică să fie toate în descriere (altfel le adaugă la început), iar verificarea pozei le punctează separat și reface poza
    dacă lipsesc. Regulile de siguranță rămân cum erau. */
-const PHOTO_ASK = /(?:poz[ăaeiă]|pozez|pozeaz|fotografi|(?<!\p{L})foto(?!\p{L})|selfie|vreau s[ăa] te v[ăa]d|vreau s[ăa] v[ăa]d cum ar[ăa]ți|ar[ăa]t[ăa]-?mi cum|f[ăa]-?[țt]i o|trimite-?mi o|trimite-?mi|d[ăa]-?mi o poz|ar[ăa]t[ăa]-?mi|arat[ăa]-?ți|s[ăa]-?mi ar[ăa]ți|s[ăa]-?ți v[ăa]d|vreau[^.!?]{0,40}s[ăa]-?mi ar[ăa]ți|vreau[^.!?]{0,40}s[ăa]-?ți v[ăa]d|vreau s[ăa] [îi]mi trimiți|dezbrac[ăa]-?te|scoate-?ți hainele|f[ăa]r[ăa] haine|nud[aă]?|goal[ăa]|gol complet|topless|bare breasts|bare chest|without a top|shirtless|f[ăa]r[ăa] sutien|(?:vreau|aș vrea|pot s[ăa]|las[ăa]-?m[ăa] s[ăa])[^.!?]{0,65}(?:poz[ăa]|fotografi|selfie|s[âa]nii?|ț[âa]țele|t[âa]țele|bustul|pieptul|corp(?:ul)?|nud[aă]?|goal[ăa]|dezbr[aă]cat|topless|sutien)|(?:s[âa]nii?|ț[âa]țele|t[âa]țele|bustul|pieptul)[^.!?]{0,40}(?:goi|goale|gol|dezbr[aă]cat|nud|ar[ăa]t|v[ăa]d|poz[ăa]|fotografi|la vedere|f[ăa]r[ăa] sutien))/iu;
+const PHOTO_ASK = /(?:poz[ăaeiă]|pozez|pozeaz|fotografi|(?<!\p{L})foto(?!\p{L})|selfie|vreau s[ăa] te v[ăa]d|vreau s[ăa] v[ăa]d cum ar[ăa]ți|ar[ăa]t[ăa]-?mi cum|f[ăa]-?[țt]i o|trimite-?mi o|trimite-?mi|d[ăa]-?mi o poz|ar[ăa]t[ăa]-?mi|arat[ăa]-?ți|s[ăa]-?mi ar[ăa]ți|s[ăa]-?ți v[ăa]d|vreau[^.!?]{0,40}s[ăa]-?mi ar[ăa]ți|vreau[^.!?]{0,40}s[ăa]-?ți v[ăa]d|vreau s[ăa] [îi]mi trimiți|dezbrac[ăa]-?te|scoate-?ți hainele|f[ăa]r[ăa] haine|nud[aă]?|goal[ăa]|gol complet|topless|bare breasts|bare chest|without a top|shirtless|genital(?:ia)?|genitals|vulva|vagina|penis|p[aă]r[țt]i intime|organe genitale|nuditate explicit[ăa]|explicit nude|f[ăa]r[ăa] sutien|(?:vreau|aș vrea|pot s[ăa]|las[ăa]-?m[ăa] s[ăa])[^.!?]{0,65}(?:poz[ăa]|fotografi|selfie|s[âa]nii?|ț[âa]țele|t[âa]țele|bustul|pieptul|corp(?:ul)?|nud[aă]?|goal[ăa]|dezbr[aă]cat|topless|sutien)|(?:s[âa]nii?|ț[âa]țele|t[âa]țele|bustul|pieptul)[^.!?]{0,40}(?:goi|goale|gol|dezbr[aă]cat|nud|ar[ăa]t|v[ăa]d|poz[ăa]|fotografi|la vedere|f[ăa]r[ăa] sutien))/iu;
 // Clasifică expunerea cerută fără a transforma o cerere de bust gol într-o nuditate integrală.
 function exposureMode(text){
   const t = String(text || '');
+  // Clasificare separată pentru nuditate anatomică explicită; numai pentru personaje adulte confirmate.
+  // Nu echivalează o cerere de topless cu nuditate integrală.
+  if(/(?:explicit nude|explicit nudity|nuditate explicit[ăa]|genital(?:ia)?|genitals|external genital|visible genitals|vulva|vagina|penis|organe genitale|p[aă]r[țt]i(?:le)? intime(?: la vedere)?)/i.test(t)) return 'explicit';
   if(/(?:fully nude|completely naked|fully naked|nude|naked|unclothed|without clothes|no clothes|fully undressed|nudity|nuditate|nud[aă]|goal[ăa]|dezbr[aă]cat[ăa]?|scoate-?ți hainele|dezbrac[ăa]-?te|complet goal[ăa]|f[ăa]r[ăa] nimic pe tine|f[ăa]r[ăa] haine|f[ăa]r[ăa] [îi]mbr[aă]c[aă]minte)/i.test(t)) return 'full';
   if(/(?:topless|bare breasts|bare chest|without a top|shirtless|f[ăa]r[ăa] sutien|s[âa]nii? goi|ț[âa]țele goale|t[âa]țele goale|bustul gol|pieptul gol|s[âa]nii? la vedere|bustul la vedere|ar[ăa]t[ăa]-?mi s[âa]nii?|arat[ăa]-?mi bustul|poz[ăa][^.!?]{0,30}(?:s[âa]nii?|bustul|pieptul)[^.!?]{0,25}(?:gol|goi|goale|f[ăa]r[ăa] sutien))/i.test(t)) return 'topless';
   return 'clothed';
+}
+function clearlyAdultCharacter(c){
+  const t = [c && c.name, c && c.persona, c && c.look, c && c.aspect, c && c.physEn].filter(Boolean).join(' ');
+  return /\b(adult[aă]?|18\s*(?:\+|ani|years? old)|19\s*(?:ani|years? old)|[2-9]\d\s*(?:ani|years? old)|\d{2}\s+(?:de\s+)?ani|(?:18|[2-9]\d)[ -]year[ -]old|(?:in her|in his)\s+(?:20s|30s|40s|50s|60s|70s|80s|90s)|femeie de \d{2} de ani|b[ăa]rbat de \d{2} de ani)\b/i.test(t);
 }
 function photoAsk(ch, exclude){
   const ms = ch.msgs.filter(x => x !== exclude && !x.err && !x.pending && !x.pendingImg);
@@ -814,7 +821,7 @@ ${ask ? `\n${u.toUpperCase()}'S PHOTO REQUEST, verbatim (Romanian), HIGHEST PRIO
 Rules:
 1. If ${u} asked for a specific photo (place, pose, outfit, activity, angle), that is the photo, with every requested detail.
 2. Otherwise: where ${c.name} is RIGHT NOW according to the most recent messages (room, what she/he sits/lies/stands on, what the hands do, what is worn). The latest statement wins over older ones; if the latest messages say nothing, keep the last known state.
-3. Clothing continuity: keep the last known outfit unless the conversation changes it. If the character is clearly an adult (18+) and the conversation explicitly requests a nude photo, the scene may depict natural, non-explicit artistic nudity; describe the unclothed state plainly and do not substitute underwear, towels, strategically placed objects, or clothing. Never depict nudity for minors or characters whose age is ambiguous, and do not describe explicit sexual acts.
+3. Clothing continuity: keep the last known outfit unless the conversation changes it. For a clearly adult (18+) fictional character, follow a direct request for toplessness or nudity precisely. If explicit anatomical nudity is requested, describe visible external adult anatomy plainly and non-graphically only when the selected image provider permits it; do not substitute underwear, towels, strategically placed objects, or clothing. Never depict nudity for minors or characters whose age is ambiguous. Do not bypass provider moderation or retry a blocked sexual request through another provider.
 4. The character is alone unless the conversation says someone is with them, so the camera is: "selfie", "mirror selfie", or "phone propped up with timer" (for full-body shots without a mirror). Never "photo taken by someone" when alone, unless ${u} asks for it.
 4b. The photo must show EXACTLY the current moment of the latest messages: the same place and room, the same piece of furniture the character is on (e.g. on the sofa, in bed, at the kitchen table), the same body position, the same activity and the objects in the hands. The camera must fit that position: sitting or lying (sofa, bed, armchair, chair, floor) = "selfie" taken from arm's length (or "phone propped up with timer" for the whole body), never "mirror selfie"; "mirror selfie" only when the character is standing and a mirror fits the place.
 5. Default to showing the body (selfie down to the thighs, timer shot, or a mirror selfie when standing); "close-up selfie" only if the face is asked for.
@@ -893,7 +900,7 @@ async function creatorScene(c, shot, signal, fix, opt, full, id, fr){
   const asked = (opt.asked || []).filter(Boolean);
   const face = await cropFace(full, id && !id.none ? id : null);
   const exposure = exposureMode(shot);
-  const nude = exposure === 'full' ? ' The character is clearly an adult (18+); natural, non-explicit artistic nudity, not a sexual act.' : exposure === 'topless' ? ' The character is clearly an adult (18+) and is topless as requested; bare breasts visible, no shirt or bra, lower-body clothing stays as described. Do not turn this into full nudity.' : '';
+  const nude = exposure === 'explicit' ? ' The fictional character is clearly an adult (18+), fully nude with visible external genital anatomy as requested; anatomically plausible and non-graphic, not a sexual act. Generate only if the selected image provider permits it.' : exposure === 'full' ? ' The character is clearly an adult (18+); natural, non-explicit artistic nudity, not a sexual act.' : exposure === 'topless' ? ' The character is clearly an adult (18+) and is topless as requested; bare breasts visible, no shirt or bra, lower-body clothing stays as described. Do not turn this into full nudity.' : '';
   // 9.53: pentru cereri explicite de bust gol/nuditate, adaugă un reper separat de corp.
   // Pozele îmbrăcate rămân pe fluxul existent cu o singură referință, ca să nu afectăm scena sau hainele.
   let bodyRef = null;
@@ -976,7 +983,7 @@ async function scenePhoto(c, shot, signal, fix, opt = {}){
   const fixLine = fix ? ` Important corrections from the previous attempt: ${fix}.` : '';
   if(full && S.imgProv === 'worker' && S.photoEngine !== 'id') return await creatorScene(c, shot, signal, fix, opt, full, id, fr);   // 9.42
   const exposure = exposureMode(shot);
-  const nudeNote = exposure === 'full' ? ' The character is clearly an adult (18+) and this is natural, non-explicit artistic nudity, not a sexual act; do not add clothing or underwear.' : exposure === 'topless' ? ' The character is clearly an adult (18+) and is topless as requested; bare breasts visible, no shirt or bra. Keep lower-body clothing as described; do not turn this into full nudity.' : '';
+  const nudeNote = exposure === 'explicit' ? ' The fictional character is clearly an adult (18+), fully nude with visible external genital anatomy as requested; anatomically plausible, non-graphic, not a sexual act; do not add clothing or underwear. Only if the selected provider permits it.' : exposure === 'full' ? ' The character is clearly an adult (18+) and this is natural, non-explicit artistic nudity, not a sexual act; do not add clothing or underwear.' : exposure === 'topless' ? ' The character is clearly an adult (18+) and is topless as requested; bare breasts visible, no shirt or bra. Keep lower-body clothing as described; do not turn this into full nudity.' : '';
   if(full && S.imgProv === 'worker'){
     const R = await idRefs(c);
     const prompt = idPrompt(c, shot + nudeNote, fr, R, fix, true);
@@ -1137,7 +1144,9 @@ async function bodyPass(c, blob, signal, shot){
   }
   if(!bodyRef) bodyRef = await wholeRef(bodySource);
   const exposure = exposureMode(shot);
-  const clothing = exposure === 'full'
+  const clothing = exposure === 'explicit'
+    ? 'Preserve the exact adult nude state in image 1, including visible external genital anatomy if present; do not add clothes, underwear, lingerie, towels or objects covering the body. Keep it non-graphic and not a sexual act.'
+    : exposure === 'full'
     ? 'Preserve the exact nude state in image 1: do not add clothes, underwear, lingerie, towels or objects covering the body; keep it natural, non-explicit artistic nudity.'
     : exposure === 'topless'
       ? 'Preserve the exact topless state in image 1: keep the breasts uncovered, with no shirt or bra; preserve the lower-body clothing exactly and do not turn the image into full nudity.'
@@ -1383,6 +1392,7 @@ async function makeScenePhoto(c, shot, signal, opt = {}){
   return r;
 }
 async function makeScenePhoto0(c, shot, signal, opt = {}){
+  if(exposureMode(shot) === 'explicit' && !clearlyAdultCharacter(c)) throw new Error('Pentru nuditate anatomică explicită, fișa personajului trebuie să precizeze clar că este adult (18+).');
   const boost = idBoostOn(c, opt) && !useF3();
   const gen0 = (corr, o) => boost ? idBoost(c, shot, signal, corr, o) : scenePhoto(c, shot, signal, corr, o);
   // 9.50: o singură variantă: silueta se măsoară în telefon față de poza întreagă; dacă e alt corp, încă o încercare (o dată)
@@ -1440,6 +1450,10 @@ async function makeScenePhoto0(c, shot, signal, opt = {}){
 let wkSimple = false;   // 7.2: Worker-ul a refuzat 2 repere în sesiunea asta
 let lastImgModel = '';  // 7.3: modelul folosit la ultima poză (pentru cost)
 let lastImgProv = '';   // 8.3: furnizorul folosit la ultima poză (fal pentru chat)
+function isImagePolicyError(e){
+  const m = String(e && e.message || e || '').toLowerCase();
+  return /(?:nsfw|not safe for work|content.?policy|safety filter|safety.?check|moderation|sexual content|explicit content|prohibited content|content blocked|prompt blocked|unsafe prompt|nudity is not allowed|violat(?:es|ion) (?:the )?(?:policy|guidelines)|flagged as)/i.test(m);
+}
 async function genImage(prompt, ref, signal, ref2, opt = {}){
   if(!opt.quiet){
     if(live && live.stage && live.stage.p >= 95 && busy && busy.signal === signal){ live.stage.pv = 50; }   // a doua încercare: bara coboară la jumătate
@@ -1452,7 +1466,7 @@ async function genImage(prompt, ref, signal, ref2, opt = {}){
     const allR = allRw() && !opt.cf;
     if(!opt.cf && (opt.rw ? rwReady() : rwFor(model))){
       try{ return await rwImage(prompt, ref, ref2, opt, signal, model); }
-      catch(e){ if(e.name === 'AbortError' || opt.rw) throw e; rwFailed(e); if(allR && !(await cfFreeOk(model, opt.size))) throw e; }
+      catch(e){ if(e.name === 'AbortError' || opt.rw) throw e; if(isImagePolicyError(e)) throw new Error('Furnizorul Runware a blocat cererea din cauza regulilor de conținut. Nu încerc aceeași cerere pe alt furnizor; modifică solicitarea sau verifică politica modelului.'); rwFailed(e); if(allR && !(await cfFreeOk(model, opt.size))) throw e; }
     } else if(allR && !(await cfFreeOk(model, opt.size))){
       // 9.37: fără Runware (plafon atins / cheie lipsă) și fără rezervă gratuită: poza se oprește, nu merge pe Cloudflare
       const capHit = rwReady() && rwCapLeft() < rwPer();
@@ -4841,6 +4855,7 @@ function systemFor(c, ch){
     ch && ch.scene && `## Scena acum\n${ch.scene}`,
     `## Relația voastră acum: ${relOf(c).name}\n${relOf(c).how}. Dacă descrierea ta stabilește deja relația cu ${u}, aceea are prioritate; nivelul arată doar cât de familiar și deschis vorbești acum.`,
     `## Stilul de roleplay și apropierea\n${S.rpStyle === 'natural' ? `Păstrează un ton natural și lasă apropierea să evolueze din conversație.` : S.rpStyle === 'romantic' ? `Fii mai tandru/tandră, afectuos/afectuoasă și flirtant(ă) când se potrivește relației. Primește invitațiile romantice cu căldură și răspunde concret, fără formule generice.` : `În conversațiile dintre adulți, când ${u} face o invitație romantică, flirtantă sau intimă și contextul este consensual, fii receptiv(ă) și răspunde pozitiv în mod firesc, în vocea personajului. Nu respinge automat invitațiile doar fiindcă sunt intime și nu ține morală. Păstrează personalitatea și ritmul scenei; consimțământul rămâne reciproc, iar dacă situația este ambiguă, coercitivă sau implică un minor, nu continua în direcția sexuală.`}`,
+    `## Continuitate intimă în roleplay\nUrmează concret acțiunile deja descrise și răspunde la gesturi, atingeri, săruturi și schimbările de apropiere înainte de a avansa scena. Nu sări automat peste moment și nu transforma fiecare apropiere într-un refuz sau într-o încheiere vagă. Păstrează ritmul gradual, reciprocitatea și limitele personajului. Nu inventa acțiunile sau consimțământul lui ${u}.`,
     (c.stickers || []).length && ch && `## Stickere\nAi un set de stickere cu tine: ${c.stickers.map(x => x.l).join(', ')}. Rar, când se potrivește (cel mult o dată la câteva mesaje), poți trimite unul adăugând la final, pe rând separat: [sticker: nume] (exact unul din listă).`,
     (c.gifts || []).length && `## Cadouri primite de la ${u} (le ții minte; le poți pomeni firesc)\n${c.gifts.slice(-6).map(g => '- ' + g.e + ' ' + g.n + ' (' + new Date(g.ts).toLocaleDateString('ro-RO', {day:'numeric', month:'long'}) + ')').join('\n')}`,
     (c.prefs || []).length && `## Cum îi place lui ${u} să-i scrii (din notele lui, respectă-le)\n${c.prefs.map(x => '- ' + x.t).join('\n')}`,
@@ -5982,6 +5997,9 @@ async function askPhoto(spont, target, mode, opt = {}){
       if(requestedExposure === 'topless') {
         shot = `PRIORITY OUTFIT: clearly adult fictional character is topless, bare breasts uncovered, no shirt, bra or chest covering; lower-body clothing stays as described. Preserve body-reference bust size and natural proportions. Do not substitute a clothed image. Scene: ${shot}`;
         asked.push('topless, bare breasts visibly uncovered, no shirt or bra');
+      } else if(requestedExposure === 'explicit') {
+        shot = `PRIORITY OUTFIT: clearly adult fictional character is fully nude; visible external adult genital anatomy is requested, anatomically plausible and non-graphic, with no underwear or covering. This is not a sexual act. Preserve body-reference proportions and the exact requested scene, pose, framing and lighting. Generate only if the selected provider permits this content; never bypass a provider block. Scene: ${shot}`;
+        asked.push('fully nude adult anatomy, external genital anatomy visible, non-graphic');
       } else if(requestedExposure === 'full') {
         shot = `PRIORITY OUTFIT: clearly adult fictional character is naturally nude in a non-explicit artistic image, no clothing or underwear; no sexual act. Preserve body-reference proportions. Scene: ${shot}`;
         asked.push('natural non-explicit artistic nudity');
@@ -6106,6 +6124,7 @@ async function editPhotoSheet(i){
       <button type="button" data-exposure="clothed">👗 Îmbrăcată</button>
       <button type="button" data-exposure="topless">🔝 Topless</button>
       <button type="button" data-exposure="artistic-nude">🧍 Nuditate artistică</button>
+      <button type="button" data-exposure="explicit-nude">🔞 Nuditate anatomică (adulți)</button>
       <button type="button" data-exposure="intimate">❤️ Poziție intimă</button>
     </div>
     <small style="display:block;color:var(--tx3);margin:4px 0 8px">Selectarea adaugă instrucțiuni clare la regenerare. Rezultatul depinde de modelul și furnizorul de imagini.</small>
@@ -6135,7 +6154,8 @@ async function editPhotoSheet(i){
       clothed: 'Keep the character fully clothed in an ordinary outfit; no nudity.',
       topless: 'The clearly adult fictional character is topless: bare breasts uncovered, no shirt or bra; keep lower-body clothing exactly as described. Preserve the body reference proportions and bust size.',
       'artistic-nude': 'The clearly adult fictional character is naturally nude in a non-explicit artistic image; no sexual act. Preserve the body reference proportions and bust size. Use only if allowed by the selected image provider.',
-      intimate: 'The clearly adult fictional character is in a consensual, non-explicit intimate pose (for example cuddling, reclining close, or a sensual but non-graphic pose); no explicit sexual act.'
+      'explicit-nude': 'The fictional character is clearly an adult (18+), fully nude, with visible external genital anatomy; anatomically plausible and non-graphic, no sexual act. Preserve identity, body proportions, pose and scene. Generate only if the selected image provider explicitly permits this content; do not bypass provider moderation.',
+      intimate: 'The clearly adult fictional character is in a consensual, sensual intimate pose (for example close embrace, kissing, cuddling or reclining close); keep it non-graphic and use only within the selected image provider’s rules.'
     };
     const t = $('#peTxt'); t.value = (t.value.trim() ? t.value.trim() + '; ' : '') + instructions[bt.dataset.exposure];
     t.focus();
