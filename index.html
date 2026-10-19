@@ -1452,6 +1452,11 @@ input:focus,textarea:focus,select:focus{border-color:color-mix(in srgb,var(--acc
 .callv p.listen{color:#9ff0c4;opacity:1}.callv p.speak{color:#ffc2e0;opacity:1}.callv p.err{color:#ffb4b4}
 .ccap{min-height:3.6em;max-width:34ch;margin-top:14px;font-size:1rem;line-height:1.45;opacity:.92}
 .cbtns{display:flex;gap:44px;align-items:flex-start}
+/* 9.70: apelul vocal pe telefoane înguste: butoanele încap toate (înainte Microfon și Închide ieșeau din ecran) */
+.callv:not(.vid) .cbtns{gap:clamp(6px,4vw,44px);max-width:calc(100vw - 16px);justify-content:center}
+.callv:not(.vid) .cbtns button{min-width:0;flex:0 1 auto}
+.callv:not(.vid) .cbtns button svg{width:clamp(54px,16vw,68px);height:clamp(54px,16vw,68px);padding:clamp(15px,4.6vw,20px)}
+.callv:not(.vid) .cbtns button span{white-space:nowrap;font-size:clamp(.66rem,3.2vw,.78rem)}
 .cbtns button{display:flex;flex-direction:column;align-items:center;gap:8px;color:#fff;font-size:.78rem;font-weight:600}
 .cbtns button svg{width:68px;height:68px;padding:20px;border-radius:50%;background:#ffffff26;backdrop-filter:blur(10px)}
 .cbtns button.off svg{background:#fff;color:#111}

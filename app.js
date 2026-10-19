@@ -1,5 +1,5 @@
 window.__taifas = true;   // 8.20.1: semn pentru index.html că app.js s-a încărcat
-const APP_VER = '9.69';
+const APP_VER = '9.70';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -4642,6 +4642,16 @@ function ttsSplitLong(p, max = 170){
   if(s.trim()) out.push(s);
   return out;
 }
+// 9.70: înainte să vorbească: niciun microfon deschis, iar pe Android o pauză scurtă după ultimul (sunetul revine din „modul apel”)
+let ttsGateP = null, ttsGateAt = 0;
+function ttsGate(){
+  if(!IS_ANDROID || typeof REC === 'undefined') return Promise.resolve();
+  const now = performance.now(), need = REC.on ? now + 700 : Math.max(now, REC.endAt + 450);
+  if(need <= now + 5) return Promise.resolve();
+  if(ttsGateP && ttsGateAt >= need) return ttsGateP;
+  ttsGateAt = need;
+  return ttsGateP = new Promise(res => setTimeout(res, need - now));
+}
 voxLoad();   // 9.69: lista de voci se încarcă de la pornire (pe Android vine abia după câteva sute de ms)
 // înregistrarea păstrată (din versiunile cu voce umană), dacă există
 const audioFor = m => DB.get(ttsKey(m)).catch(() => null);
@@ -4691,12 +4701,23 @@ function pickVoice(c, done){
   const row = (v, i) => `<div class="vrow${cur0 && cur0.name === v.name ? ' on' : ''}"><button type="button" class="opt" data-vn="${i}"><i>${v.localService === false ? '🌐' : '📱'}</i>${esc(v.name)}${gIco(v)}${cur0 && cur0.name === v.name ? ' ✓' : ''}</button><button type="button" class="btn" data-vt="${i}" aria-label="Ascultă">▶</button></div>`;
   openSheet(`<h4>🎙️ Vocea lui ${esc(c.name)}</h4><div class="pad">
     ${vs.length ? vs.slice(0, 12).map(row).join('') + '<p class="hint">🌐 = voce de rețea (de obicei cea mai naturală, are nevoie de internet) · 📱 = voce din telefon. Alte voci românești: Setări Android → Ieșire text în vorbire.</p>' : '<p class="hint">Telefonul nu are încă o voce pentru limba asta. O poți instala din Setări Android → Ieșire text în vorbire.</p>'}
+    <button type="button" class="opt" data-vdiag><i>🔧</i>Verifică vocea (ce răspunde telefonul)</button><p class="hint" id="vDiag" hidden></p>
     <button type="button" class="opt" data-vauto data-vc="${esc(String(c.id))}"><i>✨</i>Alege automat${auto ? ` <small>(${esc(auto.name)}${gIco(auto)})</small>` : ''}${c.vName ? '' : ' ✓'}</button>
     <p style="margin:12px 0 4px"><b>Tonul</b></p>
     <div class="seg" id="vPit"><button type="button" data-p=".85" class="${c.vPitch && c.vPitch < 1 ? 'on' : ''}">Mai gravă</button><button type="button" data-p="0" class="${!c.vPitch || c.vPitch === 1 ? 'on' : ''}">Normală</button><button type="button" data-p="1.18" class="${c.vPitch > 1 ? 'on' : ''}">Mai subțire</button></div>
     <div class="btns"><button class="btn pri" data-close>Gata</button></div></div>`);
   $$('.sheet [data-vt]').forEach(b => b.onclick = () => { const v = vs[+b.dataset.vt], keep = c.vName; c.vName = v.name; voiceSample(c); c.vName = keep; });
   $$('.sheet [data-vn]').forEach(b => b.onclick = async () => { c.vName = vs[+b.dataset.vn].name; await saveChars(); voiceSample(c); closeSheet(); done(); });
+  // 9.70: diagnostic: rostește o propoziție direct din atingere și arată ce face motorul de voce (pornit / terminat / eroare)
+  $('.sheet [data-vdiag]').onclick = () => {
+    const out = $('#vDiag'); out.hidden = false; const all = voxAll(), v = phoneVoice(langOf(c), c), t0 = performance.now(), log = [];
+    const show = () => out.innerHTML = [`Voci în telefon: ${all.length} · pentru ${esc(langOf(c))}: ${phoneVoices(langOf(c)).length}`, `Vocea folosită: ${v ? esc(v.name) + (v.localService === false ? ' 🌐' : ' 📱') : 'implicita telefonului'}`, ...log].join('<br>');
+    ttsCancel(); show();
+    const u = new SpeechSynthesisUtterance(`Bună, sunt ${c.name}. Mă auzi?`); u.lang = langOf(c); if(v) u.voice = v; u.pitch = voxBase(c, v);
+    u.onstart = () => { log.push(`✅ a pornit după ${Math.round(performance.now() - t0)} ms`); show(); };
+    u.onend = u.onerror = ev => { log.push(ev && ev.error ? `❌ eroare: ${esc(ev.error)}` : u._st ? `✅ s-a terminat (${Math.round(performance.now() - t0)} ms). Dacă n-ai auzit nimic, volumul media e jos sau sunetul merge în căștile Bluetooth.` : '⚠️ s-a terminat fără să pornească'); show(); };
+    ttsPlay(u);
+  };
   $('.sheet [data-vauto]').onclick = async () => { delete c.vName; await saveChars(); closeSheet(); done(); };
   $('#vPit').onclick = async e => { const b = e.target.closest('[data-p]'); if(!b) return; c.vPitch = +b.dataset.p; $$('#vPit button').forEach(x => x.classList.toggle('on', x === b)); await saveChars(); voiceSample(c); };
   $('.sheet [data-close]').addEventListener('click', () => done());
@@ -5816,7 +5837,12 @@ async function shareImage(k){
 }
 
 /* dictare vocală (recunoașterea vorbirii din browser, română) */
-const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition || null;
+const SpeechRec0 = window.SpeechRecognition || window.webkitSpeechRecognition || null;
+// 9.70: fiecare recunoaștere ține minte când a pornit / s-a oprit; pe Android vocea nu pornește cât microfonul e încă deschis
+const REC = {on:0, endAt:0};
+const SpeechRec = SpeechRec0 && class extends SpeechRec0 {
+  start(){ super.start(); this._on = true; REC.on++; const fin = () => { if(this._on){ this._on = false; REC.on = Math.max(0, REC.on - 1); REC.endAt = performance.now(); } }; if(typeof this.addEventListener === 'function'){ this.addEventListener('end', fin); this.addEventListener('error', fin); } else setTimeout(fin, 15000); }
+};
 const MIC_SVG = '<svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>';
 let rec = null;
 function toggleMic(){
@@ -6866,7 +6892,7 @@ function startCall(opts = {}){
   const vb = $('#clVid'); if(vb) vb.onclick = () => { if(call === c) setVideo(!c.video); };
   $('#clFlip').onclick = () => { c.facing = c.facing === 'user' ? 'environment' : 'user'; camOn(); };
   $('#clSee').onclick = () => { c.see = !c.see; S.callSee = c.see ? 'on' : 'off'; saveSettings(); $('#clSee').classList.toggle('off', c.see); toast(c.see ? `👁️ ${c.c.name} te vede` : `🙈 ${c.c.name} nu te mai vede (doar te aude)`); };
-  $('#clBarge').onclick = () => { c.barge = !c.barge; S.callBarge = c.barge ? 'on' : 'off'; saveSettings(); $('#clBarge').classList.toggle('off', c.barge); toast(c.barge ? '✋ O poți întrerupe vorbind peste ea' : 'Întreruperile vocale sunt oprite (atingerea subtitrării încă merge)', 3000); if(!c.barge && c.bargeRec){ try{ c.bargeRec.abort(); }catch(e){} } };
+  $('#clBarge').onclick = () => { c.barge = !c.barge; S.callBarge = c.barge ? 'on' : 'off'; saveSettings(); $('#clBarge').classList.toggle('off', c.barge); toast(c.barge ? (IS_ANDROID ? '✋ O poți întrerupe vorbind peste ea. Dacă vocea ei nu se mai aude (mai ales cu căști Bluetooth), oprește-l la loc.' : '✋ O poți întrerupe vorbind peste ea') : 'Întreruperile vocale sunt oprite (atingerea subtitrării încă merge)', 3000); if(!c.barge && c.bargeRec){ try{ c.bargeRec.abort(); }catch(e){} } };
   // atingi subtitrarea (sau imaginea) cât vorbește: se oprește și te ascultă
   v.addEventListener('click', e => { if(c.wasCalm){ c.wasCalm = false; return; } if(c.state === 'speak' && !e.target.closest('.cbtns,.vreact,.cself,.vtop')) callInterrupt(c, ''); });
   $('#clMute').onclick = () => { if(call !== c) return; c.muted = !c.muted; $('#clMute').classList.toggle('off', c.muted); if(c.muted){ try{ c.rec && c.rec.abort(); }catch(e){} callState('microfon oprit'); } else if(c.state === 'idle') callListen(); };
@@ -6953,7 +6979,7 @@ function callClean(t){
 function callSay(c, text, capOff){
   // 9.69: bucăți de cel mult ~170 de caractere, vocea după genul ei, redare prin `ttsPlay` (fără blocaje pe „vorbește”)
   const parts = callChunks(text).flatMap(([s, at]) => { let o = 0; return ttsSplitLong(s).map(x => { const r = [x.trim(), at + o]; o += x.length; return r; }); }).filter(([s]) => s);
-  const v = phoneVoice(langOf(c.c), c.c);
+  const v = phoneVoice(langOf(c.c), c.c), rid = c._rid;
   return Promise.all(parts.map(([s, at], k) => new Promise(res => {
     const u = new SpeechSynthesisUtterance(s); u.lang = langOf(c.c); if(v) u.voice = v;
     const P = callProso(c, s, text, v); u.pitch = P.pitch; u.rate = P.rate; u.volume = P.vol;
@@ -6961,12 +6987,22 @@ function callSay(c, text, capOff){
     u.onboundary = e => { if(window.__talk) window.__talk(e, capOff + at); };
     u.onend = u.onerror = ev => {
       if(ev && ev.type === 'end' && u._t0) vfCalib(u, performance.now() - u._t0);   // 9.62
+      if(ev && !u._t0 && ev.error && !/interrupted|canceled/.test(ev.error)) callVoiceFail(c, ev.error);   // 9.70: n-a pornit deloc: spunem de ce
       if(call === c && c.holdNext && c.state === 'speak' && !c.interrupted){ c.holdNext = false; callInterrupt(c, ''); }   // 9.23: ai ieșit din cadru: se oprește la capăt de propoziție
       else if(call === c && k < parts.length - 1 && /(…|\.\.\.)\s*$/.test(s)) callBreath(c, .6);
       res();
     };
-    ttsPlay(u);
+    ttsGate().then(() => { if(c.alive !== false && !(call && call !== c) && !c.interrupted && c._rid === rid) ttsPlay(u); else res(); });   // 9.70
   })));
+}
+// 9.70: vocea n-a pornit: o singură explicație pe apel, cu eroarea motorului și ce poți încerca
+function callVoiceFail(c, err){
+  VOX.err = {e:err, t:Date.now()};
+  if(call !== c || c.vWarned) return; c.vWarned = true;
+  const hint = /language|voice/.test(err) ? 'telefonul n-are vocea română instalată: Setări Android → Ieșire text în vorbire → Motor Google → Instalează date vocale → Română'
+    : /not-allowed/.test(err) ? 'browserul n-a permis vocea: atinge o dată ecranul apelului'
+    : 'încearcă fără căști Bluetooth sau cu „Întrerup” oprit; din profil → 🎙️ Vocea → „🔧 Verifică vocea” vezi ce răspunde telefonul';
+  toast(`🔇 Vocea nu pornește (${err}). ${hint[0].toUpperCase() + hint.slice(1)}.`, 9000);
 }
 function capAppend(c, text){
   const cap = $('#clCap'); if(!cap) return 0;
@@ -6979,6 +7015,7 @@ function capAppend(c, text){
 async function callReply(opts){
   const c = call; if(!c) return;
   { const r0 = c.rec; c.rec = null; try{ r0 && r0.abort(); }catch(e){} }   // nicio ascultare veche nu mai rămâne pornită peste răspuns
+  c._rid = (c._rid || 0) + 1;   // 9.70: replicile rămase din răspunsul vechi (încă la poartă) nu mai pornesc
   c.state = 'think'; c.capOn = false; c.interrupted = false; callState('se gândește…', 'think'); $('#clCap').innerHTML = '<span class="cdots"><i></i><i></i><i></i></span>';
   while(busy && call === c) await sleep(300);
   if(call !== c) return;
@@ -7057,7 +7094,7 @@ function callBarge(c){
   r.onend = async () => {
     if(c.bargeRec === r) c.bargeRec = null;
     if(call !== c) return;
-    if(c.state === 'speak'){ setTimeout(() => callBarge(c), 250); return; }        // a tăcut fără să te audă: ascultăm mai departe
+    if(c.state === 'speak'){ setTimeout(() => callBarge(c), IS_ANDROID ? 1500 : 250); return; }        // a tăcut fără să te audă: ascultăm mai departe (9.70: pe Android rar, fiecare pornire ia sunetul)
     if(c.state === 'listen' && c.interrupted){
       const t = (final || heard).trim();
       if(!t){ c.state = 'idle'; callListen(); return; }
@@ -7649,6 +7686,7 @@ function callChunks(text){
 const BC_WORDS = {ro:[['îhî', 'da', 'aha', 'da, da', 'îhî', 'așa'], ['îhî', 'înțeleg', 'vai']], en:[['uh-huh', 'yeah', 'right', 'mm-hm'], ['I see', 'oh no']], es:[['ajá', 'sí', 'claro'], ['vaya', 'entiendo']], fr:[['oui', 'ah oui', "d'accord"], ['oh', 'je vois']], it:[['sì', 'certo', 'ah'], ['capisco', 'oh no']], de:[['ja', 'genau', 'aha'], ['oh nein', 'verstehe']]};
 function bcMaybe(c, txt, lastT){
   if(S.callBack === 'off' || !txt || call !== c || c.state !== 'listen' || c.muted || !lastT) return;
+  if(IS_ANDROID && S.callBack !== 'force') return;   // 9.70: pe Android vocea peste microfonul deschis nu se aude și poate opri ascultarea
   const now = Date.now(), gap = now - lastT;
   if(gap < 330){ c.bcPause = false; return; }
   if(gap > 650 || c.bcPause) return;
@@ -9866,7 +9904,9 @@ async function init(){
   if((S.sv || 0) < 42){ S.bodyFix = 'on'; S.sv = 42; saveSettings(); }
   // 9.42: pozele din chat trec pe motorul „ca în creator” (o dată; motorul vechi se poate alege din Setări → Poze)
   if((S.sv || 0) < 43){ S.photoEngine = 'creator'; S.sv = 43; saveSettings(); }
-  if((S.sv || 0) < 44){ if(S.cacheTtl === 'auto') S.cacheTtl = '1h'; S.sv = 44; saveSettings(); }   // 9.51: cache-ul de 5 min a dus la rescrieri complete după pauze de 5-60 min (mai scump decât economia)
+  if((S.sv || 0) < 44){ if(S.cacheTtl === 'auto') S.cacheTtl = '1h'; S.sv = 44; saveSettings(); }
+  // 9.70: pe Android, ascultarea pornită cât vorbește ea (întreruperi vocale, „îhî”) îi tăia vocea (focus audio / căști Bluetooth în mod apel); o dată, le oprim
+  if((S.sv || 0) < 45){ if(IS_ANDROID){ S.callBarge = 'off'; S.callBack = 'off'; } S.sv = 45; saveSettings(); }   // 9.51: cache-ul de 5 min a dus la rescrieri complete după pauze de 5-60 min (mai scump decât economia)
   onlyOurProviders();   // 9.19: la fiecare pornire (și după o restaurare dintr-un backup vechi)
   if(cspSync(true)) return;   // 8.20: adresă nouă → repornim o dată, ca politica de securitate să o permită
   chars = (await DB.get('chars') || []).filter(c => c && c.id && c.name);
