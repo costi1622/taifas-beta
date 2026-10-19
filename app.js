@@ -1,5 +1,5 @@
 window.__taifas = true;   // 8.20.1: semn pentru index.html că app.js s-a încărcat
-const APP_VER = '9.68';
+const APP_VER = '9.69';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -4448,15 +4448,15 @@ const VTAGS = {'râde':'laughs', 'rade':'laughs', 'chicotește':'giggles', 'chic
 const VTAG_RE = /\[([^\]\n]{2,24})\]/g;
 function ttsText(t, neural){
   return String(t || '').replace(/\*[^*]*\*/g, ' ').replace(VTAG_RE, (all, w) => { const k = VTAGS[w.trim().toLowerCase()]; return neural && k ? ' [' + k + '] ' : ' '; })
-    .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, '').replace(/\s{2,}/g, ' ').trim();
+    // 9.69: tot ce nu se rostește: emoji (și selectorii de variantă, ZWJ, steaguri, săgeți), adrese, markdown
+    .replace(/https?:\/\/\S+|www\.\S+/gi, ' ')
+    .replace(/[\u{1F000}-\u{1FAFF}\u{2190}-\u{21FF}\u{2300}-\u{23FF}\u{2460}-\u{24FF}\u{25A0}-\u{27BF}\u{2900}-\u{297F}\u{2B00}-\u{2BFF}\u{3030}\u{303D}\u{3297}\u{3299}\u{FE00}-\u{FE0F}\u{200D}\u{20E3}\u{E0020}-\u{E007F}]/gu, '')
+    .replace(/[#_~`|<>^]+/g, ' ')
+    // 9.69: „Daaaa”, „Nuuu”, „hmmm” nu mai sunt silabisite; „!!!” → „!”
+    .replace(/(\p{L})\1{2,}/gu, '$1$1').replace(/([!?])[!?]*(?:[!?])/g, (m) => m.includes('?') && m.includes('!') ? '?!' : m[0])
+    .replace(/\s+([,.!?…])/g, '$1').replace(/\s{2,}/g, ' ').trim();
 }
 const vtagHTML = t => esc(t).replace(VTAG_RE, (all, w) => VTAGS[w.trim().toLowerCase()] ? `<span class="vtag">(${esc(w.trim())})</span>` : all);
-function genderOf(c){
-  const t = ((c.look || '') + ' ' + (c.aspect || '')).toLowerCase();
-  if(/\b(woman|girl|female|lady)\b|femeie|fată|tânără|doamnă/.test(t)) return 'f';
-  if(/\b(man|boy|male|guy)\b|bărbat|barbat|băiat|baiat|domn/.test(t)) return 'm';
-  return '';
-}
 function voiceLabel(c){ return (c.vName ? '🗣️ ' + c.vName : 'Vocea telefonului') + (c.vPitch && c.vPitch !== 1 ? (c.vPitch < 1 ? ' · mai gravă' : ' · mai subțire') : ''); }
 const ttsKey = m => 'aud:' + m.id + ':' + (m.alt || 0);
 
@@ -4474,33 +4474,175 @@ function voiceHTML(m){
     <button class="vtr" data-vtr>Transcriere</button><div class="vtxt" hidden>${vtagHTML(m.text)}</div>`;
 }
 let vPlaying = null, vAudio = null;
-function stopAllVoice(){ try{ speechSynthesis.cancel(); }catch(e){} if(vAudio){ vAudio.pause(); vAudio = null; } if(vPlaying && vPlaying._stop) vPlaying._stop(); vPlaying = null; }
-// 9.62: vocea aleasă pe personaj (`c.vName`); automat: întâi vocile de rețea / naturale (sună mult mai puțin a robot), apoi Google, apoi oricare
-const phoneVoices = lang => (window.speechSynthesis ? speechSynthesis.getVoices() : []).filter(x => x.lang && x.lang.slice(0, 2).toLowerCase() === String(lang || 'ro-RO').slice(0, 2).toLowerCase());
-function phoneVoice(lang = 'ro-RO', c){
-  const vs = phoneVoices(lang);
-  if(c && c.vName){ const v = vs.find(x => x.name === c.vName); if(v) return v; }
-  return vs.find(x => /natural|neural|online|enhanced|premium|wavenet/i.test(x.name)) || vs.find(x => x.localService === false) || vs.find(x => /google/i.test(x.name)) || vs[0] || null;
+function stopAllVoice(){ try{ ttsCancel(); }catch(e){} if(vAudio){ vAudio.pause(); vAudio = null; } if(vPlaying && vPlaying._stop) vPlaying._stop(); vPlaying = null; }
+/* ───────── 9.69: vocile, reparate ─────────
+   (1) Lista de voci: pe Android / Chrome `getVoices()` e goală la pornire și se umple abia după `voiceschanged`; până acum, primul apel
+       după pornire ignora vocea aleasă pe personaj (`c.vName`) și foaia 🎙️ spunea că „telefonul nu are voce”. Acum lista se ține minte
+       (`VOX.list`), se reîncarcă la `voiceschanged` și se cere de câteva ori la pornire (`voxLoad`, `voxWait`).
+   (2) Vocea după gen (`voxGender`, `voxScore`): automat, un personaj masculin primește o voce de bărbat dacă telefonul are una (Emil, Andrei…),
+       iar unul feminin o voce de femeie; înainte, toți primeau prima voce „naturală” din listă (de obicei de femeie) și doar tonul se schimba.
+       Tonul de bază (`voxBase`) ține cont de vocea primită: voce potrivită = ton natural; voce de alt gen = ton mutat mai mult.
+   (3) Redare sigură (`ttsPlay`): replicile rămân ținute în memorie (Chrome putea șterge replica înainte de `onend`, iar apelul rămânea
+       blocat pe „vorbește”); o replică ce nu pornește sau nu se termină e încheiată de un ceas de siguranță; dacă vocea aleasă dă eroare,
+       replica se reia o dată cu vocea implicită a limbii; pe calculator, vocile de rețea primesc pauză/reluare la 10 s (Chrome le tăia la ~15 s).
+   (4) Textul rostit (`ttsText`): fără emoji rămase (selectoare de variantă, ZWJ, steaguri), fără markdown și adrese; „Daaaa” / „hmmm”
+       nu mai sunt silabisite, „!!!” devine „!”. */
+const VOX = {list:[], t:0};
+function voxAll(){
+  let l = []; try{ l = window.speechSynthesis ? speechSynthesis.getVoices() || [] : []; }catch(e){}
+  if(l.length) VOX.list = l;
+  return l.length ? l : VOX.list;
+}
+function voxLoad(){
+  if(!window.speechSynthesis) return;
+  try{ speechSynthesis.addEventListener ? speechSynthesis.addEventListener('voiceschanged', voxAll) : (speechSynthesis.onvoiceschanged = voxAll); }catch(e){}
+  let n = 0; const tick = () => { voxAll(); if(VOX.list.length || ++n > 20) return; VOX.t = setTimeout(tick, 250); }; tick();
+}
+const voxWait = (ms = 1500) => new Promise(res => { const t0 = Date.now(); const go = () => { if(voxAll().length || Date.now() - t0 > ms) return res(VOX.list); setTimeout(go, 120); }; go(); });
+const voxLang = v => String(v && v.lang || '').replace('_', '-').toLowerCase();
+const phoneVoices = lang => voxAll().filter(x => x && x.lang && voxLang(x).slice(0, 2) === String(lang || 'ro-RO').slice(0, 2).toLowerCase());
+// genul vocii, după nume (Microsoft, Apple, Google, Samsung); '' = nu știm
+const VOX_F = new Set('female femeie femeiesc feminin woman alina ioana carmen elena andreea laura sara sarah zira aria jenny michelle ana anna samantha karen moira tessa victoria susan hazel libby sonia emma ava allison serena kate fiona veena helena elvira dalia monica mónica paulina paloma lucia lucía marisol hortense julie denise amelie amélie audrey aurelie aurélie celine céline elsa isabella alice federica paola hedda katja petra anna marlene amala seraphina vicki joanna salli kimberly kendra ivy ruth sfg tpf tpc iob fis gba gbc gbg vfv'.split(' '));
+const VOX_M = new Set('male barbat bărbat masculin man emil andrei mihai ionut ion bogdan radu david mark guy ryan christopher eric daniel alex fred thomas aaron arthur oliver george james liam brian roger steffan tony davis jason pablo alvaro álvaro jorge diego raul raúl juan carlos enrique paul henri claude yannick antoine cosimo luca giuseppe benigno stefan conrad markus killian hans matthew joey justin kevin rjs gbd iol iom iog tpd'.split(' '));
+function voxGender(v){
+  const w = String(v && v.name || '').toLowerCase().split(/[^\p{L}]+/u).filter(Boolean);
+  if(w.some(x => VOX_F.has(x))) return 'f';
+  if(w.some(x => VOX_M.has(x))) return 'm';
+  return '';
+}
+function voxScore(v, g, lang, avoid){
+  let s = 0; const vg = voxGender(v), n = String(v.name || '');
+  if(g && vg === g) s += 40; else if(g && vg && vg !== g) s -= 30;
+  if(/natural|neural|enhanced|premium|wavenet|studio/i.test(n)) s += 20; else if(/online/i.test(n)) s += 12;
+  if(v.localService === false) s += 6;
+  if(/google/i.test(n)) s += 4;
+  if(voxLang(v) === String(lang || '').toLowerCase()) s += 3;
+  if(v.default) s += 1;
+  if(avoid && n === avoid) s -= 60;
+  return s;
+}
+// genul personajului: din „Cum arată” (engleză și română), apoi din descriere; numără indiciile (nu primul cuvânt găsit: „domnișoară” nu mai e „domn”)
+const G_F = /(?<!\p{L})(woman|women|girl|female|lady|she|her|femeie|fată|fata|tânără|tanara|doamnă|doamna|domnișoară|domnisoara|soție|sotie|iubită|iubita|studentă|studenta|blondă|bruneta|brunetă|roșcată|roscata|ea)(?!\p{L})/giu;
+const G_M = /(?<!\p{L})(man|men|boy|male|guy|he|his|him|bărbat|barbat|băiat|baiat|domn|tânăr|tanar|soț|sot|iubit|student|blond|brunet|roșcat|roscat|el)(?!\p{L})/giu;
+function genderOfText(t){
+  t = String(t || '').toLowerCase(); if(!t.trim()) return '';
+  const f = (t.match(G_F) || []).length, m = (t.match(G_M) || []).length;
+  return f > m ? 'f' : m > f ? 'm' : '';
+}
+function genderOf(c){
+  if(!c) return '';
+  if(c.gender === 'f' || c.gender === 'm') return c.gender;
+  return genderOfText((c.look || '') + ' ' + (c.aspect || '')) || genderOfText(String(c.persona || '').slice(0, 400)) || '';
+}
+function phoneVoice(lang = 'ro-RO', c, who){
+  const vs = phoneVoices(lang); if(!vs.length) return null;
+  if(c && !who && c.vName){ const v = vs.find(x => x.name === c.vName); if(v) return v; }
+  const g = c ? (who ? genderOfText((c.duo && c.duo.b && c.duo.b.aspect || '') + ' ' + (c.duo && c.duo.b && c.duo.b.persona || '')) || genderOf(c) : genderOf(c)) : '';
+  const avoid = who && c ? (phoneVoice(lang, c) || {}).name : '';
+  return [...vs].sort((a, b) => voxScore(b, g, lang, avoid) - voxScore(a, g, lang, avoid))[0] || null;
+}
+// tonul de bază: vocea potrivită genului = natural; vocea de alt gen (singura din telefon) = mutat mai mult; vocea necunoscută = ca înainte
+function voxBase(c, v, who){
+  if(c && c.vPitch && !who) return c.vPitch;
+  const g = c ? (who ? genderOfText((c.duo && c.duo.b && c.duo.b.aspect || '') + ' ' + (c.duo && c.duo.b && c.duo.b.persona || '')) || genderOf(c) : genderOf(c)) : '', vg = voxGender(v);
+  if(!g) return 1;
+  if(vg === g) return 1;
+  if(vg) return g === 'm' ? .8 : 1.2;
+  return g === 'm' ? .9 : 1.06;
+}
+// redare sigură: replicile rămân ținute, ceas de siguranță, reluare fără voce la eroare, pauză/reluare pentru vocile de rețea pe calculator
+const TTS_KEEP = new Set(); let ttsAct = 0, ttsDog = 0, ttsKA = 0;
+const IS_ANDROID = /android/i.test(navigator.userAgent || '');
+const ttsEst = u => Math.max(1500, String(u.text || '').length / (11 * (u.rate || 1)) * 1000);
+function ttsFinish(u, ev){
+  if(u._fin) return; u._fin = true; TTS_KEEP.delete(u); ttsAct = performance.now();
+  try{ u._end && u._end.call(u, ev || {type:'end', utterance:u}); }catch(e){ console.warn(e); }
+}
+function ttsWatch(){
+  if(ttsDog) return;
+  ttsDog = setInterval(() => {
+    if(!TTS_KEEP.size){ clearInterval(ttsDog); ttsDog = 0; clearInterval(ttsKA); ttsKA = 0; return; }
+    const now = performance.now(), head = [...TTS_KEEP][0];
+    if(head._st){
+      if(now - head._st > ttsEst(head) * 2.4 + 5000){ console.warn('tts: replica nu s-a terminat, o închid', head.text); ttsFinish(head, {type:'forced', utterance:head}); let sp = false; try{ sp = speechSynthesis.speaking; }catch(e){} if(sp) ttsCancel(); }   // motorul a rămas agățat: îl eliberăm (restul replicii se pierde, dar apelul merge mai departe)
+    } else if(now - Math.max(head._q || 0, ttsAct) > 7000){
+      let sp = false; try{ sp = speechSynthesis.speaking; }catch(e){}
+      if(sp && now - Math.max(head._q || 0, ttsAct) < 25000) return;          // altă voce încă vorbește; dacă motorul stă agățat peste 25 s, îl eliberăm
+      if(sp){ console.warn('tts: motorul de voce stă agățat, îl repornesc'); ttsCancel(); return; }
+      if(!head._retry && head.voice){ ttsRetry(head); return; }
+      console.warn('tts: replica n-a pornit, o închid', head.text); ttsFinish(head, {type:'error', error:'stalled', utterance:head});
+    }
+  }, 500);
+}
+function ttsRetry(u){
+  // aceeași replică, fără vocea aleasă: motorul alege vocea implicită a limbii
+  u._retry = true; TTS_KEEP.delete(u);
+  const u2 = new SpeechSynthesisUtterance(u.text); u2.lang = u.lang; u2.pitch = u.pitch; u2.rate = u.rate; u2.volume = u.volume;
+  u2.onboundary = u.onboundary; u2._st0 = u._st0; u2._end = (ev) => ttsFinish(u, ev); u2._retry = true;
+  u2._start = u._start; u2._fin = false; ttsWire(u2, u);
+  try{ speechSynthesis.speak(u2); }catch(e){ ttsFinish(u, {type:'error', error:'speak'}); }
+}
+function ttsWire(u, orig){
+  const o = orig || u; u._q = performance.now(); TTS_KEEP.add(u);
+  u.onstart = ev => { u._st = performance.now(); ttsAct = u._st; if(!o._started){ o._started = true; try{ o._start && o._start.call(o, ev); }catch(e){ console.warn(e); } } ttsKeepAlive(u); };
+  const ob = u.onboundary; if(ob && !ob._w){ const w = ev => { ttsAct = performance.now(); ob.call(u, ev); }; w._w = 1; u.onboundary = w; }
+  u.onend = ev => { if(u !== o){ TTS_KEEP.delete(u); } ttsFinish(o, ev || {type:'end', utterance:o}); };
+  u.onerror = ev => {
+    const er = ev && ev.error;
+    if(!u._retry && u.voice && /voice-unavailable|language-unavailable|synthesis-failed|synthesis-unavailable|audio-busy|audio-hardware/.test(er || '')){ ttsRetry(u); return; }
+    if(u !== o) TTS_KEEP.delete(u);
+    ttsFinish(o, {type:'error', error:er || 'error', utterance:o});
+  };
+}
+function ttsKeepAlive(u){
+  // Chrome pe calculator tăia vocile de rețea după ~15 s fără să anunțe sfârșitul; pe Android pause() ar opri tot, deci acolo nu
+  if(IS_ANDROID || ttsKA || !u.voice || u.voice.localService !== false) return;
+  ttsKA = setInterval(() => { try{ if(!speechSynthesis.speaking){ clearInterval(ttsKA); ttsKA = 0; return; } speechSynthesis.pause(); speechSynthesis.resume(); }catch(e){} }, 10000);
+}
+// oprește tot: replicile din coadă se încheie acum (ca în browser), apoi motorul de voce
+function ttsCancel(){
+  const all = [...TTS_KEEP]; TTS_KEEP.clear();
+  all.forEach(u => ttsFinish(u, {type:'error', error:'interrupted', utterance:u}));
+  try{ window.speechSynthesis && speechSynthesis.cancel(); }catch(e){}
+}
+function ttsPlay(u){
+  // păstrează handlerele puse de cel care cheamă, apoi le învelește
+  u._start = u.onstart; u._end = u.onend || u.onerror; ttsWire(u);
+  try{ if(speechSynthesis.paused) speechSynthesis.resume(); }catch(e){}
+  try{ speechSynthesis.speak(u); }catch(e){ ttsFinish(u, {type:'error', error:'speak'}); }
+  ttsWatch();
+  return u;
 }
 function speakPhone(c, text, onEnd){
   if(!('speechSynthesis' in window)){ toast('Telefonul nu are voce pentru citire.'); onEnd && onEnd(); return null; }
-  speechSynthesis.cancel();
+  ttsCancel();
   // propoziție cu propoziție: pauzele dintre ele sună mai omenește decât un singur bloc
   // 9.63: două personaje: fără „Nume:”, iar a doua vorbește cu alt ton și puțin altă viteză
+  // 9.69: a doua primește, dacă telefonul are, altă voce (după genul ei); fiecare cu tonul de bază potrivit vocii
   const segs = duoOn(c) ? duoSplit(c, text).map(x => ({k:x.k, t:ttsText(x.t, false)})) : [{k:0, t:ttsText(text, false)}];
-  const parts = segs.flatMap(sg => (sg.t.match(/[^.!?…]+[.!?…]*/g) || []).map(p => ({p, k:sg.k})));
-  const g = c ? genderOf(c) : '', base = c && c.vPitch ? c.vPitch : (g === 'm' ? .9 : g === 'f' ? 1.06 : 1), v = phoneVoice(langOf(c), c);
+  const parts = segs.flatMap(sg => (sg.t.match(/[^.!?…]+[.!?…]*/g) || []).filter(p => p.trim()).flatMap(p => ttsSplitLong(p).map(x => ({p:x, k:sg.k}))));
+  const lang = langOf(c), V = [phoneVoice(lang, c), duoOn(c) ? phoneVoice(lang, c, 1) : null];
+  const same2 = !V[1] || (V[0] && V[1].name === V[0].name), B = [voxBase(c, V[0]), duoOn(c) && !same2 ? voxBase(c, V[1], 1) : voxBase(c, V[0])];   // aceeași voce: același ton de bază, a doua mai jos (×0,84)
   let off = 0, full = segs.map(x => x.t).join(' ');
   parts.forEach(({p, k:who}, k) => {
-    const u = new SpeechSynthesisUtterance(p.trim()); u.lang = langOf(c); if(v) u.voice = v;
+    const v = V[who] || V[0], sameV = who && same2;
+    const u = new SpeechSynthesisUtterance(p.trim()); u.lang = lang; if(v) u.voice = v;
     const at = full.indexOf(p.trim(), off); const base0 = at >= 0 ? at : off; off = base0 + p.trim().length;
-    u.pitch = base * (who ? .84 : 1) * (1 + (k % 2 ? .02 : -.02)); u.rate = (/\?\s*$/.test(p) ? 1.02 : .97) * (who ? 1.06 : 1);
+    u.pitch = Math.min(2, Math.max(.1, B[who] * (sameV ? .84 : 1) * (1 + (k % 2 ? .02 : -.02)))); u.rate = (/\?\s*$/.test(p) ? 1.02 : .97) * (who ? 1.06 : 1);
     u.onboundary = e => { if(window.__talk) window.__talk(e, base0); };
     if(k === parts.length - 1){ u.onend = u.onerror = () => onEnd && onEnd(); }
-    speechSynthesis.speak(u);
+    ttsPlay(u);
   });
   if(!parts.length) onEnd && onEnd();
 }
+// o bucată prea lungă (fără virgulă) se taie la un spațiu, ca să nu treacă de ~15 s într-o singură replică
+function ttsSplitLong(p, max = 170){
+  const out = []; let s = String(p);
+  while(s.length > max){ let cut = s.lastIndexOf(', ', max); if(cut < max * .4) cut = s.lastIndexOf(' ', max); if(cut < max * .4) cut = max; out.push(s.slice(0, cut + 1)); s = s.slice(cut + 1); }
+  if(s.trim()) out.push(s);
+  return out;
+}
+voxLoad();   // 9.69: lista de voci se încarcă de la pornire (pe Android vine abia după câteva sute de ms)
 // înregistrarea păstrată (din versiunile cu voce umană), dacă există
 const audioFor = m => DB.get(ttsKey(m)).catch(() => null);
 async function playVoice(m, el){
@@ -4540,12 +4682,16 @@ async function say(t, m){
 const SAMPLE = c => `Bună! Sunt ${c.name}. [râde] Deci... așa sună vocea mea. Îți place?`;
 function voiceSample(c){ stopAllVoice(); speakPhone(c, SAMPLE(c)); }
 function pickVoice(c, done){
+  // 9.69: dacă lista de voci nu s-a încărcat încă (Android, imediat după pornire), o așteptăm puțin în loc să spunem că nu există
+  if(!phoneVoices(langOf(c)).length && !pickVoice._w){ pickVoice._w = 1; voxWait(2000).then(() => { pickVoice._w = 0; const open = $('.sheet [data-vauto]'); if(open && open.dataset.vc === String(c.id) && phoneVoices(langOf(c)).length){ closeSheet(); pickVoice(c, done); } }); }
   // 9.62: întâi ce voce (cele din telefon pentru limba ei, cu ▶ ascultare), apoi tonul
-  const vs = phoneVoices(langOf(c)), cur0 = phoneVoice(langOf(c), c);
-  const row = (v, i) => `<div class="vrow${cur0 && cur0.name === v.name ? ' on' : ''}"><button type="button" class="opt" data-vn="${i}"><i>${v.localService === false ? '🌐' : '📱'}</i>${esc(v.name)}${cur0 && cur0.name === v.name ? ' ✓' : ''}</button><button type="button" class="btn" data-vt="${i}" aria-label="Ascultă">▶</button></div>`;
+  // 9.69: vocile potrivite genului ei sus, cu ♀/♂ unde se știe; „Alege automat” spune ce voce ar lua
+  const g = genderOf(c), vs = [...phoneVoices(langOf(c))].sort((a, b) => voxScore(b, g, langOf(c)) - voxScore(a, g, langOf(c))), cur0 = phoneVoice(langOf(c), c), auto = (() => { const k = c.vName; delete c.vName; const v = phoneVoice(langOf(c), c); if(k) c.vName = k; return v; })();
+  const gIco = v => ({f:' ♀', m:' ♂'})[voxGender(v)] || '';
+  const row = (v, i) => `<div class="vrow${cur0 && cur0.name === v.name ? ' on' : ''}"><button type="button" class="opt" data-vn="${i}"><i>${v.localService === false ? '🌐' : '📱'}</i>${esc(v.name)}${gIco(v)}${cur0 && cur0.name === v.name ? ' ✓' : ''}</button><button type="button" class="btn" data-vt="${i}" aria-label="Ascultă">▶</button></div>`;
   openSheet(`<h4>🎙️ Vocea lui ${esc(c.name)}</h4><div class="pad">
     ${vs.length ? vs.slice(0, 12).map(row).join('') + '<p class="hint">🌐 = voce de rețea (de obicei cea mai naturală, are nevoie de internet) · 📱 = voce din telefon. Alte voci românești: Setări Android → Ieșire text în vorbire.</p>' : '<p class="hint">Telefonul nu are încă o voce pentru limba asta. O poți instala din Setări Android → Ieșire text în vorbire.</p>'}
-    <button type="button" class="opt" data-vauto><i>✨</i>Alege automat${c.vName ? '' : ' ✓'}</button>
+    <button type="button" class="opt" data-vauto data-vc="${esc(String(c.id))}"><i>✨</i>Alege automat${auto ? ` <small>(${esc(auto.name)}${gIco(auto)})</small>` : ''}${c.vName ? '' : ' ✓'}</button>
     <p style="margin:12px 0 4px"><b>Tonul</b></p>
     <div class="seg" id="vPit"><button type="button" data-p=".85" class="${c.vPitch && c.vPitch < 1 ? 'on' : ''}">Mai gravă</button><button type="button" data-p="0" class="${!c.vPitch || c.vPitch === 1 ? 'on' : ''}">Normală</button><button type="button" data-p="1.18" class="${c.vPitch > 1 ? 'on' : ''}">Mai subțire</button></div>
     <div class="btns"><button class="btn pri" data-close>Gata</button></div></div>`);
@@ -5676,7 +5822,7 @@ let rec = null;
 function toggleMic(){
   if(rec){ rec.stop(); return; }
   if(!SpeechRec){ toast('Browserul nu suportă dictarea.'); return; }
-  try{ speechSynthesis?.cancel(); }catch(e){}
+  try{ ttsCancel(); }catch(e){}
   const r = new SpeechRec();
   r.lang = 'ro-RO'; r.interimResults = true; r.continuous = true;
   const base = $('#inp').value.trim();
@@ -6783,7 +6929,7 @@ function endCall(){
   if(c.ac){ const ac = c.ac; setTimeout(() => { try{ ac.close(); }catch(e){} }, 900); }
   if(c.cam){ try{ c.cam.getTracks().forEach(t => t.stop()); }catch(e){} }
   try{ c.rec && c.rec.abort(); }catch(e){}
-  try{ speechSynthesis.cancel(); }catch(e){}
+  try{ ttsCancel(); }catch(e){}
   if(busy && live && live.ch === c.ch) busy.abort();
   const sec = c.t0 ? Math.floor((Date.now() - c.t0) / 1000) : 0, dur = `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`;
   const v = $('.callv');
@@ -6805,10 +6951,12 @@ function callClean(t){
 // o propoziție pusă la coadă în vocea telefonului; subtitrarea crește odată cu ea
 // 9.23: vocea cu emoție (`callProso`): ton, viteză și volum după starea ei, propoziție și oră; frazele lungi în două bucăți, cu pauză reală
 function callSay(c, text, capOff){
-  const parts = callChunks(text), v = phoneVoice(langOf(c.c), c.c);
+  // 9.69: bucăți de cel mult ~170 de caractere, vocea după genul ei, redare prin `ttsPlay` (fără blocaje pe „vorbește”)
+  const parts = callChunks(text).flatMap(([s, at]) => { let o = 0; return ttsSplitLong(s).map(x => { const r = [x.trim(), at + o]; o += x.length; return r; }); }).filter(([s]) => s);
+  const v = phoneVoice(langOf(c.c), c.c);
   return Promise.all(parts.map(([s, at], k) => new Promise(res => {
     const u = new SpeechSynthesisUtterance(s); u.lang = langOf(c.c); if(v) u.voice = v;
-    const P = callProso(c, s, text); u.pitch = P.pitch; u.rate = P.rate; u.volume = P.vol;
+    const P = callProso(c, s, text, v); u.pitch = P.pitch; u.rate = P.rate; u.volume = P.vol;
     u.onstart = () => { u._t0 = performance.now(); if(call === c && c.state !== 'listen'){ c.state = 'speak'; callState('vorbește', 'speak'); callBarge(c); vfUtter(c, u); } };   // 9.62: gura pe cronologia textului
     u.onboundary = e => { if(window.__talk) window.__talk(e, capOff + at); };
     u.onend = u.onerror = ev => {
@@ -6817,7 +6965,7 @@ function callSay(c, text, capOff){
       else if(call === c && k < parts.length - 1 && /(…|\.\.\.)\s*$/.test(s)) callBreath(c, .6);
       res();
     };
-    speechSynthesis.speak(u);
+    ttsPlay(u);
   })));
 }
 function capAppend(c, text){
@@ -6859,7 +7007,7 @@ async function callReply(opts){
   // 9.62: dacă răspunsul întârzie, un „hm…” scurt, ca un om care se gândește (local, fără cost; nu la începutul apelului, nu în altă limbă)
   clearTimeout(c.fillT); if(!opts.pro && !learnOn(c.c) && S.callFill !== 'off') c.fillT = setTimeout(() => {
     if(call !== c || c.state !== 'think' || said || c.interrupted || (m && callClean(m.text || '').length > 3)) return;
-    const q = /\?\s*$/.test(c.lastHeard || ''), F = q ? ['Hmm…', 'Păi…', 'Stai…', 'Hm, păi…'] : ['Mhm…', 'Hm…', 'Aha…', 'Mm…'];
+    const q = /\?\s*$/.test(c.lastHeard || ''), F = q ? ['Păi…', 'Stai…', 'Păi, stai…', 'Hmm, păi…'] : ['Îhî…', 'Aha…', 'Da…', 'Păi…'];   // 9.69: „Mhm” / „Mm” erau citite literă cu literă de vocile de telefon
     if(Math.random() < .65) callSay(c, F[Math.floor(Math.random() * F.length)], 0);
   }, 1100);
   try{ await run; } catch(e){}
@@ -6884,7 +7032,7 @@ function callInterrupt(c, heard){
   c.saidText = [...($('#clCap') ? $('#clCap').querySelectorAll('.kw.lit') : [])].map(w => w.textContent).join(' ');
   c.interrupted = true; c.state = 'listen';
   if(c.vf) c.vf.kf = [];   // 9.62: gura se oprește odată cu vocea
-  try{ speechSynthesis.cancel(); }catch(e){}
+  try{ ttsCancel(); }catch(e){}
   if(busy && live && live.ch === c.ch) busy.abort();
   callState('te ascultă…', 'listen'); $('#clCap').innerHTML = heard ? `<span class="cme">${esc(heard)}</span>` : '';
   if(!c.bargeRec) callListen(true);
@@ -6968,7 +7116,7 @@ function callLook(c){
   if(call !== c || !c.video) return;
   if(!c.cam){ toast('Pornește întâi camera (butonul Video).'); return; }
   if(c.state === 'think'){ toast('Stai puțin, se gândește…'); return; }
-  if(c.state === 'speak'){ c.interrupted = true; try{ speechSynthesis.cancel(); }catch(e){} if(busy && live && live.ch === c.ch) busy.abort(); }
+  if(c.state === 'speak'){ c.interrupted = true; try{ ttsCancel(); }catch(e){} if(busy && live && live.ch === c.ch) busy.abort(); }
   const img = callFrame(c, 768, true); if(!img){ toast('Camera nu e gata încă.'); return; }
   fxBurst('👀', 6); c.lastLook = Date.now(); c.ref = null;
   callReply({liveImg:img, pro:true, note:`(Notă de regie, nu o menționa ca atare: ${S.userName.trim() || 'el'} îți arată ceva la cameră chiar acum (vezi imaginea). Uită-te atent și spune concret ce vezi și ce părere ai, în felul tău, scurt, ca într-un apel video. ${callFix(c)}.)`});
@@ -7473,8 +7621,8 @@ const PROSO = [
   [/(supărat|suparat|iritat|nervos|nervoasă|frustrat|gelos|geloasă|bosumflat)/, {p:-.03, r:.03, v:1}],
   [/(tandr|drăgăst|dragast|calm|liniștit|linistit|relaxat|visător|visator|romantic|timid|rușin|rusin|duios|duioasă)/, {p:.01, r:-.06, v:.88}]
 ];
-function callProso(c, s, whole){
-  const g = genderOf(c.c), base = c.c.vPitch || (g === 'm' ? .9 : g === 'f' ? 1.06 : 1);
+function callProso(c, s, whole, voice){
+  const base = voxBase(c.c, voice === undefined ? phoneVoice(langOf(c.c), c.c) : voice);   // 9.69: tonul de bază după vocea primită
   let p = 0, r = 0, v = 1;
   const mood = ((c.ch.mood && Date.now() - (c.ch.mood.ts || 0) < 3 * 36e5 ? c.ch.mood.t : '') + ' ' + (c.face || '')).toLowerCase();
   for(const [re, d] of PROSO) if(re.test(mood)){ p += d.p; r += d.r; v = Math.min(v, d.v); break; }
@@ -7512,8 +7660,8 @@ function bcMaybe(c, txt, lastT){
   c.bcAt = now; c.bcWords = words; (c.bcSaid = c.bcSaid || []).push(w);
   try{
     const u = new SpeechSynthesisUtterance(w); u.lang = langOf(c.c); const vv = phoneVoice(langOf(c.c), c.c); if(vv) u.voice = vv;
-    const P = callProso(c, w, txt); u.pitch = P.pitch; u.rate = Math.min(1.25, P.rate * 1.05); u.volume = .55;
-    speechSynthesis.speak(u);
+    const P = callProso(c, w, txt, vv); u.pitch = P.pitch; u.rate = Math.min(1.25, P.rate * 1.05); u.volume = .55;
+    ttsPlay(u);
   }catch(e){}
   const V = c.vf; if(V && V.ready){ V.nods.push({t:performance.now() + 60, a:.85}); if(!sad) V.smileT = performance.now(); }
 }
