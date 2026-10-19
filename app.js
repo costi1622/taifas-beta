@@ -1,5 +1,5 @@
 window.__taifas = true;   // 8.20.1: semn pentru index.html că app.js s-a încărcat
-const APP_VER = '9.70';
+const APP_VER = '9.71';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -4715,7 +4715,17 @@ function pickVoice(c, done){
     ttsCancel(); show();
     const u = new SpeechSynthesisUtterance(`Bună, sunt ${c.name}. Mă auzi?`); u.lang = langOf(c); if(v) u.voice = v; u.pitch = voxBase(c, v);
     u.onstart = () => { log.push(`✅ a pornit după ${Math.round(performance.now() - t0)} ms`); show(); };
-    u.onend = u.onerror = ev => { log.push(ev && ev.error ? `❌ eroare: ${esc(ev.error)}` : u._st ? `✅ s-a terminat (${Math.round(performance.now() - t0)} ms). Dacă n-ai auzit nimic, volumul media e jos sau sunetul merge în căștile Bluetooth.` : '⚠️ s-a terminat fără să pornească'); show(); };
+    u.onend = u.onerror = ev => { log.push(ev && ev.error ? `❌ eroare: ${esc(ev.error)}` : u._st ? `✅ s-a terminat (${Math.round(performance.now() - t0)} ms). Dacă n-ai auzit nimic, volumul media e jos sau sunetul merge în căștile Bluetooth.` : '⚠️ s-a terminat fără să pornească'); show();
+      if(ev && ev.error && !/interrupted|canceled/.test(ev.error)) setTimeout(crossCheck, 300); };
+    // 9.71: vocea limbii ei a eșuat: încercăm o voce engleză, ca să știm dacă e motorul de voce sau doar vocea română
+    const crossCheck = () => {
+      const en = phoneVoices('en-US').find(x => voxLang(x) === 'en-us') || phoneVoices('en-US')[0];
+      const e = new SpeechSynthesisUtterance('Voice test.'); e.lang = 'en-US'; if(en) e.voice = en;
+      e.onend = e.onerror = ev => { log.push(ev && ev.error
+        ? `❌ nici vocea engleză nu merge (${esc(ev.error)}): motorul de voce al telefonului nu funcționează. Setări Android → Ieșire text în vorbire → motor preferat „Servicii vocale Google” → Redă un exemplu.`
+        : `✅ vocea engleză merge, deci doar vocea ${esc(langOf(c))} lipsește sau nu e descărcată: Setări Android → Ieșire text în vorbire → ⚙️ lângă motorul Google → Instalează date vocale → Română → descarcă (pe Wi-Fi, dacă e setat „doar Wi-Fi”). Apoi repornește Taifas.`); show(); };
+      ttsPlay(e);
+    };
     ttsPlay(u);
   };
   $('.sheet [data-vauto]').onclick = async () => { delete c.vName; await saveChars(); closeSheet(); done(); };
