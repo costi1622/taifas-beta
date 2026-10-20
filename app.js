@@ -1,5 +1,5 @@
 window.__taifas = true;   // 8.20.1: semn pentru index.html că app.js s-a încărcat
-const APP_VER = '9.78';
+const APP_VER = '9.79';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -1942,7 +1942,7 @@ function renderGroup(toEnd){
   if(toEnd || near){ box.scrollTop = box.scrollHeight; requestAnimationFrame(() => box.scrollTop = box.scrollHeight); }
   $('#gChips').innerHTML = sp
     ? `<button type="button" class="on" data-gspx>⏹ Oprește (${gSpect.left} runde)</button><button type="button" data-gsubj>🎬 Subiect</button><button type="button" data-gbomb>💣 Bombă</button>`
-    : '<button type="button" data-gspect>👀 Spectator</button>' + ms.map(c => { const m = gMeOf(gchat, c); return `<button type="button" data-gto="${esc(c.name.split(' ')[0])}">@${esc(c.name.split(' ')[0])} <small class="gmei" style="--mc:${gMeCol(m.care)}" data-gmei="${c.id}" title="cât ține la tine / cât te ajută">💗${m.care}·🤝${m.help}</small></button>`; }).join('') + (S.imgProv !== 'none' ? '<button type="button" data-gpic>📸 Poză cu voi</button>' : '');
+    : '<button type="button" data-gspect>👀 Spectator</button>' + ms.map(c => { const m = gMeOf(gchat, c), sn = gShort(c, ms); return `<button type="button" data-gto="${esc(sn)}">@${esc(sn)} <small class="gmei" style="--mc:${gMeCol(m.care)}" data-gmei="${c.id}" title="cât ține la tine / cât te ajută">💗${m.care}·🤝${m.help}</small></button>`; }).join('') + (S.imgProv !== 'none' ? '<button type="button" data-gpic>📸 Poză cu voi</button>' : '');
   gSendBtn();
 }
 // 9.48: salvează exact grupul dat (înainte salva „grupul deschis”, deci un răspuns întârziat putea ajunge în alt grup)
@@ -1983,10 +1983,17 @@ function gMsgSheet(i){
   sheet(opts);
 }
 // cine e pomenit pe nume (prenumele, fără diacritice); „toți / voi / fetelor…” = toată lumea
+// 9.79: numele scurt din grup: prenumele; dacă două au același prenume, și al doilea cuvânt („Ana Maria”), ca să nu se confunde
+function gShort(c, ms){ const w = String(c.name || '').split(/\s+/), f = pnorm(w[0]); return (ms || []).some(o => o !== c && pnorm(String(o.name || '').split(/\s+/)[0]) === f) && w[1] ? w[0] + ' ' + w[1] : w[0]; }
 function gMentioned(text, ms, namesOnly){
   if(!namesOnly && G_ALL.test(text)) return ms.slice();
-  const t = ' ' + pnorm(text) + ' ';
-  return ms.map(c => ({c, i:t.indexOf(' ' + pnorm(c.name.split(' ')[0]) + ' ')})).filter(x => x.i >= 0).sort((a, b) => a.i - b.i).map(x => x.c);
+  let t = ' ' + pnorm(text) + ' '; const hit = [];
+  // numele mai lungi întâi („Ana Maria” înaintea lui „Ana”), iar locul găsit se șterge, ca „Ana Maria” să n-o strige și pe Ana
+  for(const c of ms.slice().sort((a, b) => gShort(b, ms).length - gShort(a, ms).length)){
+    const k = ' ' + pnorm(gShort(c, ms)) + ' ', i = t.indexOf(k);
+    if(i >= 0){ hit.push({c, i}); t = t.slice(0, i) + ' '.repeat(k.length) + t.slice(i + k.length); }
+  }
+  return hit.sort((a, b) => a.i - b.i).map(x => x.c);
 }
 const gLine = m => m.role === 'sys' ? '' : `${gName(m)}: ${m.re ? '(răspunde la ' + m.re.name + ': „' + m.re.text.slice(0, 60) + '”) ' : ''}${m.img ? '[poză] ' : ''}${plain(m.text || '').slice(0, 260)}`;
 /* regizorul: cine răspunde, cine doar reacționează, cine tace; poza cerută; cine îți scrie în privat */
@@ -2432,7 +2439,7 @@ function gRelSheet(scrollMe){
   const pairs = []; for(let a = 0; a < pos.length; a++) for(let b = a + 1; b < pos.length; b++) pairs.push([pos[a], pos[b], gRelOf(gc, pos[a].c, pos[b].c)]);
   const lines = pairs.map(([p, q, r]) => { const col = r ? G_RELC[String(r.s)] : 'var(--line)', mx = (p.x + q.x) / 2, my = (p.y + q.y) / 2;
     return `<line x1="${p.x}" y1="${p.y}" x2="${q.x}" y2="${q.y}" stroke="${col}" stroke-width="${r ? 2 + Math.abs(r.s) : 1.5}" ${r && r.s < 0 ? 'stroke-dasharray="6 5"' : ''} stroke-linecap="round"/>${r ? `<text x="${mx}" y="${my}" text-anchor="middle" dominant-baseline="middle" class="grlt">${r.lock ? '🔒 ' : ''}${esc(r.t.length > 20 ? r.t.slice(0, 19) + '…' : r.t)}</text>` : ''}`; }).join('');
-  const avs = pos.map(p => { const m = gMeOf(gc, p.c); return `<span class="grav" style="left:${p.x / W * 100}%;top:${p.y / H * 100}%">${avatarHTML(p.c)}<b>${esc(p.c.name.split(' ')[0])}</b><small class="grme" style="--mc:${gMeCol(m.care)}">💗${m.care}</small></span>`; }).join('');
+  const avs = pos.map(p => { const m = gMeOf(gc, p.c); return `<span class="grav" style="left:${p.x / W * 100}%;top:${p.y / H * 100}%">${avatarHTML(p.c)}<b>${esc(gShort(p.c, pos.map(x => x.c)))}</b><small class="grme" style="--mc:${gMeCol(m.care)}">💗${m.care}</small></span>`; }).join('');
   const list = pairs.map(([p, q, r], i) => `<button type="button" class="grrow grbtn" data-gre="${i}"><i style="background:${r ? G_RELC[String(r.s)] : 'var(--line)'}"></i><b>${esc(p.c.name)} ↔ ${esc(q.c.name)}</b><span>${r ? (r.lock ? '🔒 ' : '') + esc(r.t) : '<em>setează</em>'}${relBetween(p.c, q.c) ? '<br><small>' + esc(relBetween(p.c, q.c)) + '</small>' : ''}</span><u>✏️</u></button>`).join('');
   const bar = (v, e) => `<span class="grbar"><em>${e}</em><span><i style="width:${v}%;background:${gMeCol(v)}"></i></span><b>${v}</b></span>`;
   const me = ms.map(c => { const m = gMeOf(gc, c); return `<button type="button" class="grrow grbtn grmerow" data-gme="${c.id}">${avatarHTML(c)}<span class="grmeb"><b>${m.lock ? '🔒 ' : ''}${esc(c.name)}</b>${bar(m.care, '💗')}${bar(m.help, '🤝')}${m.why ? '<small>' + esc(m.why) + '</small>' : ''}</span><u>✏️</u></button>`; }).join('');
@@ -8504,7 +8511,7 @@ function crInit(c){
   $('#edFullNow').hidden = !(c && c.photoFull); $('#edAngleView').innerHTML = '';
 }
 function crDrawFrame(){ $$('#edFrame button').forEach(b => b.classList.toggle('on', b.dataset.v === ed.cr.frame)); }
-function crStyleSync(){ const v = crStil(); $$('#edStyle button').forEach(b => b.classList.toggle('on', b.dataset.v === v)); }
+function crStyleSync(){ const v = crStil(); $$('#edStyle button').forEach(b => b.classList.toggle('on', b.dataset.v === v)); $$('#edLookPresets button').forEach(b => b.classList.toggle('on', b.dataset.look === v)); }   // 9.79: și presetările de sus
 function crBusyUI(on){ $('#edGen4').hidden = !!on; $('#edStop').hidden = !on; $('#edEnrich').disabled = !!on; const g = $('#edAdjGo'); if(g) g.disabled = !!on; const m = $('#edMore'); if(m) m.disabled = !!on; }
 // rulare cu „⏹ Oprește”: un AbortController pe tot lotul
 async function crRun(label, fn){
@@ -8980,12 +8987,14 @@ async function pfMakeFull(c){
 
 /* ───────── EDITOR ───────── */
 let ed = null; // {id|null, photoBlob|null, photoKey}
+function edModeSet(adv){ $('#vEdit').classList.toggle('ed-advanced', adv); $('#vEdit').classList.toggle('ed-simple', !adv); $('#edMode').textContent = adv ? '✨ Mod simplu' : '⚙️ Avansat'; $('#edMode').setAttribute('aria-pressed', String(adv)); }
 function openEditor(id){
   const c = id ? charById(id) : null;
   edLeaveOK = false;
   ed = {id:c ? c.id : null, photoBlob:null, photoKey:c ? c.photo : null, fromChat:!$('#vChat').hidden || !$('#vProf').hidden};
   $('#edTitle').textContent = c ? c.name : 'Personaj nou';
-  $('#vEdit').classList.toggle('ed-simple', true); $('#vEdit').classList.remove('ed-advanced'); $('#edMode').textContent = '⚙️ Avansat'; $('#edMode').setAttribute('aria-pressed','false'); $('#edPresetStatus').textContent = 'Nu suprascrie câmpurile deja completate.';
+  edModeSet(S.edAdv === 'on'); $('#edPresetStatus').textContent = 'Nu suprascrie câmpurile deja completate.';
+  $('#edStart').hidden = !!c; ed.preset = '';   // 9.79: „Creează rapid” doar la un personaj nou, în pasul 1 (derulează cu formularul)
   $$('#edPersonalityPresets button').forEach(b => b.classList.remove('on')); $$('#edLookPresets button').forEach(b => b.classList.toggle('on', (c?.stil || 'photo') === b.dataset.look));
   $('#edName').value = c?.name || ''; $('#edTag').value = c?.tag || '';
   $('#edAspect').value = c?.aspect || ''; $('#edPersona').value = c?.persona || '';
@@ -9930,23 +9939,20 @@ function bind(){
     }
   });
   // 9.78: strat simplificat pentru creare; păstrează aceleași câmpuri și salvarea existentă
-  $('#edMode').onclick = () => {
-    const advanced = !$('#vEdit').classList.contains('ed-advanced');
-    $('#vEdit').classList.toggle('ed-advanced', advanced); $('#vEdit').classList.toggle('ed-simple', !advanced);
-    $('#edMode').textContent = advanced ? '✨ Mod simplu' : '⚙️ Avansat'; $('#edMode').setAttribute('aria-pressed', String(advanced));
-  };
+  $('#edMode').onclick = () => { const adv = !$('#vEdit').classList.contains('ed-advanced'); edModeSet(adv); S.edAdv = adv ? 'on' : 'off'; saveSettings(); };   // 9.79: alegerea rămâne
   $('#edPersonalityPresets').onclick = e => {
     const b = e.target.closest('[data-persona]'); if(!b) return;
-    const t = $('#edPersona'); const current = t.value.trim();
-    if(!current) t.value = b.dataset.persona;
-    else if(!current.includes(b.dataset.persona)) t.value = current + '\n\nStil suplimentar: ' + b.dataset.persona;
+    const t = $('#edPersona'); let current = t.value.trim();
+    // 9.79: o altă presetare o înlocuiește pe cea de dinainte (nu se adună una peste alta)
+    if(ed && ed.preset){ current = current.replace('\n\nStil suplimentar: ' + ed.preset, '').replace(ed.preset, '').trim(); }
+    t.value = !current ? b.dataset.persona : current.includes(b.dataset.persona) ? current : current + '\n\nStil suplimentar: ' + b.dataset.persona;
+    if(ed) ed.preset = b.dataset.persona;
     $$('#edPersonalityPresets button').forEach(x => x.classList.toggle('on', x === b)); $('#edPresetStatus').textContent = 'Personalitatea a fost adăugată; poți edita textul la pasul „Cine e”.';
   };
   $('#edLookPresets').onclick = e => {
     const b = e.target.closest('[data-look]'); if(!b) return;
     $('#edStil').value = b.dataset.look; crStyleSync();
-    const labels = {photo:'Fotografie realistă, lumină naturală și detalii credibile',anime:'Stil anime, linii curate și expresivitate ilustrată',illustration:'Ilustrație digitală, compoziție artistică și texturi picturale','3d':'Personaj 3D, materiale detaliate și iluminare cinematografică'};
-    const t = $('#edPrompt'); if(!t.value.trim()) t.value = labels[b.dataset.look];
+    // 9.79: stilul se alege doar ca stil (butoanele Foto / Anime / Ilustrație / 3D); descrierea aspectului rămâne a ta
     $$('#edLookPresets button').forEach(x => x.classList.toggle('on', x === b)); $('#edPresetStatus').textContent = 'Stilul a fost selectat; generatorul existent îl va folosi.';
   };
   $('#edQuickFill').onclick = () => {

@@ -494,6 +494,8 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
 .grseg button.on{background:var(--sc);color:#111;border-color:var(--sc)}
 .gmei{margin-left:4px;font-size:.68rem;font-weight:700;color:var(--mc);opacity:.95}
 #gTag.typing{color:var(--acc)}
+#gTag{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}   /* 9.79: o singură linie, nu 4 */
+[data-theme=light] #vGroup .chathead{background:linear-gradient(#f7f4faf5,#f7f4fad9);border-bottom-color:#00000012}   /* 9.79: antetul grupului în tema luminoasă */
 #gMsgs .mw.gp .m.ai .av{visibility:hidden}
 .gpick{display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:8px;margin-top:6px}
 .gpk{display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 4px;border-radius:14px;border:1px solid var(--line);background:var(--bg2);font-size:.8rem}
@@ -566,12 +568,13 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
 .card.empty{grid-column:1/-1;aspect-ratio:auto;padding:28px 20px;text-align:center;background:var(--bg2);border:2px dashed var(--line);box-shadow:none;color:var(--tx2);line-height:1.5}
 .card.empty b{font-size:1.1rem;color:var(--tx);text-shadow:none;margin-bottom:4px}
 
-.ed-start{margin:0 16px 10px;padding:13px;border:1px solid var(--line);border-radius:16px;background:linear-gradient(145deg,color-mix(in srgb,var(--acc) 10%,var(--bg2)),var(--bg2));flex:none}
+.ed-start{margin:0 0 12px;padding:13px;border:1px solid var(--line);border-radius:16px;background:linear-gradient(145deg,color-mix(in srgb,var(--acc) 10%,var(--bg2)),var(--bg2));flex:none}
 .ed-start-head{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;margin-bottom:10px}.ed-start-head b{font-size:.98rem}.ed-start-icon{display:grid;place-items:center;width:34px;height:34px;border-radius:11px;background:var(--grad);color:white;font-size:1.2rem;flex:none}
 .ed-start .hint{font-size:.76rem;line-height:1.35;margin-top:3px}.ed-start label{display:block;font-size:.8rem;font-weight:750;margin:10px 0 7px}
 .ed-presets{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding:1px 0 4px}.ed-presets::-webkit-scrollbar{display:none}.ed-presets button{flex:none;padding:8px 10px;border:1px solid var(--line);border-radius:11px;background:var(--bg);color:var(--tx);font:inherit;font-size:.78rem}.ed-presets button.on{border-color:var(--acc);background:color-mix(in srgb,var(--acc) 13%,var(--bg))}
 .ed-start-actions{display:flex;align-items:center;gap:8px;margin-top:7px}.ed-start-actions .hint{flex:1;margin:0}.ed-start-actions .btn{flex:none}
-#vEdit.ed-simple #edQuick,#vEdit.ed-simple #edEnrich,#vEdit.ed-simple #edZonesWrap,#vEdit.ed-simple #edDuoSec,#vEdit.ed-simple #edCheck,#vEdit.ed-simple #edRedesc,#vEdit.ed-simple #edGenWrap,#vEdit.ed-simple .crav{display:none!important}
+#vEdit.ed-simple #edQuick,#vEdit.ed-simple #edEnrich,#vEdit.ed-simple #edDuoSec,#vEdit.ed-simple #edCheck,#vEdit.ed-simple #edRedesc,#vEdit.ed-simple .crav{display:none!important}
+.ed-start[hidden]{display:none}
 #vEdit.ed-advanced .ed-start{background:var(--bg2)}
 
 .steps{display:flex;gap:6px;padding:0 16px 8px;flex:none}
@@ -1788,7 +1791,11 @@ details.sdanger>summary{color:var(--err)}
     <h2 id="edTitle">Personaj nou</h2>
     <div style="display:flex;gap:6px;align-items:center"><button type="button" class="btn sm" id="edMode" aria-pressed="false">⚙️ Avansat</button><button class="btn sm pri" id="edSave">Salvează</button></div>
   </header>
-  <section class="ed-start" id="edStart">
+  <div class="steps" id="edSteps"><button type="button" data-s="1"><b>1</b>Poza</button><button type="button" data-s="2"><b>2</b>Cine e</button><button type="button" data-s="3"><b>3</b>Replici</button></div>
+  <div class="status" id="edStatus"></div>
+  <div class="scroll" id="edScroll"><div class="form">
+    <div class="step" data-step="1">
+      <section class="ed-start" id="edStart">
     <div class="ed-start-head"><div><b>✨ Creează rapid</b><div class="hint">Alege o bază, apoi personalizează. Opțiunile complete rămân disponibile.</div></div><span class="ed-start-icon">✦</span></div>
     <label>Personalitate de pornire</label>
     <div class="ed-presets" id="edPersonalityPresets"><button type="button" data-persona="Grijuliu și afectuos, atent la stările celuilalt, cald și răbdător.">🤗 Grijuliu</button><button type="button" data-persona="Romantic și tandru, exprimă afecțiunea natural și inițiază momente apropiate.">❤️ Romantic</button><button type="button" data-persona="Glumeț și jucăuș, spontan, cu replici vii și umor prietenos.">😄 Jucăuș</button><button type="button" data-persona="Încrezător și direct, cu inițiativă, dar atent la preferințele și limitele celuilalt.">✨ Încrezător</button><button type="button" data-persona="Timid la început, sensibil și sincer; capătă încredere treptat.">🌷 Timid</button></div>
@@ -1796,10 +1803,6 @@ details.sdanger>summary{color:var(--err)}
     <div class="ed-presets" id="edLookPresets"><button type="button" data-look="photo">📷 Fotorealist</button><button type="button" data-look="anime">🎌 Anime</button><button type="button" data-look="illustration">🎨 Ilustrație</button><button type="button" data-look="3d">🧊 3D</button></div>
     <div class="ed-start-actions"><button type="button" class="btn sm" id="edQuickFill">✨ Completează ce lipsește</button><span class="hint" id="edPresetStatus" aria-live="polite">Nu suprascrie câmpurile deja completate.</span></div>
   </section>
-  <div class="steps" id="edSteps"><button type="button" data-s="1"><b>1</b>Poza</button><button type="button" data-s="2"><b>2</b>Cine e</button><button type="button" data-s="3"><b>3</b>Replici</button></div>
-  <div class="status" id="edStatus"></div>
-  <div class="scroll" id="edScroll"><div class="form">
-    <div class="step" data-step="1">
       <div class="sec">
         <button type="button" class="photo" id="edPhoto"><span><b>＋</b>Urcă o poză<br>AI-ul o descrie 1:1</span></button>
         <input type="file" id="edFile" accept="image/*" hidden>
