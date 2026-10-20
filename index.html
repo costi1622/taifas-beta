@@ -565,6 +565,15 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
 @keyframes favspin{to{--ang:360deg}}
 .card.empty{grid-column:1/-1;aspect-ratio:auto;padding:28px 20px;text-align:center;background:var(--bg2);border:2px dashed var(--line);box-shadow:none;color:var(--tx2);line-height:1.5}
 .card.empty b{font-size:1.1rem;color:var(--tx);text-shadow:none;margin-bottom:4px}
+
+.ed-start{margin:0 16px 10px;padding:13px;border:1px solid var(--line);border-radius:16px;background:linear-gradient(145deg,color-mix(in srgb,var(--acc) 10%,var(--bg2)),var(--bg2));flex:none}
+.ed-start-head{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;margin-bottom:10px}.ed-start-head b{font-size:.98rem}.ed-start-icon{display:grid;place-items:center;width:34px;height:34px;border-radius:11px;background:var(--grad);color:white;font-size:1.2rem;flex:none}
+.ed-start .hint{font-size:.76rem;line-height:1.35;margin-top:3px}.ed-start label{display:block;font-size:.8rem;font-weight:750;margin:10px 0 7px}
+.ed-presets{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding:1px 0 4px}.ed-presets::-webkit-scrollbar{display:none}.ed-presets button{flex:none;padding:8px 10px;border:1px solid var(--line);border-radius:11px;background:var(--bg);color:var(--tx);font:inherit;font-size:.78rem}.ed-presets button.on{border-color:var(--acc);background:color-mix(in srgb,var(--acc) 13%,var(--bg))}
+.ed-start-actions{display:flex;align-items:center;gap:8px;margin-top:7px}.ed-start-actions .hint{flex:1;margin:0}.ed-start-actions .btn{flex:none}
+#vEdit.ed-simple #edQuick,#vEdit.ed-simple #edEnrich,#vEdit.ed-simple #edZonesWrap,#vEdit.ed-simple #edDuoSec,#vEdit.ed-simple #edCheck,#vEdit.ed-simple #edRedesc,#vEdit.ed-simple #edGenWrap,#vEdit.ed-simple .crav{display:none!important}
+#vEdit.ed-advanced .ed-start{background:var(--bg2)}
+
 .steps{display:flex;gap:6px;padding:0 16px 8px;flex:none}
 .steps button{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:8px 4px;border-radius:12px;background:var(--bg2);color:var(--tx3);font-size:.78rem;font-weight:700;transition:all .2s}
 .steps b{width:20px;height:20px;border-radius:50%;background:var(--card);display:grid;place-items:center;font-size:.7rem;transition:all .2s}
@@ -1716,14 +1725,30 @@ details.sdanger>summary{color:var(--err)}
       <button type="button" data-intimacy="Hai să ne cuibărim împreună și să ne alintăm puțin." >🫶 Alintă-mă</button>
       <button type="button" data-intimacy="Vreau să inițiezi tu un moment romantic și să-mi arăți ce simți, în felul tău." >❤️ Inițiază romantismul</button>
     </div>
+    <div class="iq-label">Intimitate între adulți · consensual</div>
+    <div class="iq-grid">
+      <button type="button" data-intimacy="Vreau să continuăm cu o scenă intimă consensuală între personaje adulte, cu sex vaginal sugerat într-un stil romantic, fără descrieri grafice. Rămâi în rol și adaptează scena la personalitatea ta; verifică prin reacțiile tale că ne dorim amândoi să continuăm.">❤️ Sex vaginal (adult)</button>
+      <button type="button" data-intimacy="Vreau o scenă intimă consensuală între personaje adulte care sugerează intimitate anală, într-un stil discret, non-grafic. Rămâi în rol, nu presupune consimțământ automat și oprește-te dacă unul dintre noi ezită.">🌙 Intimitate anală</button>
+      <button type="button" data-intimacy="Vreau o scenă de apropiere intimă consensuală între personaje adulte, cu atingeri și stimulare manuală sugerate discret, fără descrieri anatomice grafice. Rămâi în rol și lasă reacțiile și limitele personajului să conteze.">🫶 Stimulare manuală</button>
+      <button type="button" data-intimacy="Vreau o scenă intimă consensuală între personaje adulte care sugerează intimitate orală, într-un stil discret, non-grafic. Rămâi în rol și păstrează comunicarea și consimțământul reciproc.">💋 Intimitate orală</button>
+      <button type="button" data-intimacy="Hai să construim treptat o scenă de preludiu consensuală între personaje adulte, cu săruturi, atingeri tandre și tensiune romantică, fără descrieri grafice. Tu alegi reacțiile și ritmul personajului tău.">🔥 Preludiu</button>
+      <button type="button" data-intimacy="Continuă scena intimă dintre noi într-un mod natural și interactiv, ca personaje adulte care își exprimă dorințele și limitele. Nu rezuma; răspunde în rol, pas cu pas, fără detalii sexuale grafice.">🎭 Continuă scena</button>
+    </div>
     <div class="iq-label">Cere o fotografie</div>
     <div class="iq-grid">
-      <button type="button" data-intimacy="Trimite-mi o fotografie senzuală, cu aceeași identitate și proporții ca în fotografia ta de profil, într-o ținută elegantă." >✨ Senzuală</button>
-      <button type="button" data-intimacy="Trimite-mi o fotografie în lenjerie, cu aceeași identitate și aceleași proporții ca în fotografia ta de profil." >👙 În lenjerie</button>
-      <button type="button" data-intimacy="Trimite-mi o fotografie topless, cu sânii neacoperiți, păstrând identitatea și proporțiile corpului din referință. Doar pentru personaj adult și dacă furnizorul permite." >📸 Topless (adult)</button>
-      <button type="button" data-intimacy="Trimite-mi o fotografie artistică de nuditate non-explicită, păstrând identitatea și proporțiile corpului din referință. Doar pentru personaj adult și dacă furnizorul permite." >🖼️ Nuditate artistică</button>
+      <button type="button" data-intimacy="Trimite-mi o fotografie senzuală, ca o ședință boudoir elegantă: privire expresivă, lumină caldă, haine elegante, postură naturală. Păstrează exact identitatea feței, vârsta adultă și proporțiile corpului din referință; schimbă numai scena, ținuta și poziția." >✨ Boudoir elegant</button>
+      <button type="button" data-intimacy="Trimite-mi o fotografie în lenjerie elegantă, într-o cameră intimă cu lumină caldă, poză naturală și non-grafică. Păstrează exact aceeași identitate, vârstă adultă și proporții ca în referință; nu modifica fața sau corpul." >👙 În lenjerie</button>
+      <button type="button" data-intimacy="Trimite-mi o fotografie romantică pe pat, acoperită decent cu un cearșaf, cu umerii vizibili, lumină discretă și expresie tandră. Nuditate implicită, fără detalii anatomice explicite. Păstrează identitatea și proporțiile corpului din referință; personaj adult." >🌙 Sub cearșaf</button>
+      <button type="button" data-intimacy="Trimite-mi o fotografie artistică de tip siluetă, în contralumină, cu formele sugerate elegant și zonele intime complet ascunse de umbre și compoziție. Fără organe genitale vizibile sau act sexual. Păstrează identitatea și proporțiile personajului adult." >🖼️ Siluetă artistică</button>
+      <button type="button" data-intimacy="Trimite-mi o fotografie senzuală după duș, cu părul umed și un halat închis, umeri discret vizibili, lumină caldă și abur în fundal. Fără nuditate explicită. Păstrează exact identitatea feței și proporțiile corpului din referință; personaj adult." >🚿 După duș</button>
+      <button type="button" data-intimacy="Trimite-mi o fotografie topless artistică, numai dacă furnizorul permite și personajul este adult: cadru de bust cu sânii acoperiți de brațe, păr sau cearșaf, fără mameloane sau organe genitale vizibile. Păstrează identitatea și proporțiile corpului din referință." >📸 Topless artistic</button>
     </div>
-    <p class="iq-note">Acțiunile rapide completează mesajul și îl trimit în chat. Generarea fotografiilor depinde de furnizor și de setările personajului.</p>
+    <div class="iq-label">Controlează scena</div>
+    <div class="iq-grid">
+      <button type="button" data-intimacy="Trimite-mi o fotografie intimă, dar non-explicită, în care tu alegi o poziție naturală și o expresie coerentă cu personalitatea ta. Păstrează identitatea exactă din poza de profil, vârsta adultă, forma feței, părul, textura pielii și proporțiile corpului; nu copia fundalul sau hainele pozei de referință. Alege o compoziție clară, lumină realistă și mâini/anatomie naturale." >🎭 Alege tu scena</button>
+      <button type="button" data-intimacy="Refă ultima fotografie cu aceeași identitate și aceeași scenă, dar cu o compoziție mai clară, anatomie naturală, mâini corecte, iluminare realistă și fără schimbări ale feței sau proporțiilor corpului. Păstrează toate detaliile cerute anterior." >🔁 Refă mai bine</button>
+    </div>
+    <p class="iq-note">Acțiunile rapide trimit o solicitare în chat. Preseturile foto urmăresc identitatea, proporțiile și o compoziție senzuală non-grafică; rezultatul depinde de referințe, model și regulile furnizorului. Numai personaje adulte; consimțământ reciproc.</p>
   </section>
   <form id="composer" autocomplete="off">
     <button type="button" id="btnIntimacy" aria-label="Acțiuni rapide de apropiere" aria-expanded="false">💗</button>
@@ -1761,8 +1786,16 @@ details.sdanger>summary{color:var(--err)}
   <header class="top">
     <button class="ib" data-back aria-label="Înapoi">‹</button>
     <h2 id="edTitle">Personaj nou</h2>
-    <button class="btn sm pri" id="edSave">Salvează</button>
+    <div style="display:flex;gap:6px;align-items:center"><button type="button" class="btn sm" id="edMode" aria-pressed="false">⚙️ Avansat</button><button class="btn sm pri" id="edSave">Salvează</button></div>
   </header>
+  <section class="ed-start" id="edStart">
+    <div class="ed-start-head"><div><b>✨ Creează rapid</b><div class="hint">Alege o bază, apoi personalizează. Opțiunile complete rămân disponibile.</div></div><span class="ed-start-icon">✦</span></div>
+    <label>Personalitate de pornire</label>
+    <div class="ed-presets" id="edPersonalityPresets"><button type="button" data-persona="Grijuliu și afectuos, atent la stările celuilalt, cald și răbdător.">🤗 Grijuliu</button><button type="button" data-persona="Romantic și tandru, exprimă afecțiunea natural și inițiază momente apropiate.">❤️ Romantic</button><button type="button" data-persona="Glumeț și jucăuș, spontan, cu replici vii și umor prietenos.">😄 Jucăuș</button><button type="button" data-persona="Încrezător și direct, cu inițiativă, dar atent la preferințele și limitele celuilalt.">✨ Încrezător</button><button type="button" data-persona="Timid la început, sensibil și sincer; capătă încredere treptat.">🌷 Timid</button></div>
+    <label>Stil vizual de pornire</label>
+    <div class="ed-presets" id="edLookPresets"><button type="button" data-look="photo">📷 Fotorealist</button><button type="button" data-look="anime">🎌 Anime</button><button type="button" data-look="illustration">🎨 Ilustrație</button><button type="button" data-look="3d">🧊 3D</button></div>
+    <div class="ed-start-actions"><button type="button" class="btn sm" id="edQuickFill">✨ Completează ce lipsește</button><span class="hint" id="edPresetStatus" aria-live="polite">Nu suprascrie câmpurile deja completate.</span></div>
+  </section>
   <div class="steps" id="edSteps"><button type="button" data-s="1"><b>1</b>Poza</button><button type="button" data-s="2"><b>2</b>Cine e</button><button type="button" data-s="3"><b>3</b>Replici</button></div>
   <div class="status" id="edStatus"></div>
   <div class="scroll" id="edScroll"><div class="form">

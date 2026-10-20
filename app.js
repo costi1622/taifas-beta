@@ -1,5 +1,5 @@
 window.__taifas = true;   // 8.20.1: semn pentru index.html că app.js s-a încărcat
-const APP_VER = '9.75';
+const APP_VER = '9.78';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -8985,6 +8985,8 @@ function openEditor(id){
   edLeaveOK = false;
   ed = {id:c ? c.id : null, photoBlob:null, photoKey:c ? c.photo : null, fromChat:!$('#vChat').hidden || !$('#vProf').hidden};
   $('#edTitle').textContent = c ? c.name : 'Personaj nou';
+  $('#vEdit').classList.toggle('ed-simple', true); $('#vEdit').classList.remove('ed-advanced'); $('#edMode').textContent = '⚙️ Avansat'; $('#edMode').setAttribute('aria-pressed','false'); $('#edPresetStatus').textContent = 'Nu suprascrie câmpurile deja completate.';
+  $$('#edPersonalityPresets button').forEach(b => b.classList.remove('on')); $$('#edLookPresets button').forEach(b => b.classList.toggle('on', (c?.stil || 'photo') === b.dataset.look));
   $('#edName').value = c?.name || ''; $('#edTag').value = c?.tag || '';
   $('#edAspect').value = c?.aspect || ''; $('#edPersona').value = c?.persona || '';
   duoFill(c);   // 9.63
@@ -9927,6 +9929,34 @@ function bind(){
       tapT = setTimeout(() => { tapT = null; if(!e.target.closest('.picbox')) msgSheet(i); }, 280);
     }
   });
+  // 9.78: strat simplificat pentru creare; păstrează aceleași câmpuri și salvarea existentă
+  $('#edMode').onclick = () => {
+    const advanced = !$('#vEdit').classList.contains('ed-advanced');
+    $('#vEdit').classList.toggle('ed-advanced', advanced); $('#vEdit').classList.toggle('ed-simple', !advanced);
+    $('#edMode').textContent = advanced ? '✨ Mod simplu' : '⚙️ Avansat'; $('#edMode').setAttribute('aria-pressed', String(advanced));
+  };
+  $('#edPersonalityPresets').onclick = e => {
+    const b = e.target.closest('[data-persona]'); if(!b) return;
+    const t = $('#edPersona'); const current = t.value.trim();
+    if(!current) t.value = b.dataset.persona;
+    else if(!current.includes(b.dataset.persona)) t.value = current + '\n\nStil suplimentar: ' + b.dataset.persona;
+    $$('#edPersonalityPresets button').forEach(x => x.classList.toggle('on', x === b)); $('#edPresetStatus').textContent = 'Personalitatea a fost adăugată; poți edita textul la pasul „Cine e”.';
+  };
+  $('#edLookPresets').onclick = e => {
+    const b = e.target.closest('[data-look]'); if(!b) return;
+    $('#edStil').value = b.dataset.look; crStyleSync();
+    const labels = {photo:'Fotografie realistă, lumină naturală și detalii credibile',anime:'Stil anime, linii curate și expresivitate ilustrată',illustration:'Ilustrație digitală, compoziție artistică și texturi picturale','3d':'Personaj 3D, materiale detaliate și iluminare cinematografică'};
+    const t = $('#edPrompt'); if(!t.value.trim()) t.value = labels[b.dataset.look];
+    $$('#edLookPresets button').forEach(x => x.classList.toggle('on', x === b)); $('#edPresetStatus').textContent = 'Stilul a fost selectat; generatorul existent îl va folosi.';
+  };
+  $('#edQuickFill').onclick = () => {
+    const missing = [];
+    if(!$('#edPersona').value.trim()) { $('#edPersona').value = 'Este un personaj adult, cu personalitate distinctă, preferințe și limite proprii. Răspunde natural, rămâne consecvent în rol și ține cont de contextul conversației.'; missing.push('personalitate de bază'); }
+    if(!$('#edGreet').value.trim()) { $('#edGreet').value = '*zâmbește și te privește cu căldură* Bună! Mă bucur să te văd. Cum îți merge ziua?'; missing.push('prima replică'); }
+    if(!$('#edSpeech').value.trim()) { $('#edSpeech').value = 'natural, expresiv și adaptat contextului'; missing.push('stil de vorbire'); }
+    $('#edPresetStatus').textContent = missing.length ? 'Am completat: ' + missing.join(', ') + '. Poți schimba fiecare câmp.' : 'Câmpurile esențiale sunt deja completate; nu am schimbat nimic.';
+    if(missing.length) toast('✨ Completare rapidă gata');
+  };
   // editor
   $('#edPhoto').onclick = () => $('#edFile').click();
   $('#edFile').onchange = e => { onPhotoPicked(e.target.files[0]); e.target.value = ''; };
