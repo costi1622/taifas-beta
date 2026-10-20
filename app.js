@@ -1,5 +1,5 @@
 window.__taifas = true;   // 8.20.1: semn pentru index.html că app.js s-a încărcat
-const APP_VER = '9.74';
+const APP_VER = '9.75';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -736,11 +736,13 @@ function nineDegradedNote(opt){
 }
 function idPrompt(c, shot, fr, R, fix, two){
   const phys = physFull(c, R && R.id) ? ` Permanent physical traits (exactly as in the reference): ${physFull(c, R && R.id)}.` : '';
+  const requestedBodyChange = /(?:bust|breasts?|chest|s[âa]nii?|ț[âa]țele)[^.!?]{0,45}(?:mai mare|larger|bigger|increase|mai mic|smaller|reduce|mai proeminent|more prominent)|(?:mai mare|larger|bigger|increase|mai mic|smaller|reduce|mai proeminent|more prominent)[^.!?]{0,45}(?:bust|breasts?|chest|s[âa]nii?|ț[âa]țele)/i.test(String(shot || ''));
+  const bodyChangePriority = requestedBodyChange ? ' USER-REQUESTED BODY CHANGE OVERRIDE: this scene explicitly requests a change to bust size. Apply the requested increase or decrease clearly to the bust only; the body reference is a baseline, not a constraint against this explicit change. Keep the face, age, hair, waist, hips and all other unrequested traits unchanged.' : ' Do not reduce a prominent bust, slim the torso, widen/narrow the waist, or otherwise idealize, enlarge, shrink or redesign the body.';
   const nx = two && R && R.extra ? R.extra.length : 0;
   const refs = two
     ? 'image 1 is a close-up of the face (the exact identity to keep: face shape, eyes, eyebrows, nose, lips, skin tone and skin texture), ' + (R && R.bodyFrom === 'intreaga' ? 'image 2 shows the same person\'s exact body: build, weight, bust size and shape, waist, belly, hips, arms and legs, plus hair and skin tone; reproduce that body exactly, but NOT its clothes, pose or background' : 'image 2 is the best available body reference: preserve the exact visible build and proportions, especially bust size and shape, shoulders, waist, hips and overall silhouette; do not shrink or idealize the body') + (nx ? `, image${nx > 1 ? 's 3 and 4 are' : ' 3 is'} the same face from other angles` : '')
     : 'image 1 is the same person (face and hair); image 2 is the body reference and defines the exact visible build and proportions, especially bust size and shape, shoulders, waist, hips, and overall silhouette';
-  return `${stilLead(c.stil)}${fr.p}. ${shot}.${fix ? ` Important corrections from the previous attempt: ${fix}.` : ''} IDENTITY LOCK — the reference images define one specific character, not a lookalike. Reproduce the same individual: preserve face shape, eye spacing and shape, eyebrows, nose, lips, jaw, apparent age, skin tone and texture, hairline, hair color, curl/strand texture and hairstyle. BODY IDENTITY LOCK — match the body reference, not a generic default body. Preserve the same visible body build and proportions, including the exact relative bust size and shape, shoulders, waist, hips, belly, arms and legs. Do not reduce a prominent bust, slim the torso, widen/narrow the waist, or otherwise idealize, enlarge, shrink or redesign the body. ${refs}.${phys} SCENE FLEXIBILITY — do not copy the reference photo's background, outfit, pose, expression, camera angle or framing. Those are allowed to change and must follow the current scene description above. Change only temporary details required by the scene; the character's identity and natural body proportions stay fixed. ${STIL_TAG[c.stil || 'photo']}`;
+  return `${stilLead(c.stil)}${fr.p}. ${shot}.${fix ? ` Important corrections from the previous attempt: ${fix}.` : ''} IDENTITY LOCK — the reference images define one specific character, not a lookalike. Reproduce the same individual: preserve face shape, eye spacing and shape, eyebrows, nose, lips, jaw, apparent age, skin tone and texture, hairline, hair color, curl/strand texture and hairstyle. BODY IDENTITY LOCK — match the body reference, not a generic default body. Preserve the same visible body build and proportions, including the exact relative bust size and shape, shoulders, waist, hips, belly, arms and legs. ${bodyChangePriority} ${refs}.${phys} SCENE FLEXIBILITY — do not copy the reference photo's background, outfit, pose, expression, camera angle or framing. Those are allowed to change and must follow the current scene description above. Change only temporary details required by the scene; the character's identity and natural body proportions stay fixed. ${STIL_TAG[c.stil || 'photo']}`;
 }
 // încadrarea scrisă explicit la început (altfel modelul copiază încadrarea referinței)
 function framingOf(shot){
@@ -914,9 +916,12 @@ async function creatorScene(c, shot, signal, fix, opt, full, id, fr){
       if(!bodyRef) bodyRef = await bodySquare(full, id && !id.none ? id : null);
     }catch(e){ bodyRef = null; }
   }
-  const bodyLock = exposure !== 'clothed'
-    ? ' BODY-PROPORTION PRIORITY — MATCH THE PROFILE SCALE, NOT AVERAGE ANATOMY: the body reference is the source of truth for this character’s bust size. Match its apparent volume, forward projection, width, fullness and lower contour relative to the ribcage, shoulders and waist. Preserve the same distinctly large or very large scale when shown in the reference; do not downsize, flatten, lift, narrow, minimize or normalize it. Make that established volume clearly readable in the requested image through accurate anatomy, unobstructed visibility and scene-appropriate framing—not by inventing a larger body than the reference. NATURAL HUMAN ANATOMY: believable tissue weight and gravity, naturally varied contours, gradual transition into the chest wall, subtle left-right asymmetry, and shape that responds to posture and camera perspective. Avoid rigid spherical forms, hard edges, mirrored symmetry or an unnaturally fixed high position. Realism must not be used as a reason to reduce the reference size. Image 2 defines body anatomy and proportions only, never clothing, pose, camera framing or background.'
-    : '';
+  const bustChange = /(?:bust|breasts?|chest|s[âa]nii?|ț[âa]țele)[^.!?]{0,45}(?:mai mare|larger|bigger|increase|mai mic|smaller|reduce|mai proeminent|more prominent)|(?:mai mare|larger|bigger|increase|mai mic|smaller|reduce|mai proeminent|more prominent)[^.!?]{0,45}(?:bust|breasts?|chest|s[âa]nii?|ț[âa]țele)/i.test(String(shot || ''));
+  const bodyLock = bustChange
+    ? ' USER-REQUESTED BODY CHANGE OVERRIDE — the current request explicitly changes the bust size. Apply that change clearly and visibly to the bust only, following the requested direction; the current body reference is the starting point, not a constraint against this requested change. Keep the same face, age, hair, skin, body build, waist, hips, pose and scene unless separately requested. Do not silently ignore the requested bust change. Preserve believable anatomy and natural gravity. Image 2 defines identity and baseline anatomy, but the explicitly requested bust-size change takes priority for this feature only; do not copy its clothing, pose, framing or background.'
+    : exposure !== 'clothed'
+      ? ' BODY-PROPORTION PRIORITY — MATCH THE PROFILE SCALE, NOT AVERAGE ANATOMY: the body reference is the source of truth for this character’s bust size. Match its apparent volume, forward projection, width, fullness and lower contour relative to the ribcage, shoulders and waist. Preserve the same distinctly large or very large scale when shown in the reference; do not downsize, flatten, lift, narrow, minimize or normalize it. Make that established volume clearly readable in the requested image through accurate anatomy, unobstructed visibility and scene-appropriate framing—not by inventing a larger body than the reference. NATURAL HUMAN ANATOMY: believable tissue weight and gravity, naturally varied contours, gradual transition into the chest wall, subtle left-right asymmetry, and shape that responds to posture and camera perspective. Avoid rigid spherical forms, hard edges, mirrored symmetry or an unnaturally fixed high position. Realism must not be used as a reason to reduce the reference size. Image 2 defines body anatomy and proportions only, never clothing, pose, camera framing or background.'
+      : '';
   const faceInstruction = bodyRef
     ? `Image 1 is the exact face reference for ${c.name}; preserve the same facial identity. Image 2 is the body/proportion reference for ${c.name}; preserve the same build and silhouette, especially bust size and shape, but do not copy its clothing, pose, framing or background.`
     : 'The reference image is a close-up of this person’s face only: keep exactly this face and identity (face shape, eyes, eyebrows, nose, lips, skin tone and texture, age); everything else comes from this text, not from the reference.';
@@ -9822,6 +9827,11 @@ function bind(){
   $('#gRbX').onclick = () => { gReply = null; $('#gReplyBar').hidden = true; };
   // conversație
   $('#btnPolish').onclick = polishSheet;
+  const iq = $('#intimacyQuick'), iqBtn = $('#btnIntimacy');
+  const closeIq = () => { iq.hidden = true; iqBtn.setAttribute('aria-expanded', 'false'); };
+  iqBtn.onclick = () => { const open = iq.hidden; iq.hidden = !open; iqBtn.setAttribute('aria-expanded', String(open)); if(open) $('#iqClose').focus({preventScroll:true}); };
+  $('#iqClose').onclick = closeIq;
+  iq.onclick = e => { const b = e.target.closest('[data-intimacy]'); if(!b) return; if(busy){ toast('Așteaptă să termine răspunsul curent.'); return; } $('#inp').value = b.dataset.intimacy || ''; closeIq(); autoSize(); updateComposer(); $('#composer').requestSubmit(); };
   $('#composer').onsubmit = e => { e.preventDefault(); if(busy && live && live.ch === chat) busy.abort(); else send(); };
   $('#inp').addEventListener('input', () => { autoSize(); updateComposer(); });
   $('#inp').addEventListener('keydown', e => { if(e.key === 'Enter' && !e.shiftKey && !matchMedia('(pointer:coarse)').matches){ e.preventDefault(); $('#composer').requestSubmit(); } });

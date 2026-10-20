@@ -136,6 +136,15 @@ button{cursor:pointer;border:0;background:none}
 @keyframes bl{0%,60%,100%{opacity:.25;transform:translateY(0)}30%{opacity:1;transform:translateY(-3px)}}
 .spin{display:inline-block;width:1em;height:1em;border:2px solid #ffffff40;border-top-color:var(--acc);border-radius:50%;animation:sp .8s linear infinite;vertical-align:-2px}
 @keyframes sp{to{transform:rotate(360deg)}}
+#btnIntimacy{width:44px;height:44px;border-radius:50%;background:var(--glass);border:1px solid color-mix(in srgb,var(--acc) 45%,var(--hair));color:var(--tx);font-size:1.15rem;display:grid;place-items:center;flex:none;margin-bottom:2px}
+#btnIntimacy[aria-expanded="true"]{background:var(--grad);color:#fff}
+#intimacyQuick{padding:10px 12px 12px;margin:0 10px 4px;border:1px solid var(--hair);border-radius:18px;background:var(--glass);backdrop-filter:blur(16px);max-height:38vh;overflow:auto;flex:none}
+.iq-head{display:flex;align-items:center;justify-content:space-between;font-size:.95rem;margin-bottom:8px}.iq-head button{width:30px;height:30px;border-radius:50%;background:var(--bg2);color:var(--tx)}
+.iq-label{font-size:.75rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--tx2);margin:8px 0 6px}
+.iq-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+.iq-grid button{padding:10px 9px;border-radius:12px;border:1px solid var(--hair);background:var(--bg2);color:var(--tx);font-size:.84rem;text-align:left;line-height:1.25;min-height:40px}
+.iq-grid button:active{transform:scale(.98);border-color:var(--acc)}.iq-note{font-size:.72rem;line-height:1.35;color:var(--tx3);margin:9px 0 0}
+@media(min-width:640px){.iq-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
 #composer{display:flex;align-items:flex-end;gap:6px;padding:8px 10px calc(8px + var(--safe-b));background:linear-gradient(#0e0c1200,#0e0c12 30%);position:relative;z-index:2;flex:none}
 #inp{flex:1;resize:none;max-height:140px;min-height:44px;padding:11px 16px;border-radius:22px;border:1px solid var(--line);background:var(--bg2);outline:none;line-height:1.35}
 #inp:focus{border-color:#5a4a70}
@@ -622,7 +631,7 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
 
 /* 3.3: câmpul de scris + antet */
 #composer{gap:5px;padding-left:8px;padding-right:8px}
-#btnPlus,#btnSugg,#btnMic{width:40px;height:40px;margin-bottom:2px}
+#btnPlus,#btnSugg,#btnMic,#btnIntimacy{width:40px;height:40px;margin-bottom:2px}
 #btnSend{width:44px;height:44px}
 #inp{min-width:0;min-height:44px;padding:11px 14px}
 #inp::placeholder{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--tx3)}
@@ -1698,7 +1707,26 @@ details.sdanger>summary{color:var(--err)}
   <div id="replyBar" hidden><div><b id="rbName"></b><span id="rbTxt"></span></div><button type="button" id="rbX" aria-label="Anulează">✕</button></div>
   <div id="typingBar" hidden><span id="tbAv"></span><span id="tbTxt"></span></div>
   <div id="sugg"></div>
+  <section id="intimacyQuick" hidden aria-label="Acțiuni rapide de apropiere">
+    <div class="iq-head"><b>💗 Apropiere & fotografii</b><button type="button" id="iqClose" aria-label="Închide">✕</button></div>
+    <div class="iq-label">Roleplay</div>
+    <div class="iq-grid">
+      <button type="button" data-intimacy="*Mă apropii de tine și te îmbrățișez tandru.* Vreau să petrecem un moment doar al nostru." >🤗 Îmbrățișează-mă</button>
+      <button type="button" data-intimacy="*Îți zâmbesc cu afecțiune și mă apropii pentru un sărut romantic, dacă și tu îți dorești.*">💋 Sărut romantic</button>
+      <button type="button" data-intimacy="Hai să ne cuibărim împreună și să ne alintăm puțin." >🫶 Alintă-mă</button>
+      <button type="button" data-intimacy="Vreau să inițiezi tu un moment romantic și să-mi arăți ce simți, în felul tău." >❤️ Inițiază romantismul</button>
+    </div>
+    <div class="iq-label">Cere o fotografie</div>
+    <div class="iq-grid">
+      <button type="button" data-intimacy="Trimite-mi o fotografie senzuală, cu aceeași identitate și proporții ca în fotografia ta de profil, într-o ținută elegantă." >✨ Senzuală</button>
+      <button type="button" data-intimacy="Trimite-mi o fotografie în lenjerie, cu aceeași identitate și aceleași proporții ca în fotografia ta de profil." >👙 În lenjerie</button>
+      <button type="button" data-intimacy="Trimite-mi o fotografie topless, cu sânii neacoperiți, păstrând identitatea și proporțiile corpului din referință. Doar pentru personaj adult și dacă furnizorul permite." >📸 Topless (adult)</button>
+      <button type="button" data-intimacy="Trimite-mi o fotografie artistică de nuditate non-explicită, păstrând identitatea și proporțiile corpului din referință. Doar pentru personaj adult și dacă furnizorul permite." >🖼️ Nuditate artistică</button>
+    </div>
+    <p class="iq-note">Acțiunile rapide completează mesajul și îl trimit în chat. Generarea fotografiilor depinde de furnizor și de setările personajului.</p>
+  </section>
   <form id="composer" autocomplete="off">
+    <button type="button" id="btnIntimacy" aria-label="Acțiuni rapide de apropiere" aria-expanded="false">💗</button>
     <button type="button" id="btnPlus" aria-label="Poze"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
     <input type="file" id="fGal" accept="image/*" hidden>
     <input type="file" id="fCam" accept="image/*" capture="environment" hidden>
