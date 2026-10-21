@@ -442,6 +442,7 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
 .chathead .gstack .av{width:34px;height:34px}
 .gstack.big{justify-content:center;margin-bottom:10px}.gstack.big .av{width:64px;height:64px;margin-left:-16px}
 .gtyp{display:block;margin:2px 0 0 38px;color:var(--tx3);font-size:.75rem}
+.gmrow{align-self:center;display:flex;gap:8px;flex-wrap:wrap;justify-content:center}.gregen{opacity:.4;transition:opacity .2s}
 .gmore{align-self:center;padding:7px 14px;border-radius:99px;background:var(--bg2);border:1px solid var(--line);color:var(--tx2);font-size:.85rem}
 #gReplyBar{display:flex;align-items:center;gap:8px;margin:0 12px 6px;padding:8px 12px;border-left:3px solid var(--acc);border-radius:10px;background:var(--bg2);flex:none}#gReplyBar[hidden]{display:none}
 #gReplyBar div{flex:1;min-width:0;font-size:.82rem}#gReplyBar b{display:block;color:var(--acc);font-size:.76rem}#gReplyBar span{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--tx2)}
@@ -1651,6 +1652,7 @@ details.sdanger>summary{color:var(--err)}
 .crch button.on{background:var(--grad);border-color:transparent;color:#fff}
 /* 9.27: statusul din antetul chatului se vede întreg, pe rânduri, nu tăiat cu „…” */
 .chathead small .s1,.chathead small .s2{white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere}
+.shgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:8px 0}.shgrid figure{margin:0;min-width:0}.shgrid img{width:100%;aspect-ratio:3/4;object-fit:cover;border-radius:10px;display:block;background:var(--bg2)}.shgrid figcaption{font-size:.7rem;color:var(--tx3);text-align:center;margin-top:3px;line-height:1.3}
 </style>
 </head>
 <body>
@@ -2023,6 +2025,15 @@ details.sdanger>summary{color:var(--err)}
             <label style="margin-top:10px">Identitatea</label>
             <div class="seg" id="stIdBoost"><button data-v="on">🎯 Maximă</button><button data-v="off">Simplă</button></div>
             <p class="hint">Maximă: 3 variante, telefonul o păstrează pe cea cu fața cea mai apropiată de poza de profil (încă 3 dacă niciuna nu seamănă), apoi fața e retușată cu același model și rămâne doar dacă iese mai aproape. ~4 imagini pe poză. Simplă: o singură imagine.</p>
+            <label style="margin-top:10px">🧩 Fișa de identitate</label>
+            <div class="seg" id="stIdSheet"><button data-v="on">Pornită</button><button data-v="off">Oprită</button></div>
+            <p class="hint">4 unghiuri ale feței (¾ stânga, ¾ dreapta, profil, zâmbet), făcute o dată din poza de profil și verificate; fiecare poză primește unghiurile potrivite scenei. ~4–8 imagini, o singură dată pe poză de profil.</p>
+            <label style="margin-top:10px">✏️ Schițe, apoi poza mare</label>
+            <div class="seg" id="stDrafts"><button data-v="on">Pornite</button><button data-v="off">Oprite</button></div>
+            <p class="hint">Cu identitate maximă pe Runware: 4 schițe mai mici în loc de 3 poze mari; telefonul o alege pe cea mai apropiată (față, siluetă, cerere) și doar ea e refăcută la mărime întreagă.</p>
+            <label style="margin-top:10px">🩹 Reparare doar unde e greșit</label>
+            <div class="seg" id="stLocalFix"><button data-v="on">Pornită</button><button data-v="off">Oprită</button></div>
+            <p class="hint">Când scena e bună și doar fața sau părul nu se potrivesc, se refac numai acolo, nu toată poza. Rămâne doar dacă iese mai bine.</p>
             <label style="margin-top:10px">Plafon zilnic Runware</label>
             <div class="seg" id="stRwCap"><button data-v="0.25">$0,25</button><button data-v="0.5">$0,50</button><button data-v="1">$1</button><button data-v="none">Fără</button></div>
             <div class="neur" id="stRwDay" style="margin-top:8px"></div>
