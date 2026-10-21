@@ -1126,7 +1126,9 @@ details summary{cursor:pointer;color:var(--tx2);font-size:.88rem;font-weight:600
 .callv .cvid img.on{opacity:1}
 @keyframes handheld{0%{transform:scale(1.06) translate(0,0) rotate(0)}25%{transform:scale(1.065) translate(-.6%,.4%) rotate(-.25deg)}50%{transform:scale(1.07) translate(.4%,-.3%) rotate(.2deg)}75%{transform:scale(1.062) translate(-.3%,-.5%) rotate(-.1deg)}100%{transform:scale(1.068) translate(.5%,.3%) rotate(.25deg)}}
 .callv .cvid.w img.on{transform:scale(1.085) translateY(-4px)}
-.callv .cgrain{position:absolute;inset:0;opacity:.09;mix-blend-mode:overlay;background-image:radial-gradient(#fff 1px,transparent 1px);background-size:3px 3px;animation:grain .45s steps(4) infinite;z-index:1}
+.callv .cnet{position:absolute;left:50%;top:calc(64px + var(--safe-t));transform:translate(-50%,-6px);padding:5px 12px;border-radius:99px;background:#000a;color:#fff;font-size:.78rem;font-weight:600;opacity:0;transition:opacity .25s,transform .25s;z-index:6;pointer-events:none}
+.callv .cnet.on{opacity:1;transform:translate(-50%,0)}
+.callv .cgrain{position:absolute;inset:0;opacity:var(--gr,.09);mix-blend-mode:overlay;background-image:radial-gradient(#fff 1px,transparent 1px);background-size:3px 3px;animation:grain .45s steps(4) infinite;z-index:1}
 .callv .cvid::after{z-index:2;background:radial-gradient(120% 90% at 50% 40%,transparent 55%,#0008 100%),linear-gradient(#000a 0%,#0000 20%,#0000 58%,#000d 100%)}
 .callv.vid:not(.live) .cvid img{filter:blur(18px) brightness(.7)}
 .callv.vid.live .cvid img{animation:handheld 11s ease-in-out infinite alternate,focusin 1.2s ease-out}
@@ -2089,6 +2091,8 @@ details.sdanger>summary{color:var(--err)}
       <div class="seg" id="stCacheTtl"><button data-v="1h">1 oră</button><button data-v="auto">Rafale</button><button data-v="5m">5 min</button></div>
       <label>Câte mesaje recente primește personajul (restul e în rezumat)</label>
       <div class="seg" id="stCtx"><button data-v="20">Economic · 20</button><button data-v="30">Normal · 30</button><button data-v="60">Mare · 60</button></div>
+      <label>🧠 După o pauză: ce e mai vechi intră în rezumat și rămân ultimele 12 mesaje (după pauză istoricul se rescrie oricum; așa costă cam jumătate)</label>
+      <div class="seg" id="stCtxCompact"><button data-v="on">Pornit</button><button data-v="off">Oprit</button></div>
       <label>Butonul ↻ de sub răspuns</label>
       <div class="seg" id="stRegen"><button data-v="off">O variantă nouă</button><button data-v="on">🎰 +2 variante la cerere</button></div>
       <label>⌨️ Ritm real de scris: „scrie…” cât ar dura mesajul pe telefon, apoi apare întreg</label>
@@ -2119,6 +2123,18 @@ details.sdanger>summary{color:var(--err)}
       <div class="seg" id="stCallLight"><button data-v="on">Pornit</button><button data-v="off">Oprit</button></div>
       <label>👁️ Observă dacă ești acolo (ieși din cadru, te uiți în altă parte, întuneric), doar în telefon</label>
       <div class="seg" id="stCallPres"><button data-v="on">Pornit</button><button data-v="off">Oprit</button></div>
+      <label>🎭 Viața feței în apel: capul se întoarce puțin, micro-expresii, se uită în jur, oftează, înghite, cască noaptea</label>
+      <div class="seg" id="stCallLife"><button data-v="on">Pornit</button><button data-v="off">Oprit</button></div>
+      <label>👄 Gura și clipitul din cadre reale ale ei (o dată pe imagine, 4 poze pe Runware, ~1–2 ¢; cel mult 3 imagini noi pe zi)</label>
+      <div class="seg" id="stCallSprites"><button data-v="on">Pornit</button><button data-v="off">Oprit</button></div>
+      <label>📷 Camera ca a unui telefon (obiectiv larg de aproape, focusul care caută, granulație noaptea)</label>
+      <div class="seg" id="stCallCam"><button data-v="on">Pornit</button><button data-v="off">Oprit</button></div>
+      <label>📶 Din când în când, o secundă de semnal slab (imaginea îngheață, pixeli)</label>
+      <div class="seg" id="stCallGlitch"><button data-v="on">Pornit</button><button data-v="off">Oprit</button></div>
+      <label>🌿 Fundal viu (vânt, umbre de ploaie, cineva care trece, faruri noaptea, lumină printre frunze)</label>
+      <div class="seg" id="stCallBg"><button data-v="on">Pornit</button><button data-v="off">Oprit</button></div>
+      <label>😊 Îți vede expresia (zâmbet, râs, surpriză) și răspunde la ea, doar în telefon</label>
+      <div class="seg" id="stCallMirror"><button data-v="on">Pornit</button><button data-v="off">Oprit</button></div>
       <p class="hint" id="ttsHint">Vocea telefonului, gratuită. Tonul (mai grav / mai subțire) se alege din profilul fiecărui personaj → 🎙️ Vocea. Apelul video se face tot în telefon, fără cost: sunetul de fundal, adâncimea, lumina și „te vede dacă ești acolo” rulează în telefon, fără niciun serviciu plătit.</p>
       <div class="btns"><button class="btn sm" id="stTtsTest">🔊 Ascultă un test</button></div>
       <h3 class="sh">🌱 Viața personajelor</h3>
