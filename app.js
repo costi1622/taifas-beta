@@ -1,5 +1,5 @@
 window.__taifas = true;   // 8.20.1: semn pentru index.html că app.js s-a încărcat
-const APP_VER = '9.83';
+const APP_VER = '9.84';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -38,7 +38,7 @@ const DEF = {
   imgProv:'none',
   wkBase:'', wkTok:'', wkModel:'eco', wkSize:'768x1024',
   sugg:'off', pro:'on', feed:'text', smart:'echilibrat', idSheet:'on', drafts:'on', localFix:'on', callFill:'on', lenAuto:'on', cacheTtl:'1h', ctxCompact:'on', callLife:'on', callCam:'on', callGlitch:'on', callBg:'on', callSprites:'on', callMirror:'on', fx:'on', regen3:'on', voice:'tap', tts:'tel', cfPlan:'free', cfCap:'free', theme:'dark', vmsg:'rar', jrn:'on', aux:'on', ctxN:'30',
-  vault:'off', vaultHas:null, faceFix:'on', bodyFix:'on', bestOf:'3', autoModel:'chat', callFace:'on', handCheck:'off', crHands:'on', crAngles:'on', callAmb:'on', callBack:'on', callDepth:'on', callLight:'on', callPres:'on', autoRefs:'on', autoFull:'on', imgRoute:'mix', cfFallback:'off', photoEngine:'creator', photoModel:'klein', people:'on', typeReal:'on', chatMode:'rp', rpStyle:'open', imgCheck:'on', story:'on', sky:'on', social:'on', userBday:'', lock:'off', pushOn:false, bkEvery:'week', bkLast:0, userPhoto:'', userPhys:'', userBox:null, wkChat:'ancorat', wkRef:'auto', rw:'off', rwKey:'', rwCap:'0.5', rwAvg:0, idBoost:'on', spont:'rar', sv:34, imgCost:'', pIn:'', pOut:''
+  vault:'off', vaultHas:null, faceFix:'on', bodyFix:'on', bestOf:'3', autoModel:'chat', callFace:'on', handCheck:'off', crHands:'on', crAngles:'off', callAmb:'on', callBack:'on', callDepth:'on', callLight:'on', callPres:'on', autoRefs:'on', autoFull:'on', imgRoute:'mix', cfFallback:'off', photoEngine:'creator', photoModel:'klein', people:'on', typeReal:'on', chatMode:'rp', rpStyle:'open', imgCheck:'on', story:'on', sky:'on', social:'on', userBday:'', lock:'off', pushOn:false, bkEvery:'week', bkLast:0, userPhoto:'', userPhys:'', userBox:null, wkChat:'ancorat', wkRef:'auto', rw:'off', rwKey:'', rwCap:'0.5', rwAvg:0, idBoost:'on', spont:'rar', sv:34, imgCost:'', pIn:'', pOut:''
 };
 let S = {...DEF};
 let chars = [];            // [{id,name,tag,photo,aspect,look,stil,persona,speech,greet,created,lastAt,last}]
@@ -1021,6 +1021,8 @@ async function scenePhoto(c, shot, signal, fix, opt = {}){
    (2) FIȘA DE IDENTITATE: din poza de profil se fac o dată 4 unghiuri ale aceleiași fețe (trei-sferturi stânga și dreapta,
        profil, zâmbet), fiecare verificată în telefon că e aceeași față. La fiecare poză, generatorul și retușul primesc cele
        2 unghiuri potrivite scenei (profil când se uită în altă parte, zâmbetul când râde). Reperele puse de tine au prioritate. */
+// 9.84: valorile fixe pentru fidelitate (alegerile vechi, mai slabe, au ieșit din Setări și din creator)
+const FIDEL_FIX = {wkChat:'ancorat', idBoost:'on', idSheet:'on', drafts:'on', localFix:'on', photoEngine:'creator', imgCheck:'on', autoRefs:'on', autoFull:'on', crHands:'on', crAngles:'off'};
 const SHEET_VIEWS = {
   l34:'a three-quarter view: the head turned about 40 degrees to the person\'s left, eyes towards the camera',
   r34:'a three-quarter view: the head turned about 40 degrees to the person\'s right, eyes towards the camera',
@@ -8986,7 +8988,6 @@ function crInit(c){
   ed.cr = {frame:(c && c.frame) || 'full', vars:[], chosen:-1, run:0, busy:false, z:Z, en:(c && c.appEn) || '', enFor:'', manual:false, parts:null, partsFor:''};
   $('#edPrompt').value = (c && c.appPrompt) || ''; $('#edPromptEn').value = ed.cr.en;
   if(c && c.appEn){ ed.cr.enFor = crKey(); ed.cr.manual = !!c.appEnManual; }
-  $('#edAutoAng').checked = S.crAngles !== 'off';
   $('#edZonesWrap').open = crHasZ(Z);
   crDrawFrame(); crStyleSync(); crDrawZones(); crZoneChanged(); crRender(); crBusyUI(false);
   $('#edCrea').hidden = S.imgProv === 'none'; $('#edCreaOff').hidden = S.imgProv !== 'none';
@@ -9615,7 +9616,8 @@ Răspunde STRICT cu JSON:
     $('#edSpeech').value = t('speech'); $('#edGreet').value = t('greet');
     $('#edLook').value = String(j.look || '').trim(); $('#edStil').value = stil;
     drawNames([t('name'), ...(Array.isArray(j.nume) ? j.nume : []).map(x => String(x).trim())].filter(Boolean).slice(0, 4));
-    if(S.imgProv !== 'none'){ await runPortrait(); }
+    if(S.imgProv !== 'none'){   // 9.84: portretul prin creator (4 variante, verificate), nu din generatorul vechi cu o singură poză
+      $('#edPrompt').value = t('aspect'); $('#edStil').value = stil; crStyleSync(); edGo(1); crGenerate(); }
     else setEdStatus('✓ Personaj inventat. Pornește pozele din Setări ca să-i generezi și portretul.', 'ok');
     if(navigator.vibrate) try{ navigator.vibrate(15); }catch(_){}
   }catch(e){ setEdStatus('N-a mers: ' + esc(e.message), 'err'); }
@@ -9742,7 +9744,8 @@ async function saveEditorNow(){
   if(ed.photoBlob){ const old = c.photo; c.photo = await saveImg(ed.photoBlob); if(old) await delPhotoIfUnused(c, old); c.aiPortrait = !!ed.aiPortrait;
     // 9.26: avatarele vii și unghiurile făcute automat erau ale feței vechi: se scot (altfel avatarul și pozele din chat arătau altă persoană)
     if(old && c.avs){ for(const k of Object.values(c.avs)) await delImg(k).catch(() => {}); delete c.avs; c.avLive = false; }
-    if(old && c.refsAuto && !(ed.angles && ed.angles.length)){ for(const k of c.refs || []) await delImg(k).catch(() => {}); c.refs = []; delete c.refsAuto; c.refBoxes = {}; } }
+    if(old && c.refsAuto && !(ed.angles && ed.angles.length)){ for(const k of c.refs || []) await delImg(k).catch(() => {}); c.refs = []; delete c.refsAuto; c.refBoxes = {}; }
+    if(old && c.sheet){ for(const x of c.sheet.v || []) await delImg(x.k).catch(() => {}); delete c.sheet; delete c.sheetTry; } }   // 9.84: fișa feței vechi
   await crSave(c);   // 9.24: poza întreagă, corpul, unghiurile, descrierea ta
   const oldGreet = c.greet;
   Object.assign(c, {name, tag:$('#edTag').value.trim(), aspect:$('#edAspect').value.trim(), persona:$('#edPersona').value.trim(),
@@ -9757,6 +9760,8 @@ async function saveEditorNow(){
     if(ch && ch.msgs.length <= 1){ ch.msgs = c.greet ? [greetMsg(c)] : []; await DB.set(key, ch); }
   }
   const fromChat = ed.fromChat; ed = null;
+  // 9.84: fidelitatea se pregătește de la creare: poza întreagă (dacă lipsește), apoi fișa de identitate, în fundal
+  if(c.photo && (c.stil || 'photo') === 'photo' && S.imgProv === 'worker') setTimeout(async () => { const cc = charById(c.id); if(!cc) return; await autoFull(cc).catch(() => {}); if(await sheetGen(cc).catch(() => false)) toast(`🧩 ${cc.name} are acum fișa de identitate (4 unghiuri ale feței), pentru poze mai fidele.`, 4000); }, 2500);
   if(fromChat){ history.back(); return; }      // popstate redeschide conversația, actualizată
   history.replaceState({v:'vChat'}, '');
   openChat(c.id, false);
@@ -9790,7 +9795,7 @@ const aiReady = () => hasKey('anthropic');
 const FIELDS = {stKey:'key', stModel:'model', stUser:'userName', stAbout:'userAbout', stBday:'userBday',
   stWkBase:'wkBase', stWkTok:'wkTok', stWkModel:'wkModel', stWkSize:'wkSize',
   stPin:'pIn', stPout:'pOut', stVkBase:'wkBase', stVkTok:'wkTok', stRwKey:'rwKey'};
-const SEGS = {stCallFill:'callFill', stRw:'rw', stRwCap:'rwCap', stIdBoost:'idBoost', stRegen:'regen3', stFx:'fx', stFeed:'feed', stStory:'story', stSky:'sky', stSocial:'social', stCfCap:'cfCap', stCfPlan:'cfPlan', stAux:'aux', stCtx:'ctxN', stVmsg:'vmsg', stJrn:'jrn', stTheme:'theme', stLen:'len', stFont:'font', stImg:'imgProv', stSugg:'sugg', stPro:'pro', stVoice:'voice', stSpont:'spont', stImgCheck:'imgCheck', stBodyFix:'bodyFix', stWkChat:'wkChat', stBkEvery:'bkEvery', stVault:'vault', stCallFace:'callFace', stCallAmb:'callAmb', stCallBack:'callBack', stCallDepth:'callDepth', stCallLight:'callLight', stCallPres:'callPres', stTypeReal:'typeReal', stAutoRefs:'autoRefs', stAutoFull:'autoFull', stImgRoute:'imgRoute', stCfFallback:'cfFallback', stPhotoEngine:'photoEngine', stPhotoModel:'photoModel', stPeople:'people', stChatMode:'chatMode', stRpStyle:'rpStyle', stSmart:'smart', stLenAuto:'lenAuto', stCacheTtl:'cacheTtl', stCtxCompact:'ctxCompact', stCallLife:'callLife', stCallCam:'callCam', stCallGlitch:'callGlitch', stCallBg:'callBg', stCallSprites:'callSprites', stCallMirror:'callMirror', stIdSheet:'idSheet', stDrafts:'drafts', stLocalFix:'localFix'};
+const SEGS = {stCallFill:'callFill', stRw:'rw', stRwCap:'rwCap', stRegen:'regen3', stFx:'fx', stFeed:'feed', stStory:'story', stSky:'sky', stSocial:'social', stCfCap:'cfCap', stCfPlan:'cfPlan', stAux:'aux', stCtx:'ctxN', stVmsg:'vmsg', stJrn:'jrn', stTheme:'theme', stLen:'len', stFont:'font', stImg:'imgProv', stSugg:'sugg', stPro:'pro', stVoice:'voice', stSpont:'spont', stBkEvery:'bkEvery', stVault:'vault', stCallFace:'callFace', stCallAmb:'callAmb', stCallBack:'callBack', stCallDepth:'callDepth', stCallLight:'callLight', stCallPres:'callPres', stTypeReal:'typeReal', stImgRoute:'imgRoute', stCfFallback:'cfFallback', stPhotoModel:'photoModel', stPeople:'people', stChatMode:'chatMode', stRpStyle:'rpStyle', stSmart:'smart', stLenAuto:'lenAuto', stCacheTtl:'cacheTtl', stCtxCompact:'ctxCompact', stCallLife:'callLife', stCallCam:'callCam', stCallGlitch:'callGlitch', stCallBg:'callBg', stCallSprites:'callSprites', stCallMirror:'callMirror'};
 let setPanel = null, setPanelPushed = false;
 /* 8.7: actualizare din aplicație. Codul vine oricum din rețea la pornire;
    asta prinde versiunile apărute cât aplicația a stat deschisă și forțează reîncărcarea curată. */
@@ -9883,13 +9888,13 @@ function renderSetSummary(){
 }
 /* ═════════ ⚙️ 9.22 Setări noi: bord de stare, verificare, mod rapid, căutare ═════════ */
 const MODES = {
-  eco:{ctxN:'20', regen3:'off', idBoost:'off', imgCheck:'off', rwCap:'0.25'},
-  bal:{ctxN:'30', regen3:'on', idBoost:'on', imgCheck:'on', rwCap:'0.5'},
-  max:{ctxN:'60', regen3:'on', idBoost:'on', imgCheck:'on', rwCap:'1'}};
+  eco:{ctxN:'20', regen3:'off', rwCap:'0.25'},
+  bal:{ctxN:'30', regen3:'on', rwCap:'0.5'},
+  max:{ctxN:'60', regen3:'on', rwCap:'1'}};   // 9.84: fidelitatea pozelor nu mai depinde de mod (e mereu la maxim)
 const MODE_TXT = {
-  eco:'Personajul primește ultimele 20 de mesaje · ↻ face o variantă · o imagine pe poză, fără verificare · Runware max $0,25/zi.',
-  bal:'Ultimele 30 de mesaje · ↻ cu 3 variante · identitate maximă și verificare la poze · Runware max $0,50/zi.',
-  max:'Ultimele 60 de mesaje (personajul ține minte mai mult) · ↻ cu 3 variante · identitate maximă și verificare · Runware max $1/zi.'};
+  eco:'Personajul primește ultimele 20 de mesaje · ↻ face o variantă · Runware max $0,25/zi (pozele rămân la fidelitate maximă).',
+  bal:'Ultimele 30 de mesaje · ↻ cu 3 variante · Runware max $0,50/zi.',
+  max:'Ultimele 60 de mesaje (personajul ține minte mai mult) · ↻ cu 3 variante · Runware max $1/zi.'};
 const MODE_NAME = {eco:'🌱 Economic', bal:'⚖️ Echilibrat', max:'💎 Maxim'};
 const modeNow = () => Object.keys(MODES).find(k => Object.entries(MODES[k]).every(([kk, v]) => String(S[kk]) === v)) || '';
 function drawMode(){
@@ -10127,7 +10132,7 @@ function drawFixHint(){
 function drawChatHint(){
   const el = $('#stWkChatHint'); if(!el) return;
   const e = neurPerPhoto('eco'), f = neurPerPhoto('ancorat');
-  if(S.wkChat === 'ancorat' && S.rw === 'on'){ el.innerHTML = `9B ține fața mult mai bine. Se face pe Runware (~${usd4(rwPer())} pe imagine, fără neuroni). Stickerele și avatarul rămân pe Cloudflare.`; return; }
+  if(S.rw === 'on'){ el.innerHTML = `Pozele din chat și din creator se fac mereu cu FLUX.2 klein 9B, pe Runware (~${usd4(rwPer())} pe imagine, fără neuroni)${S.imgRoute === 'rw' ? '' : '; stickerele și avatarul rămân pe Cloudflare'}.`; return; }
   el.innerHTML = S.wkChat === 'ancorat'
     ? `9B ține fața mult mai bine. ~${Math.round(f).toLocaleString('ro-RO')} neuroni pe poză: cam ${Math.floor(10000 / f)} poze pe zi în cota gratuită, apoi ~${usd(f * NEUR_USD)} pe poză (limita zilnică din Setări rămâne în vigoare). Stickerele, avatarul și statusurile rămân pe modelul de mai jos.`
     : `Eco: ~${Math.round(e)} neuroni pe poză. Împreună cu variantele multiple și retușul feței, în testele pe personajul tău a ieșit mai asemănător decât 9B (~${Math.round(f).toLocaleString('ro-RO')} neuroni).`;
@@ -10467,7 +10472,7 @@ function bind(){
   $('#edAdjChips').onclick = e => { const b = e.target.closest('[data-adj]'); if(!b) return; const t = $('#edAdjTxt'); t.value = t.value.trim() ? t.value.trim() + ', ' + b.dataset.adj : b.dataset.adj; t.focus(); };
   $('#edAdjGo').onclick = crAdjust;
   $('#edOwnRead').onclick = () => crReadPhoto(false); $('#edOwnAdj').onclick = ownAdjust;   // 9.34
-  $('#edAutoAng').onchange = e => { S.crAngles = e.target.checked ? 'on' : 'off'; saveSettings(); if(e.target.checked && ed && ed.cr && ed.cr.chosen >= 0 && !ed.angles && !ed.cr.busy) crAngles(); };
+
   $('#edFullView').onclick = () => { if(ed && ed.id) viewFull(charById(ed.id)); };
   $('#edPromptEn').addEventListener('input', () => { if(!ed || !ed.cr) return; ed.cr.manual = !!$('#edPromptEn').value.trim(); ed.cr.enFor = crKey(); });   // 9.26: îl poți scrie tu
   $('#edNameGen').onclick = runNames;
@@ -10513,7 +10518,7 @@ function bind(){
   $('#stCardImp').onclick = () => $('#stCardFile').click();
   $('#stCardFile').onchange = e => { if(e.target.files[0]) importCard(e.target.files[0]); e.target.value = ''; };
   $('#stImgTest').onclick = testImages;
-  $('#stRefTest').onclick = refTest;
+  { const rt = $('#stRefTest'); if(rt) rt.onclick = refTest; }   // 9.84: comparația eco / 9B a ieșit din Setări
   $('#stRwTest').onclick = rwTest;
   $('#stImport').onclick = () => $('#stImpFile').click();
   $('#stImpFile').onchange = e => { if(e.target.files[0]) importAll(e.target.files[0]); e.target.value = ''; };
@@ -10580,7 +10585,9 @@ async function init(){
   if((S.sv || 0) < 43){ S.photoEngine = 'creator'; S.sv = 43; saveSettings(); }
   if((S.sv || 0) < 44){ if(S.cacheTtl === 'auto') S.cacheTtl = '1h'; S.sv = 44; saveSettings(); }
   // 9.70: pe Android, ascultarea pornită cât vorbește ea (întreruperi vocale, „îhî”) îi tăia vocea (focus audio / căști Bluetooth în mod apel); o dată, le oprim
-  if((S.sv || 0) < 45){ if(IS_ANDROID){ S.callBarge = 'off'; S.callBack = 'off'; } S.sv = 45; saveSettings(); }   // 9.51: cache-ul de 5 min a dus la rescrieri complete după pauze de 5-60 min (mai scump decât economia)
+  if((S.sv || 0) < 45){ if(IS_ANDROID){ S.callBarge = 'off'; S.callBack = 'off'; } S.sv = 45; saveSettings(); }
+  // 9.84: setările de creare și poze rămân doar cele care dau fidelitatea maximă (celelalte nu mai apar în Setări)
+  if((S.sv || 0) < 46){ Object.assign(S, FIDEL_FIX); S.sv = 46; saveSettings(); }   // 9.51: cache-ul de 5 min a dus la rescrieri complete după pauze de 5-60 min (mai scump decât economia)
   onlyOurProviders();   // 9.19: la fiecare pornire (și după o restaurare dintr-un backup vechi)
   if(cspSync(true)) return;   // 8.20: adresă nouă → repornim o dată, ca politica de securitate să o permită
   chars = (await DB.get('chars') || []).filter(c => c && c.id && c.name);

@@ -1832,7 +1832,6 @@ details.sdanger>summary{color:var(--err)}
           <div class="crgrid" id="edVars"></div>
           <div class="crchosen" id="edChosen" hidden>
             <div class="btns"><button type="button" class="btn sm" id="edViewChosen">🔍 Vezi mare</button><button type="button" class="btn sm" id="edMore">🔁 Mai multe ca asta</button></div>
-            <label class="chk"><input type="checkbox" id="edAutoAng"> 📐 Încă 2 unghiuri ale feței, automat (2 poze; repere pentru pozele din chat)</label>
             <div class="angview" id="edAngleView"></div>
             <label for="edAdjTxt">🪄 Ajustează: aceeași persoană, se schimbă doar ce scrii</label>
             <div class="chipset adj" id="edAdjChips"><button type="button" data-adj="altă ținută">👗 Altă ținută</button><button type="button" data-adj="altă coafură">💇 Alt păr</button><button type="button" data-adj="corp mai suplu, cu proporții firești">🪶 Mai suplă</button><button type="button" data-adj="corp mai plin, cu proporții firești">🍑 Mai plinuță</button><button type="button" data-adj="corp mai atletic, tonifiat">🏋️ Mai atletică</button><button type="button" data-adj="bust mai mare, natural">⬆️ Bust mai mare</button><button type="button" data-adj="bust mai mic, natural">⬇️ Bust mai mic</button><button type="button" data-adj="mai înaltă, cu proporții firești">📏 Mai înaltă</button><button type="button" data-adj="altă poziție a corpului, la fel de naturală">🕺 Altă poziție</button><button type="button" data-adj="alt loc în fundal">🏙️ Alt loc</button><button type="button" data-adj="un zâmbet cald, natural">😊 Zâmbet</button></div>
@@ -2007,11 +2006,9 @@ details.sdanger>summary{color:var(--err)}
       </div>
       <div id="stChatWrap">
         <h3 class="sh">📷 Pozele din chat</h3>
-        <label>Fidelitatea feței</label>
-        <div class="seg" id="stWkChat"><button data-v="">Eco · klein 4B</button><button data-v="ancorat">Fidel · klein 9B</button></div>
         <p class="hint" id="stWkChatHint"></p>
         <div id="stRwWrap">
-          <label style="margin-top:14px">Unde se face „Fidel · 9B”</label>
+          <label>Unde se fac pozele (FLUX.2 klein 9B, fidelitate maximă)</label>
           <div class="seg" id="stRw"><button data-v="off">Cloudflare</button><button data-v="on">⚡ Runware</button></div>
           <p class="hint" id="stRwHint"></p>
           <div id="stRwBox" hidden>
@@ -2022,18 +2019,7 @@ details.sdanger>summary{color:var(--err)}
             <div class="seg" id="stImgRoute"><button data-v="rw">⚡ Totul</button><button data-v="mix">Doar pozele 9B</button></div>
             <label style="margin-top:10px">Rezervă pe Cloudflare (când Runware nu merge sau atingi plafonul)</label>
             <div class="seg" id="stCfFallback"><button data-v="off">Oprită</button><button data-v="free">Doar în cota gratuită</button></div>
-            <label style="margin-top:10px">Identitatea</label>
-            <div class="seg" id="stIdBoost"><button data-v="on">🎯 Maximă</button><button data-v="off">Simplă</button></div>
-            <p class="hint">Maximă: 3 variante, telefonul o păstrează pe cea cu fața cea mai apropiată de poza de profil (încă 3 dacă niciuna nu seamănă), apoi fața e retușată cu același model și rămâne doar dacă iese mai aproape. ~4 imagini pe poză. Simplă: o singură imagine.</p>
-            <label style="margin-top:10px">🧩 Fișa de identitate</label>
-            <div class="seg" id="stIdSheet"><button data-v="on">Pornită</button><button data-v="off">Oprită</button></div>
-            <p class="hint">4 unghiuri ale feței (¾ stânga, ¾ dreapta, profil, zâmbet), făcute o dată din poza de profil și verificate; fiecare poză primește unghiurile potrivite scenei. ~4–8 imagini, o singură dată pe poză de profil.</p>
-            <label style="margin-top:10px">✏️ Schițe, apoi poza mare</label>
-            <div class="seg" id="stDrafts"><button data-v="on">Pornite</button><button data-v="off">Oprite</button></div>
-            <p class="hint">Cu identitate maximă pe Runware: 4 schițe mai mici în loc de 3 poze mari; telefonul o alege pe cea mai apropiată (față, siluetă, cerere) și doar ea e refăcută la mărime întreagă.</p>
-            <label style="margin-top:10px">🩹 Reparare doar unde e greșit</label>
-            <div class="seg" id="stLocalFix"><button data-v="on">Pornită</button><button data-v="off">Oprită</button></div>
-            <p class="hint">Când scena e bună și doar fața sau părul nu se potrivesc, se refac numai acolo, nu toată poza. Rămâne doar dacă iese mai bine.</p>
+            <p class="hint">🎯 Fidelitate maximă, mereu: fișa de identitate (4 unghiuri ale feței), 4 schițe din care telefonul o alege pe cea mai apropiată (față, siluetă, cerere), retușul feței, verificarea automată și repararea doar unde e greșit. Ce respingi cu 🎲 primește mai multă atenție la personajul acela.</p>
             <label style="margin-top:10px">Plafon zilnic Runware</label>
             <div class="seg" id="stRwCap"><button data-v="0.25">$0,25</button><button data-v="0.5">$0,50</button><button data-v="1">$1</button><button data-v="none">Fără</button></div>
             <div class="neur" id="stRwDay" style="margin-top:8px"></div>
@@ -2044,19 +2030,6 @@ details.sdanger>summary{color:var(--err)}
         </div>
         <label style="margin-top:14px">👥 Poze cu oamenii din viața personajului (sora, prietena, colegul…)</label>
         <div class="seg" id="stPeople"><button data-v="on">Pornit</button><button data-v="off">Oprit</button></div>
-        <label style="margin-top:14px">Motorul pozelor din chat</label>
-        <div class="seg" id="stPhotoEngine"><button data-v="creator">✨ Ca în creator</button><button data-v="id">🧬 Identitate maximă (vechi)</button></div>
-        <p class="hint">Ca în creator: generatorul ascultă de ce scrii (cadru, ținută, păr, corp), cu fața ta decupată ca model și retușată după. Identitate maximă: 2–4 imagini de model; fața ține mai bine, dar copiază des ținuta, poziția și cadrul din model.</p>
-        <label style="margin-top:14px">Verificare automată</label>
-        <div class="seg" id="stImgCheck"><button data-v="on">Pornită</button><button data-v="off">Oprită</button></div>
-        <p class="hint">Claude Haiku compară fiecare poză cu poza de profil (și cu poza întreagă, pentru corp), cu părul, semnele și scena; dacă nu se potrivesc, o reface o dată și o păstrează pe cea mai bună.</p>
-        <label style="margin-top:14px">🧍 Potrivirea proporțiilor corpului</label>
-        <div class="seg" id="stBodyFix"><button data-v="on">Corectează dacă diferă</button><button data-v="off">Oprită</button></div>
-        <p class="hint" id="stBodyHint"></p>
-        <label style="margin-top:14px">📌 Pozele din chat foarte asemănătoare devin repere (în locul unghiurilor automate mai slabe)</label>
-        <div class="seg" id="stAutoRefs"><button data-v="on">Pornit</button><button data-v="off">Oprit</button></div>
-        <label style="margin-top:14px">🧍 Poză întreagă automată pentru personajele care n-au (o dată, 2 poze; model pentru corp)</label>
-        <div class="seg" id="stAutoFull"><button data-v="on">Pornit</button><button data-v="off">Oprit</button></div>
         <label style="margin-top:14px">Poze spontane (doar personajele cu portret generat cu 🎨)</label>
         <div class="seg" id="stSpont"><button data-v="off">Niciodată</button><button data-v="rar">Rar</button><button data-v="des">Des</button></div>
       </div>
@@ -2081,8 +2054,6 @@ details.sdanger>summary{color:var(--err)}
       <details class="sadv" id="stTestDet"><summary>🧪 Teste și comparații</summary>
         <div class="btns" style="margin-top:4px"><button type="button" class="btn sm" id="stRwTest">⚡ Testează Runware</button></div>
         <div class="status" id="stRwRes"></div>
-        <div class="btns"><button type="button" class="btn sm" id="stRefTest">🔬 Compară pe personajul meu</button></div>
-        <div id="stRefRes"></div>
         <div class="btns" id="stImgTestWrap"><button type="button" class="btn sm" id="stImgTest">🧪 Testează pozele (Cloudflare)</button></div>
         <div class="status" id="stImgRes"></div>
       </details>
