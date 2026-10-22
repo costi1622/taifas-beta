@@ -1652,13 +1652,17 @@ details.sdanger>summary{color:var(--err)}
 .crch button.on{background:var(--grad);border-color:transparent;color:#fff}
 /* 9.27: statusul din antetul chatului se vede întreg, pe rânduri, nu tăiat cu „…” */
 .chathead small .s1,.chathead small .s2{white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere}
-.bed{display:flex;flex-direction:column;gap:6px}.bedsum{font-size:.8rem;color:var(--tx2);line-height:1.4;padding:2px 2px 4px}
-.bedg{border:1px solid var(--line);border-radius:12px;padding:4px 8px 6px;background:var(--bg2)}.bedg>summary{cursor:pointer;font-weight:600;font-size:.88rem;padding:5px 2px}.bedg>summary small{color:var(--tx3);font-weight:400;margin-left:4px}
-.bedrow{display:grid;grid-template-columns:92px 24px minmax(0,1fr) 24px;align-items:center;gap:4px;padding:3px 0}.bedrow.hrow{grid-template-columns:92px 24px minmax(0,1fr) 24px auto auto}
-.bedrow.hrow b{font-size:.78rem;font-weight:600;min-width:52px;text-align:right}.bedrow.hrow input{min-width:0;width:100%}
-.bedrow>span{font-size:.76rem;color:var(--tx2);line-height:1.2}.bedrow.ch>span{color:#ff7ab8;font-weight:600}
-.bedopt.crch{display:flex;flex-wrap:nowrap;gap:4px;overflow-x:auto;scrollbar-width:none;padding:1px 0}.bedopt.crch::-webkit-scrollbar{display:none}.bedopt.crch button{flex:none;white-space:nowrap}
-.bedst,.bedx{width:24px;height:28px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--tx2);font-size:1rem;line-height:1;padding:0}.bedx{font-size:.75rem}
+.bed{display:flex;flex-direction:column;gap:8px}.bedsum{font-size:.8rem;color:var(--tx2);line-height:1.45;padding:2px}
+.bedg{border:1px solid var(--line);border-radius:14px;padding:2px 10px 6px;background:var(--bg2)}.bedg>summary{cursor:pointer;font-weight:600;font-size:.92rem;padding:8px 2px}.bedg>summary small{color:var(--tx3);font-weight:400;margin-left:4px}
+.bedrow{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px;padding:6px 0;border-top:1px solid var(--line)}.bedg>summary+.bedrow{border-top:0}
+.bedl{flex:1 1 0;min-width:0;font-size:.84rem;color:var(--tx2);line-height:1.25}.bedrow.ch .bedl{color:#ff7ab8;font-weight:600}
+.bedc{display:flex;align-items:center;gap:4px;flex:none}
+.bedst{width:30px;height:34px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--tx2);font-size:1.15rem;line-height:1;padding:0}
+.bedval{width:96px;height:34px;padding:0 10px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--tx3);font-size:.84rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bedval.set{color:var(--tx);border-color:#c06bd8;background:linear-gradient(135deg,#ec4899,#a855f7);color:#fff;font-weight:600}.bedrow.op .bedval{outline:2px solid #ff7ab8;outline-offset:1px}
+.bedopt.crch{flex:1 1 100%;display:flex;flex-wrap:wrap;gap:6px;padding:4px 0 2px}.bedopt.crch button{white-space:nowrap}.bedclr{border:1px dashed var(--line);background:none;color:var(--tx3);border-radius:99px;padding:6px 10px;font-size:.78rem}
+.bedh{flex:1 1 100%;display:flex;align-items:center;gap:8px;padding:6px 2px}.bedh input{flex:1}
+.idcard{margin:12px 0;padding:12px 14px;border:1px solid var(--line);border-radius:14px;background:var(--bg2);font-size:.85rem;line-height:1.55}.idcard>b{display:block;margin-bottom:4px}.idcard .btns{margin-top:8px}
 .adjgrp{display:flex;flex-wrap:wrap;gap:6px;align-items:center;width:100%;margin-bottom:4px}.adjgrp>small{width:100%;color:var(--tx3);font-size:.74rem}
 .viewer .vsr{font-size:.75rem;color:#fff;background:#0008;padding:4px 9px;border-radius:99px;margin-left:8px;align-self:center}
 .bwarn{display:block;font-size:.72rem;color:#ffb020;padding:5px 8px 0;line-height:1.3}
@@ -1826,6 +1830,7 @@ details.sdanger>summary{color:var(--err)}
           <div class="btns"><button type="button" class="btn sm" id="edOwnRead">🔎 Citește poza pe zone</button><button type="button" class="btn sm pri" id="edOwnAdj">🪄 Ajustează corpul pe poza ta</button></div>
           <div id="edOwnSlot"></div>
         </div>
+        <div class="idcard" id="edIdCard" hidden></div>
         <div class="crea" id="edCrea">
           <label for="edPrompt">✨ Descrie cum arată, iar AI-ul îi face poza</label>
           <textarea id="edPrompt" rows="3" maxlength="2500" placeholder="ex. brunetă de 28 de ani, 1,70 m, atletică, păr lung ondulat, ochi verzi, rochie verde de vară, pe o terasă la apus"></textarea>
