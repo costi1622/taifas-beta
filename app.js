@@ -1,5 +1,5 @@
 window.__taifas = true;   // 8.20.1: semn pentru index.html că app.js s-a încărcat
-const APP_VER = '9.89';
+const APP_VER = '9.90';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -1279,6 +1279,12 @@ function photoWarm(c){
 const BODY_GROUPS = [['📏', 'Siluetă', ['build', 'tone', 'shoulders', 'arms', 'neck', 'posture']], ['👕', 'Trunchi', ['bust', 'bustShape', 'torsoLen', 'waist', 'belly']],
   ['👖', 'Partea de jos', ['hips', 'glutes', 'legsLen', 'legs']], ['🎨', 'Pielea', ['skin']]];
 const hTxt = h => (h / 100).toFixed(2).replace('.', ',') + ' m';
+// schimbările de corp, în engleză, pentru generator: doar ce s-a schimbat (valoarea nouă)
+function bodyChangesEn(A, B){
+  const out = []; if((+A.h || 0) !== (+B.h || 0) && +B.h) out.push(`${+B.h} cm tall${+A.h ? (+B.h > +A.h ? ' (taller than before)' : ' (shorter than before)') : ''}`);
+  for(const [k] of CR_BODY) if(String(A[k] || '') !== String(B[k] || '') && B[k] && CR_BODY_EN[k] && CR_BODY_EN[k][B[k]]) out.push(CR_BODY_EN[k][B[k]]);
+  return out.join(', ');
+}
 function bodyChanges(A, B){
   const out = []; if((+A.h || 0) !== (+B.h || 0)) out.push(`înălțime ${+A.h ? hTxt(+A.h) : '—'} → ${+B.h ? hTxt(+B.h) : '—'}`);
   for(const [k, l] of CR_BODY) if(String(A[k] || '') !== String(B[k] || '')) out.push(`${l.toLowerCase()}: ${A[k] || '—'} → ${B[k] || '—'}`);
@@ -1525,7 +1531,7 @@ async function pfBodySheet(c){
   $('#pfbGo').onclick = async () => {
     const Zb = {body:B}, en = crBodyEn(Zb), ro = crBodyText(Zb);
     const cx = {...c, physEn:physWithBody(c.physEn, en, 'Body'), photoFull:undefined, bodySig:undefined, bodyFull:undefined, appZones:{...(c.appZones || crEmptyZ()), body:{...B}}};
-    closeSheet(); setTimeout(() => pfMakeFull(c, {cx, persist:{body:{...B}, physEn:cx.physEn, ro}}), 60);
+    closeSheet(); setTimeout(() => pfMakeFull(c, {cx, change:bodyChangesEn(B0, B), persist:{body:{...B}, physEn:cx.physEn, ro}}), 60);
   };
 }
 /* ═════════ 🧬 8.21 identitate fixă ═════════
@@ -1782,12 +1788,12 @@ async function maybeGoodRef(c, blob){
   delete c.faceEmb; await saveChars(); return true;
 }
 // (6) personajele fără poză întreagă primesc una, o dată, în fundal, după o poză din chat (reperul de corp din 9.32)
-async function fullVariants(c, base, signal, draw = () => {}, n = 2){
+async function fullVariants(c, base, signal, draw = () => {}, n = 2, o = {}){   // 9.90: o.change = schimbarea de corp cerută, scrisă explicit
   let ref = null; try{ const fs = await faceDescs(base); if(fs.length) ref = fs.sort((a, b) => b.a - a.a)[0].d; }catch(e){}
   const id = c.faceBox && c.faceBox.k === c.photo ? c.faceBox : null;
   const body = bodyOnly(c, id);   // 9.50
   const outfit = c.appZones && c.appZones.zones && c.appZones.zones.tinuta ? '' : 'the same clothes as in the photo, completed naturally down to the shoes';
-  const p = `Edit this photo into a full-body photo of the same person. ${CR_FRAMES.full.p}. Keep exactly the same face and identity, hairstyle, skin and age.${body ? ' Body: ' + body + '.' : ''} ${outfit ? 'Outfit: ' + outfit + '.' : ''} Natural relaxed standing pose in a fitting everyday place. ${CR_HANDS} ${STIL_TAG[c.stil || 'photo']}`;
+  const p = `Edit this photo into a full-body photo of the same person. ${CR_FRAMES.full.p}. Keep exactly the same face and identity, hairstyle, skin and age.${o.change ? ' REQUESTED BODY CHANGE, the purpose of this photo: make the body clearly and visibly ' + o.change + ', with natural realistic proportions; do not keep the previous body where it differs.' : ''}${body ? ' Body: ' + body + '.' : ''} ${outfit ? 'Outfit: ' + outfit + '.' : ''} Natural relaxed standing pose in a fitting everyday place. ${CR_HANDS} ${STIL_TAG[c.stil || 'photo']}`;
   const model = crModel(n, CR_FRAMES.full.size);
   const vars = Array.from({length:n}, () => ({id:uid(), st:'gen', frame:'full', kind:'nou'})); draw(vars);
   await Promise.allSettled(vars.map(async v => {
@@ -2202,7 +2208,20 @@ async function f3Image(prompt, refs, size, signal, why){
   lastImgProv = 'runware'; lastImgModel = 'flux3';
   return blob;
 }
-async function rwRun(prompt, refs, w, h, signal, mdl = RW_MODEL, n = 1){
+// 9.90: Runware supraîncărcat / pauză de rețea → încă 2 încercări (după 2 s și 5 s), cu altă cerere; restul erorilor, imediat
+const RW_TRANSIENT = /temporarily unavailable|high demand|overload|try again|timed? ?out|timeout|HTTP 5\d\d|HTTP 429|rate.?limit|nu răspunde|gateway/i;
+async function rwRun(...a){
+  const signal = a[4];
+  for(let t = 0; ; t++){
+    try{ return await rwRun1(...a); }
+    catch(e){
+      if(e.name === 'AbortError' || t >= 2 || !RW_TRANSIENT.test(String(e.message || ''))) throw e;
+      if(live && live.stage && busy && busy.signal === signal) pstage(signal, `⏳ Runware e aglomerat, reîncerc (${t + 2}/3)`, live.stage.p || 90);
+      await naps(t ? 5000 : 2000, signal);
+    }
+  }
+}
+async function rwRun1(prompt, refs, w, h, signal, mdl = RW_MODEL, n = 1){
   const f3 = mdl === RW_F3;
   const task = f3 ? {taskType:'imageInference', taskUUID:crypto.randomUUID(), model:RW_F3, positivePrompt:String(prompt).slice(0, 30000),
       width:w, height:h, numberResults:1, outputType:'base64Data', outputFormat:'JPG', includeCost:true, settings:{grounding:false}}
@@ -9902,10 +9921,11 @@ async function pfMakeFull(c, o = {}){   // 9.89: o.cx = personajul cu alt corp, 
     pfAfterFull(c);
   });
   const draw = () => { if(!grid.isConnected) return; grid.innerHTML = st.vars.map((v, i) => `<figure class="crv${v.st === 'ok' ? '' : ' ' + v.st}">${v.url ? `<img src="${v.url}" alt="" data-pv="${i}">` : '<div class="crph"></div>'}<figcaption>${crBadge(v)}</figcaption>${v.st === 'ok' && !v.fixing ? `<button type="button" class="btn sm" data-pc="${i}">Alege</button>` : ''}</figure>`).join(''); };
-  st.vars = await fullVariants(o.cx || c, base, st.ac.signal, vs => { st.vars = vs; draw(); });   // 9.36: același cod și pentru poza întreagă automată
+  st.vars = await fullVariants(o.cx || c, base, st.ac.signal, vs => { st.vars = vs; draw(); }, 2, {change:o.change || ''});   // 9.36: același cod și pentru poza întreagă automată
   if(!grid.isConnected) return;
   const ok = st.vars.filter(v => v.st === 'ok');
-  msg.textContent = ok.length ? 'Atinge una ca s-o vezi mare, apoi „Alege”. Poza de profil rămâne aceeași.' : 'N-a ieșit nicio variantă. Mai încearcă.';
+  msg.textContent = ok.length ? 'Atinge una ca s-o vezi mare, apoi „Alege”. Poza de profil rămâne aceeași.' : 'N-a ieșit nicio variantă (serviciul de imagini a fost ocupat).';
+  if(!ok.length){ const bx = $('#pmfX'); if(bx && !$('#pmfRe')){ bx.insertAdjacentHTML('afterend', '<button class="btn pri" id="pmfRe">↻ Încearcă din nou</button>'); $('#pmfRe').onclick = () => { closeSheet(); setTimeout(() => pfMakeFull(c, o), 60); }; } }   // 9.90
 }
 
 /* ───────── EDITOR ───────── */
