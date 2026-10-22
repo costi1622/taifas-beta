@@ -1,5 +1,5 @@
 window.__taifas = true;   // 8.20.1: semn pentru index.html că app.js s-a încărcat
-const APP_VER = '9.90';
+const APP_VER = '9.91';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -2209,18 +2209,35 @@ async function f3Image(prompt, refs, size, signal, why){
   return blob;
 }
 // 9.90: Runware supraîncărcat / pauză de rețea → încă 2 încercări (după 2 s și 5 s), cu altă cerere; restul erorilor, imediat
-const RW_TRANSIENT = /temporarily unavailable|high demand|overload|try again|timed? ?out|timeout|HTTP 5\d\d|HTTP 429|rate.?limit|nu răspunde|gateway/i;
+const RW_TRANSIENT = /temporarily unavailable|high demand|overload|try again|timed? ?out|timeout|HTTP 5\d\d|HTTP 429|rate.?limit|nu răspunde|gateway|serviceOverloaded|inferenceRateLimitExceeded/i;
+/* 9.91: Runware recomandă 2–4 cereri simultane și așteptarea cerută de ei (retryAfter), cu puțin decalaj aleator.
+   Aplicația trimitea multe deodată (schițele + fișele + poza întreagă din fundal), iar coada modelului le respingea.
+   Acum: cel mult 2 cereri Runware în același timp; ce rulează în fundal (fișe, poza întreagă automată, cadre pentru apel)
+   așteaptă cât timp faci o poză tu; la „aglomerat” se așteaptă cât cere Runware (+ decalaj), de cel mult 4 ori. */
+const RW_MAX = 2; let rwActive = 0, rwFg = 0; const rwWait = [];
+const rwSlot = async fg => {
+  while(rwActive >= RW_MAX || (!fg && rwFg > 0)) await new Promise(r => { rwWait.push(r); setTimeout(r, 1500); });
+  rwActive++;
+};
+const rwFree = () => { rwActive = Math.max(0, rwActive - 1); const w = rwWait.splice(0); w.forEach(f => f()); };
 async function rwRun(...a){
-  const signal = a[4];
-  for(let t = 0; ; t++){
-    try{ return await rwRun1(...a); }
-    catch(e){
-      if(e.name === 'AbortError' || t >= 2 || !RW_TRANSIENT.test(String(e.message || ''))) throw e;
-      if(live && live.stage && busy && busy.signal === signal) pstage(signal, `⏳ Runware e aglomerat, reîncerc (${t + 2}/3)`, live.stage.p || 90);
-      await naps(t ? 5000 : 2000, signal);
+  const signal = a[4], fg = !!signal;   // cu signal = ceva ce aștepți tu; fără = lucru din fundal
+  if(fg) rwFg++;
+  try{
+    for(let t = 0; ; t++){
+      await rwSlot(fg); let held = true;
+      try{ return await rwRun1(...a); }
+      catch(e){
+        if(e.name === 'AbortError' || t >= 3 || !RW_TRANSIENT.test(String(e.message || '') + ' ' + (e.code || ''))) throw e;
+        const ms = Math.min(15000, (e.retryAfter ? e.retryAfter * 1000 : [2000, 4000, 7000][t] || 7000) + Math.random() * 900);
+        rwStats.busy++; S.rwBusyAt = Date.now();
+        if(live && live.stage && busy && busy.signal === signal) pstage(signal, `⏳ Runware e aglomerat, reîncerc în ${Math.round(ms / 1000)} s (${t + 2}/4)`, live.stage.p || 90);
+        held = false; rwFree(); await naps(ms, signal);
+      } finally { if(held) rwFree(); }
     }
-  }
+  } finally { if(fg) rwFg = Math.max(0, rwFg - 1); }
 }
+const rwStats = {busy:0};
 async function rwRun1(prompt, refs, w, h, signal, mdl = RW_MODEL, n = 1){
   const f3 = mdl === RW_F3;
   const task = f3 ? {taskType:'imageInference', taskUUID:crypto.randomUUID(), model:RW_F3, positivePrompt:String(prompt).slice(0, 30000),
@@ -2240,7 +2257,10 @@ async function rwRun1(prompt, refs, w, h, signal, mdl = RW_MODEL, n = 1){
     if(!direct && r.status === 404) throw new Error('Worker-ul nu știe încă de Runware: pune codul nou (v9) din cloudflare-worker-simplu.js.');
     if(!direct && r.status === 501){ S.vaultHas = {...(S.vaultHas || {}), runware:false}; saveSettings(); throw new Error('Worker-ul n-are cheia Runware: adaugă secretul RUNWARE_KEY.'); }
     const e0 = errs && errs[0], m = typeof e0 === 'string' ? e0 : (e0 && (e0.message || e0.code)) || ('HTTP ' + r.status);
-    throw new Error('Runware: ' + String(m).slice(0, 200) + (/credit|balance|insufficient/i.test(m) ? ' (reîncarcă creditul în contul Runware).' : '.'));
+    const er = new Error('Runware: ' + String(m).slice(0, 200) + (/credit|balance|insufficient/i.test(m) ? ' (reîncarcă creditul în contul Runware).' : '.'));
+    // 9.91: cât cere Runware să așteptăm (retryAfter în corp sau Retry-After în antet), la coada modelului plină
+    const ra = +((e0 && typeof e0 === 'object' && e0.retryAfter) || r.headers.get('retry-after') || 0); if(ra > 0) er.retryAfter = Math.min(30, ra);
+    er.code = e0 && typeof e0 === 'object' ? e0.code || '' : ''; er.status = r.status; throw er;
   }
   const its = d.data.filter(x => x && (x.imageBase64Data || x.imageDataURI)), it = its[0];
   if(!it) throw new Error('Runware n-a întors imagine.');
