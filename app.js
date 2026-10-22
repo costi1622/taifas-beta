@@ -1,5 +1,5 @@
 window.__taifas = true;   // 8.20.1: semn pentru index.html că app.js s-a încărcat
-const APP_VER = '9.88';
+const APP_VER = '9.89';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -6872,6 +6872,14 @@ async function askPhoto(spont, target, mode, opt = {}){
       const E = opt.edit, base = await DB.get(target.img); if(!base) throw new Error('Nu găsesc poza.');
       pstage(busy.signal, '✏️ Înțelege ce schimbi', 20);
       const tr = E.ro ? await editPlan(c, target.scene || '', E.ro, busy.signal) : {en:'', shot:target.scene || fallbackShot(c, ch, m) || 'selfie'};
+      // 9.89: preset exposure choices are deterministic; don't let the language planner soften "topless" into a vague neckline/clothing change.
+      const editExposure = exposureMode(E.ro);
+      if(editExposure === 'topless'){
+        tr.en = 'Change only the upper-body clothing state in image 1: the clearly adult fictional woman is topless, with her breasts naturally uncovered and no shirt, blouse, bra, bikini top, lingerie, towel, or other fabric covering her chest. Keep the exact same person, face, body proportions, bust size, pose, hands, camera angle, framing, background, lighting, and all lower-body clothing from image 1. This is non-graphic artistic nudity, not a sexual act. The result must visibly show a bare chest; a lower neckline, sheer clothing, bra, or covered breasts does not satisfy the request.';
+        tr.shot = `${target.scene || 'the same photograph'}; clearly adult fictional woman topless, bare breasts uncovered, no shirt or bra; lower-body clothing unchanged; preserve the original pose, framing, background, lighting and identity`;
+      } else if(editExposure === 'clothed'){
+        tr.en = 'Keep the clearly adult fictional character fully clothed in an ordinary outfit; no nudity. Preserve the same person, pose, framing, scene and lighting.';
+      }
       asked = tr.en ? [tr.en] : []; where = target.where || null; shot = tr.shot;
       let cx = c;
       if(E.body){   // 9.41: corpul de pe butoane, scris explicit (cu prioritate) și fără reperul de corp vechi, care l-ar întoarce
@@ -6884,7 +6892,11 @@ async function askPhoto(spont, target, mode, opt = {}){
       if(E.kind !== 'scene' && tr.en){
         edited = await editPhoto(c, base, tr.en, busy.signal, asked, shot);
         const df = await imgDiff(base, edited.blob), miss = edited.check && edited.check.asked != null && edited.check.asked < 7;
-        if((df != null && df < .06) || miss){ edited = null; editLog.kind = 'scene'; editLog.auto = true; pstage(busy.signal, '🎬 Editarea n-a schimbat destul, fac poza din nou', 55); }   // aproape aceeași poză   // 9.43: aproape aceeași poză SAU verificarea nu vede schimbarea → poză nouă
+        // 9.89: an exposure edit must not silently turn into scene regeneration: that path often restores the original outfit.
+        // Keep the best edit candidate and tell the user if the provider/model did not fulfill the requested change.
+        const explicitExposureEdit = ['topless','full','explicit','clothed'].includes(editExposure);
+        if(!explicitExposureEdit && ((df != null && df < .06) || miss)){ edited = null; editLog.kind = 'scene'; editLog.auto = true; pstage(busy.signal, '🎬 Editarea n-a schimbat destul, fac poza din nou', 55); }
+        else if(explicitExposureEdit && ((df != null && df < .06) || miss)) editLog.exposureUnverified = true;
       }
       if(!edited){ const r = await makeScenePhoto(cx, shot, busy.signal, {together:false, asked}); edited = r; }
     }
@@ -6926,7 +6938,7 @@ async function askPhoto(spont, target, mode, opt = {}){
       m.ia = m.imgAlts.length - 1;
     }
     if(peopleIn) m.people = peopleIn; else if(!editLog) delete m.people;
-    if(editLog){ m.edits = (m.edits || []).concat(editLog).slice(-10); if(editLog.auto) toast('✏️ Editarea pozei n-a schimbat destul, așa că am făcut-o din nou cu modificarea.', 4000); }   // 9.40
+    if(editLog){ m.edits = (m.edits || []).concat(editLog).slice(-10); if(editLog.auto) toast('✏️ Editarea pozei n-a schimbat destul, așa că am făcut-o din nou cu modificarea.', 4000); if(editLog.exposureUnverified) toast('⚠️ Modelul poate să nu fi aplicat complet schimbarea de expunere. Rezultatul este păstrat; încearcă din nou sau folosește un model de editare mai potrivit.', 6000); }   // 9.89
     m.img = k; m.prompt = prompt; m.scene = shot; if(where) m.where = where; if(asked.length) m.asked = asked; else delete m.asked; if(together) m.together = true; else delete m.together; if(check) m.check = check; else delete m.check;
     addUsage(c.id, imgPrice(), 'img');
     if(bd != null) m.bd = Math.round(bd * 1000) / 1000; else delete m.bd;
@@ -7065,8 +7077,8 @@ async function editPhotoSheet(i){
     $('#peExposure').querySelectorAll('[data-exposure]').forEach(x => x.classList.toggle('on', x === bt));
     const instructions = {
       clothed: 'Keep the character fully clothed in an ordinary outfit; no nudity.',
-      topless: 'The clearly adult fictional character is topless: bare breasts uncovered, no shirt or bra; keep lower-body clothing exactly as described. Preserve the body reference proportions and bust size.',
-      'artistic-nude': 'The clearly adult fictional character is naturally nude in a non-explicit artistic image; no sexual act. Preserve the body reference proportions and bust size. Use only if allowed by the selected image provider.',
+      topless: 'Edit only the upper-body clothing state. The clearly adult fictional woman is topless: her breasts are naturally uncovered, with no shirt, blouse, bra, bikini top, lingerie, towel, or other fabric covering her chest. The bare chest must be clearly visible; a low neckline, sheer top, underwear, or covered breasts is not a topless result. Keep the exact same face, identity, body proportions, bust size, pose, hands, camera angle, framing, background, lighting, and all lower-body clothing from the reference image. Non-graphic artistic nudity; no sexual act.',
+      'artistic-nude': 'Edit the image into a non-explicit artistic nude portrait of the clearly adult fictional character. Remove clothing without replacing it with lingerie, underwear, towels, or strategically placed fabric; preserve identity, body proportions, pose, camera angle, framing, background and lighting. No sexual act. Only if the selected image provider permits this content; never bypass provider moderation.',
       'explicit-nude': 'The fictional character is clearly an adult (18+), fully nude, with visible external genital anatomy; anatomically plausible and non-graphic, no sexual act. Preserve identity, body proportions, pose and scene. Generate only if the selected image provider explicitly permits this content; do not bypass provider moderation.',
       intimate: 'The clearly adult fictional character is in a consensual, sensual intimate pose (for example close embrace, kissing, cuddling or reclining close); keep it non-graphic and use only within the selected image provider’s rules.'
     };
