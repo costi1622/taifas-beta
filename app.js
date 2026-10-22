@@ -1,5 +1,5 @@
 window.__taifas = true;   // 8.20.1: semn pentru index.html că app.js s-a încărcat
-const APP_VER = '9.88';
+const APP_VER = '9.89';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -934,8 +934,9 @@ async function creatorScene(c, shot, signal, fix, opt, full, id, fr){
   if(!bodyRef && st === 'photo'){ const pk = sheetPick(c, shot, 1)[0], t = String(shot || '');
     if(pk && ((pk.ang === 'side' && /\b(side view|profile|from the side|looking (away|out)|turned away|over (her|his|the) shoulder)\b/i.test(t)) || (pk.ang === 'smile' && /\b(laugh\w*|smil\w*|grin\w*|teeth)\b/i.test(t)))){
       const b = await DB.get(pk.k).catch(() => null); if(b){ angRef = await cropFace(b, pk.box); angName = pk.ang === 'side' ? 'seen in side profile' : 'smiling widely with teeth showing'; } } }
+  let ratioTxt = ''; if(clothedBody){ try{ ratioTxt = bodyRatioText(await refBodySig(c)); }catch(e){} }   // 9.89 (a)
   const faceInstruction = clothedBody
-    ? `Image 1 is a close-up of ${c.name}'s face: keep exactly this face and identity (face shape, eyes, eyebrows, nose, lips, skin tone and texture, age). Image 2 shows ${c.name}'s whole body: reproduce exactly the same body, with the same build, weight, height impression and proportions of shoulders, chest, waist, hips, arms and legs; do NOT copy its clothing, pose, framing, background or light, which come only from this text.${angRef ? ` Image 3 is the same person's face ${angName}: use it for how the face looks from that angle or with that expression.` : ''}`
+    ? `Image 1 is a close-up of ${c.name}'s face: keep exactly this face and identity (face shape, eyes, eyebrows, nose, lips, skin tone and texture, age). Image 2 shows ${c.name}'s whole body: reproduce exactly the same body, with the same build, weight, height impression and proportions of shoulders, chest, waist, hips, arms and legs; do NOT copy its clothing, pose, framing, background or light, which come only from this text.${clothedBody.full2 ? ` Image ${angRef ? 4 : 3} is the same person's whole body standing, front view: the same body, for its exact proportions.` : ''}${ratioTxt ? ' ' + ratioTxt : ''}${angRef ? ` Image 3 is the same person's face ${angName}: use it for how the face looks from that angle or with that expression.` : ''}`
     : angRef
     ? `Image 1 is a close-up of this person's face only: keep exactly this face and identity (face shape, eyes, eyebrows, nose, lips, skin tone and texture, age). Image 2 is the same person's face ${angName}: use it for how this face looks from that angle or with that expression. Everything else comes from this text, not from the references.`
     : bodyRef
@@ -958,7 +959,7 @@ async function creatorScene(c, shot, signal, fix, opt, full, id, fr){
   const genOpt = bodyRef
     ? {model, one:face, p1:prompt, why:opt.why || 'chat', size:opt.size} // încearcă față + corp; la eroare revine automat la față, nu pierde identitatea
     : {model, force:{two:false, px:512}, p1:prompt, why:opt.why || 'chat', size:opt.size};   // 9.83: size = schița, când e cazul
-  const genOpt2 = {...(clothedBody ? {model, one:face, p1:prompt, why:opt.why || 'chat', size:opt.size, extra:angRef ? [angRef] : [], px2:768}
+  const genOpt2 = {...(clothedBody ? {model, one:face, p1:prompt, why:opt.why || 'chat', size:opt.size, extra:[angRef, clothedBody.full2].filter(Boolean), px2:768}
     : angRef ? {model, force:{two:true}, p1:prompt, why:opt.why || 'chat', size:opt.size} : genOpt), multi:opt.multi || 0};
   let blob = await genImage(prompt, face, signal, clothedBody ? clothedBody.blob : angRef || bodyRef, genOpt2);
   const refsTxt = ['față', clothedBody && 'corp: ' + BSHEET_RO[clothedBody.pose], angRef && 'unghi din fișă (' + angName + ')'].filter(Boolean).join(' + ');
@@ -1111,7 +1112,7 @@ function pfbAdd(c, k){
 }
 const pfbW = (c, k) => 1 + .2 * Math.min(3, pfbGet(c)[k] || 0);   // greutatea la alegerea variantei
 const idMax = c => ID_MAX - .03 * Math.min(2, pfbGet(c).face);        // „altă față” mai strict când respingi des fața
-const bodyMax = c => .14 - .02 * Math.min(3, pfbGet(c).body);         // silueta (9.85: măsurătoarea mai fină, prag mai strict): refacere mai devreme când respingi des corpul
+const bodyMax = c => (bodyTol(c) ?? .14) - .02 * Math.min(3, pfbGet(c).body);   // 9.89 (c): calibrat pe personaj         // silueta (9.85: măsurătoarea mai fină, prag mai strict): refacere mai devreme când respingi des corpul
 function pfbCorr(c, id, miss){
   const hairT = String(id && id.phys || '').match(/(?:^|; )hair: ([^;]+)/), P = pfbGet(c), out = [];
   const L = {
@@ -1201,7 +1202,8 @@ async function bodyRefFor(c, shot){
   if(!c.photoFull) return null;
   const want = bodyPoseOf(shot), pick = want === 'full' ? null : bsheetOf(c).find(x => x.pose === want);
   const k = pick ? pick.k : c.photoFull, b = await DB.get(k).catch(() => null); if(!b) return null;
-  return {blob:(await personCrop(b, k)) || await wholeRef(b), pose:pick ? pick.pose : 'full'};   // 9.86: decupat pe siluetă
+  let full2 = null; if(pick){ const fb = await DB.get(c.photoFull).catch(() => null); if(fb) full2 = (await personCrop(fb, c.photoFull)) || await wholeRef(fb); }   // 9.89 (b): și poza întreagă, pentru proporții
+  return {blob:(await personCrop(b, k)) || await wholeRef(b), pose:pick ? pick.pose : 'full', full2};   // 9.86: decupat pe siluetă
 }
 const BODY_SHEET_OK = .12;
 // distanța siluetelor (9.85): se compară doar ce e comparabil; null = nu se poate spune
@@ -1265,12 +1267,12 @@ async function personCrop(blob, key){
   }catch(e){ return null; } finally { URL.revokeObjectURL(u); }
 }
 // (f) la deschiderea conversației: modelele din telefon și măsurătorile personajului, din timp (o dată)
-const warmDone = new Set();
+const warmDone = new Set();   // 9.89: și calibrarea corpului (bodyNoise)
 function photoWarm(c){
   if(!c || !c.photo || S.imgProv !== 'worker' || warmDone.has(c.id + '|' + c.photo)) return;
   warmDone.add(c.id + '|' + c.photo);
   const go = async () => { if(typeof call !== 'undefined' && call){ warmDone.delete(c.id + '|' + c.photo); return; }   // nu în timpul unui apel (încarcă telefonul)
-    try{ await faceApi(); await Promise.all([poseModel(), segModel()]); await refDescs(c); await refBodySigs(c); }catch(e){} };
+    try{ await faceApi(); await Promise.all([poseModel(), segModel()]); await refDescs(c); await refBodySigs(c); await bodyNoise(c); }catch(e){} };
   (window.requestIdleCallback || (f => setTimeout(f, 1500)))(() => go(), {timeout:5000});
 }
 /* (3) editorul de corp, același în creator și în „Modifică poza”: pe grupuri, cu ‹ › pe fiecare rând, și ce schimbi, înainte să aplici */
@@ -1443,6 +1445,88 @@ function edIdCard(){
     el.querySelector('#edFullFile').onchange = async e => { const f = e.target.files[0]; if(!f) return; let bl; try{ bl = await toJpeg(f, 2048, .92); }catch(er){ toast('Nu pot citi poza.'); return; }
       const v = await bodyInPhoto(bl); if(!v.body){ toast('În poza asta nu se vede corpul (umeri, șolduri, genunchi). Alege una cu tot corpul.', 4000); return; }
       await edUseAsBody(bl, 'separata'); setEdStatus('✓ Poza întreagă e modelul de corp: pozele din chat iau corpul exact de aici.', 'ok'); }; }
+}
+/* ═════════ 9.89 ═════════
+   (1) PROFIL → „🧍 Poza întreagă”: o vezi, o refaci din portret, o refaci cu alt corp (editorul de corp) sau urci poza ta întreagă;
+       la orice schimbare, măsurătorile și fișa de corp se refac singure.
+   (2) CORPUL MAI EXACT: (a) proporțiile măsurate în poza întreagă (umeri / talie / șolduri, lungimea picioarelor) intră în cuvinte
+       la fiecare poză; (b) generatorul primește două repere de corp când scena cere altă poziție (poziția potrivită + poza întreagă);
+       (c) pragul de corp se calibrează pe personaj: cât de stabilă e măsurătoarea pe poza lui de referință. */
+function bodyRatios(sig){
+  if(!sig || !sig.w || sig.sit || Math.abs(sig.yaw || 0) > .2) return null;
+  const sh = sig.w[0], waist = Math.min(sig.w[2] || 9, sig.w[3] || 9), hip = Math.max(sig.w[5] || 0, sig.w[6] || 0);
+  if(!(sh > 0) || !(hip > 0) || !(waist < 9)) return null;
+  return {sh:Math.round(sh / hip * 100) / 100, wh:Math.round(waist / hip * 100) / 100, leg:sig.leg || null};
+}
+function bodyRatioText(sig){
+  const r = bodyRatios(sig); if(!r) return '';
+  const p = [];
+  p.push(r.sh < .92 ? 'hips visibly wider than the shoulders' : r.sh > 1.08 ? 'shoulders visibly wider than the hips' : 'shoulders and hips about the same width');
+  p.push(r.wh < .72 ? 'a very defined narrow waist compared with the hips' : r.wh < .8 ? 'a clearly defined waist' : r.wh < .88 ? 'a slightly defined waist' : 'a straight waist with little definition');
+  if(r.leg) p.push(r.leg > 1.8 ? 'long legs relative to the torso' : r.leg < 1.45 ? 'short legs relative to the torso' : 'average leg length relative to the torso');
+  return 'Measured body proportions of this exact person (keep them): ' + p.join(', ') + '.';
+}
+const BODY_RO = {'hips visibly wider than the shoulders':'șolduri mai late decât umerii', 'shoulders visibly wider than the hips':'umeri mai lați decât șoldurile', 'shoulders and hips about the same width':'umeri și șolduri cam la fel de late',
+  'a very defined narrow waist compared with the hips':'talie foarte marcată', 'a clearly defined waist':'talie marcată', 'a slightly defined waist':'talie ușor marcată', 'a straight waist with little definition':'talie dreaptă',
+  'long legs relative to the torso':'picioare lungi', 'short legs relative to the torso':'picioare scurte', 'average leg length relative to the torso':'picioare de lungime medie'};
+const bodyRatioRo = sig => { const t = bodyRatioText(sig); if(!t) return ''; return t.replace(/^.*?: /, '').replace(/\.$/, '').split(', ').map(x => BODY_RO[x] || x).join(', '); };
+// (c) cât de stabilă e măsurătoarea pe poza de referință a personajului (oglindită și puțin micșorată): prag mai strict când e stabilă
+async function bodyNoise(c){
+  if(!c.photoFull) return null;
+  if(c.bodyNoise && c.bodyNoise.k === c.photoFull) return c.bodyNoise.d;
+  const b = await DB.get(c.photoFull).catch(() => null); if(!b) return null;
+  let d = null;
+  try{ const u = URL.createObjectURL(b), im = await loadImgEl(u); URL.revokeObjectURL(u);
+    const cv = document.createElement('canvas'), k = .9; cv.width = Math.round(im.naturalWidth * k); cv.height = Math.round(im.naturalHeight * k); const g = cv.getContext('2d'); g.translate(cv.width, 0); g.scale(-1, 1); g.drawImage(im, 0, 0, cv.width, cv.height);
+    const b2 = await new Promise(r => cv.toBlob(r, 'image/jpeg', .92)), a = await refBodySig(c), z = await bodySig(b2); d = a && z ? bodyDist2(z, a) : null; }catch(e){}
+  c.bodyNoise = {k:c.photoFull, d:d == null ? null : Math.round(d * 1000) / 1000}; saveChars(); return c.bodyNoise.d;
+}
+const bodyTol = c => { const n = c && c.bodyNoise && c.bodyNoise.k === c.photoFull ? c.bodyNoise.d : null; return n == null ? null : Math.max(.09, Math.min(.16, .08 + n * 2.5)); };
+// (1) profilul: poza întreagă
+async function pfFullSheet(c){
+  if(!c) return;
+  const has = !!c.photoFull, ratio = has ? bodyRatioRo(await refBodySig(c).catch(() => null)) : '';
+  openSheet(`<h4>🧍 Poza întreagă a lui ${esc(c.name)}</h4><div class="pad">
+    ${has ? `<div class="pffull"><img data-k="${esc(c.photoFull)}" alt=""><div><small>Corpul din pozele din chat se ia de aici (și din fișa de corp făcută din ea).</small>${ratio ? `<small style="margin-top:6px">📐 Proporții măsurate: <b>${esc(ratio)}</b></small>` : ''}</div></div>` : '<p class="hint">Nu are încă o poză întreagă: corpul din pozele din chat e completat aproximativ.</p>'}
+    <div class="pfopts">
+      ${has ? '<button class="btn" id="pffView">👁️ Vezi mare</button>' : ''}
+      <button class="btn" id="pffRe">↻ ${has ? 'Refă' : 'Fă'} din portret <small>2 variante, aceeași față</small></button>
+      <button class="btn" id="pffBody">🧍 ${has ? 'Refă' : 'Fă'} cu alt corp <small>alegi pe grupuri ce schimbi</small></button>
+      <button class="btn" id="pffUp">📷 Urcă poza ta întreagă <small>corp exact, nu generat</small></button>
+      <input type="file" id="pffFile" accept="image/*" hidden>
+    </div></div>`);
+  hydrate($('.sheet'));
+  const v = $('#pffView'); if(v) v.onclick = () => { closeSheet(); viewFull(c); };
+  $('#pffRe').onclick = () => { closeSheet(); setTimeout(() => pfMakeFull(c), 60); };
+  $('#pffBody').onclick = () => { closeSheet(); setTimeout(() => pfBodySheet(c), 60); };
+  $('#pffUp').onclick = () => $('#pffFile').click();
+  $('#pffFile').onchange = async e => {
+    const f = e.target.files[0]; if(!f) return; let bl; try{ bl = await toJpeg(f, 2048, .92); }catch(er){ toast('Nu pot citi poza.'); return; }
+    const vb = await bodyInPhoto(bl); if(!vb.body){ toast('În poza asta nu se vede corpul (umeri, șolduri, genunchi). Alege una cu tot corpul.', 4000); return; }
+    let box = null; try{ const fs = await faceDescs(bl); if(fs.length){ const x = fs.sort((a, b) => b.a - a.a)[0]; box = {x:x.box.x / x.W, y:x.box.y / x.H, w:x.box.w / x.W, h:x.box.h / x.H}; } }catch(er){}
+    await saveFull(c, {blob:bl, chk:{box}}); closeSheet(); toast('🧍 Poza ta întreagă e modelul de corp. Fișa de corp se reface în fundal.', 3500);
+    pfAfterFull(c);
+  };
+}
+function pfAfterFull(c){
+  if(profId === c.id) charProfile(c.id, false);
+  setTimeout(async () => { await bodyNoise(c).catch(() => {}); if(await bsheetGen(c, true).catch(() => false)) toast(`🧍 Fișa de corp a lui ${c.name} e refăcută.`, 3000); }, 1500);
+}
+// „Refă cu alt corp”: editorul de corp → 2 variante noi din portret, cu corpul ales; corpul ales rămâne pentru personaj
+async function pfBodySheet(c){
+  if(!c || !c.photo) return;
+  if(S.imgProv === 'none'){ toast('Pornește pozele din Setări → Poze.'); return; }
+  const B0 = bodyOf(c), B = {...B0};
+  openSheet(`<h4>🧍 Alt corp pentru ${esc(c.name)}</h4><div class="pad"><div id="pfbEd"></div>
+    <div class="btns"><button class="btn" id="pfbX">Renunță</button><button class="btn pri" id="pfbGo" disabled>🧍 Fă poza întreagă</button></div></div>`);
+  const sync = () => { const n = bodyChanges(B0, B).length, b = $('#pfbGo'); if(b){ b.disabled = !n; b.textContent = n ? `🧍 Fă poza întreagă (${n} ${n === 1 ? 'schimbare' : 'schimbări'})` : '🧍 Fă poza întreagă'; } };
+  bodyEdBind($('#pfbEd'), B, B0, sync, 'pfbH')(); sync();
+  $('#pfbX').onclick = closeSheet;
+  $('#pfbGo').onclick = async () => {
+    const Zb = {body:B}, en = crBodyEn(Zb), ro = crBodyText(Zb);
+    const cx = {...c, physEn:physWithBody(c.physEn, en, 'Body'), photoFull:undefined, bodySig:undefined, bodyFull:undefined, appZones:{...(c.appZones || crEmptyZ()), body:{...B}}};
+    closeSheet(); setTimeout(() => pfMakeFull(c, {cx, persist:{body:{...B}, physEn:cx.physEn, ro}}), 60);
+  };
 }
 /* ═════════ 🧬 8.21 identitate fixă ═════════
    1. PAȘAPORT: fața, părul, corpul, semnele (alunițe, tatuaje, piercinguri) și ochelarii, citite o dată din poza de profil.
@@ -6878,7 +6962,7 @@ async function charProfile(id, push = true){
   $('#pfAvBtn').onclick = () => { if(storyLive().some(x => x.cid === id)) openStories(id); else if(c.photo){ const k = photoNow(c); viewImg(k, [...new Set([k, c.photo])]); } };   // 9.27: poza de acum (avatarul viu), apoi cea de bază
   body.querySelectorAll('[data-hi]').forEach(b => b.onclick = e => { e.stopPropagation(); const h = hiDays[+b.dataset.hi]; openStories(id, h.items.slice().reverse().map(x => ({id:'h' + x.k, cid:id, ts:x.ts, text:'', img:x.k, scene:x.scene}))); });
   $('#pfChat').onclick = () => { if(fromChat) history.back(); else openChat(id); };
-  { const fb = $('#pfFullBtn'); if(fb) fb.onclick = e => { e.stopPropagation(); viewFull(c); }; const mf = $('#pfMakeFull'); if(mf) mf.onclick = e => { e.stopPropagation(); pfMakeFull(c); }; }   // 9.24–9.25
+  { const fb = $('#pfFullBtn'); if(fb) fb.onclick = e => { e.stopPropagation(); pfFullSheet(c); }; const mf = $('#pfMakeFull'); if(mf) mf.onclick = e => { e.stopPropagation(); pfFullSheet(c); }; }   // 9.24–9.25
 }
 function profScroll(){
   const sc = $('#pfScroll'), y = sc.scrollTop, img = $('#pfBody .pfHero img, #pfBody .pfHero .ph');
@@ -9800,7 +9884,7 @@ async function crSave(c){
   }
 }
 /* ── 🧍 personajele existente: „Fă-i poza întreagă” din profil (din portretul actual, aceeași față; c.photo nu se schimbă) ── */
-async function pfMakeFull(c){
+async function pfMakeFull(c, o = {}){   // 9.89: o.cx = personajul cu alt corp, o.persist = ce rămâne la alegere
   if(!c || !c.photo) return;
   if(S.imgProv === 'none'){ toast('Pornește pozele din Setări → Poze.'); return; }
   const base = await DB.get(c.photo); if(!base) return;
@@ -9813,11 +9897,12 @@ async function pfMakeFull(c){
     const pv = e.target.closest('[data-pv]'); if(pv){ const v = st.vars[+pv.dataset.pv], ok = st.vars.filter(x => x.st === 'ok'); const face = {}; for(const x of ok) if(x.chk && x.chk.box) face[x.url] = x.chk.box; viewImg(v.url, ok.map(x => x.url), null, {face}); return; }
     const pc = e.target.closest('[data-pc]'); if(!pc || st.saving) return; st.saving = true; st.ac.abort();
     const v = st.vars[+pc.dataset.pc]; pc.disabled = true; pc.innerHTML = '<span class="spin"></span>';
-    await saveFull(c, v); closeSheet(); toast('🧍 Poza întreagă e salvată.');
-    if(profId === c.id) charProfile(c.id, false);
+    if(o.persist){ c.appZones = c.appZones || crEmptyZ(); c.appZones.body = {...o.persist.body}; c.physEn = o.persist.physEn; if(o.persist.ro) c.physUser = physWithBody(c.physUser, o.persist.ro, 'corp'); }   // 9.89: corpul nou rămâne
+    await saveFull(c, v); closeSheet(); toast('🧍 Poza întreagă e salvată. Fișa de corp se reface în fundal.', 3000);
+    pfAfterFull(c);
   });
   const draw = () => { if(!grid.isConnected) return; grid.innerHTML = st.vars.map((v, i) => `<figure class="crv${v.st === 'ok' ? '' : ' ' + v.st}">${v.url ? `<img src="${v.url}" alt="" data-pv="${i}">` : '<div class="crph"></div>'}<figcaption>${crBadge(v)}</figcaption>${v.st === 'ok' && !v.fixing ? `<button type="button" class="btn sm" data-pc="${i}">Alege</button>` : ''}</figure>`).join(''); };
-  st.vars = await fullVariants(c, base, st.ac.signal, vs => { st.vars = vs; draw(); });   // 9.36: același cod și pentru poza întreagă automată
+  st.vars = await fullVariants(o.cx || c, base, st.ac.signal, vs => { st.vars = vs; draw(); });   // 9.36: același cod și pentru poza întreagă automată
   if(!grid.isConnected) return;
   const ok = st.vars.filter(v => v.st === 'ok');
   msg.textContent = ok.length ? 'Atinge una ca s-o vezi mare, apoi „Alege”. Poza de profil rămâne aceeași.' : 'N-a ieșit nicio variantă. Mai încearcă.';
