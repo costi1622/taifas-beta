@@ -1,5 +1,5 @@
 window.__taifas = true;   // 8.20.1: semn pentru index.html că app.js s-a încărcat
-const APP_VER = '9.94';
+const APP_VER = '9.97';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -802,8 +802,23 @@ function exposureMode(text){
   if(/(?:topless|bare breasts|bare chest|without a top|shirtless|f[ăa]r[ăa] sutien|s[âa]nii? goi|ț[âa]țele goale|t[âa]țele goale|bustul gol|pieptul gol|s[âa]nii? la vedere|bustul la vedere|ar[ăa]t[ăa]-?mi s[âa]nii?|arat[ăa]-?mi bustul|poz[ăa][^.!?]{0,30}(?:s[âa]nii?|bustul|pieptul)[^.!?]{0,25}(?:gol|goi|goale|f[ăa]r[ăa] sutien))/i.test(t)) return 'topless';
   return 'clothed';
 }
+// 9.95: instrucțiuni de continuitate anatomică pentru topless/nuditate artistică.
+// Nu schimbă regulile de vârstă sau moderarea furnizorului; descrie doar anatomia adultului deja eligibil.
+function bustAnatomyGuidance(c, shot){
+  const text = [c && c.physEn, c && c.physUser, c && c.look, c && c.persona, shot].filter(Boolean).join(' ').toLowerCase();
+  const body = c && c.appZones && c.appZones.body ? c.appZones.body : {};
+  const size = body.bust || '';
+  const shape = body.bustShape || '';
+  const sizeMap = {'plat':'flat chest','mic':'small bust','mediu':'medium bust','mare':'large bust','foarte mare':'very large bust'};
+  const shapeMap = {'rotund':'round natural contour','natural, în formă de lacrimă':'natural teardrop contour','ridicat, ferm':'naturally high and firm contour','ușor lăsat':'naturally sagging contour with visible downward weight','depărtat':'naturally wide-set placement','apropiat':'naturally close-set placement'};
+  const declaredSize = sizeMap[size] || (/\b(very large|extremely large|large|full|heavy|prominent) bust\b|\b(very large|large|heavy) breasts?\b|s[âa]ni? foarte mari|bust foarte mare/i.test(text) ? 'large or very large bust, matching the strongest explicit character description' : 'the exact bust size established by the character reference');
+  const declaredShape = shapeMap[shape] || (/sagging|drooping|ptosis|l[ăa]sa[țt]i|c[ăa]zu[țt]i/i.test(text) ? 'naturally sagging contour with visible downward weight' : 'the same natural contour and placement established by the character reference');
+  const mature = /\b(older|elderly|senior|aged|70s|80s|90s|b[ăa]tr[âa]n|v[âa]rstnic|\d{2}\s*(?:-year-old|years old|de ani))\b/i.test(text);
+  return ` ANATOMICAL CONTINUITY (adult character, non-sexual): preserve ${declaredSize}; preserve ${declaredShape}. Treat the clothed reference as evidence of the same underlying anatomy, not as a generic-body template. Match chest width, root spacing, natural volume, forward projection, lower contour and relative scale against shoulders, ribcage and waist. Use gravity- and pose-consistent soft-tissue deformation: the shape should respond naturally to standing, sitting, leaning or lying down; do not automatically lift, firm, round, symmetrize, shrink or enlarge it. Keep realistic left-right asymmetry and natural transitions into the chest wall; avoid rigid spheres, implants-like geometry, exaggerated cleavage and beauty retouching. ${mature ? 'Preserve the character’s mature age cues and age-consistent tissue softness and gravity; do not rejuvenate the body.' : 'Preserve the character’s established age cues and natural skin texture; do not idealize or rejuvenate the body.'} This is anatomical consistency guidance only; follow the selected provider’s content policy.`;
+}
+
 function clearlyAdultCharacter(c){
-  if(looksYoung(c)) return false;   // 9.94 (D): aspectul contează, nu doar descrierea
+  if(looksYoung(c)) return false;   // 9.97: estimarea sub 18 rămâne un blocaj pentru nuditate explicită
   const t = [c && c.name, c && c.persona, c && c.look, c && c.aspect, c && c.physEn].filter(Boolean).join(' ');
   return /\b(adult[aă]?|18\s*(?:\+|ani|years? old)|19\s*(?:ani|years? old)|[2-9]\d\s*(?:ani|years? old)|\d{2}\s+(?:de\s+)?ani|(?:18|[2-9]\d)[ -]year[ -]old|(?:in her|in his)\s+(?:20s|30s|40s|50s|60s|70s|80s|90s)|femeie de \d{2} de ani|b[ăa]rbat de \d{2} de ani)\b/i.test(t);
 }
@@ -947,7 +962,8 @@ async function creatorScene(c, shot, signal, fix, opt, full, id, fr){
     : bodyRef
     ? `Image 1 is the exact face reference for ${c.name}; preserve the same facial identity. Image 2 is the body/proportion reference for ${c.name}; preserve the same build and silhouette, especially bust size and shape, but do not copy its clothing, pose, framing or background.`
     : 'The reference image is a close-up of this person’s face only: keep exactly this face and identity (face shape, eyes, eyebrows, nose, lips, skin tone and texture, age); everything else comes from this text, not from the reference.';
-  const prompt = `${stilLead(st)}${asked.length ? `REQUESTED, must be clearly visible: ${asked.join('; ')}. ` : ''}${stilFrame(st, fr.p)}. ${shot}.${fix ? ` Corrections from the previous attempt: ${fix}.` : ''}${nude}${faceInstruction}${bodyLock} The person, permanent look unless the request above changes something: ${lookText(c, id) || 'as in the reference'}. ${NO_BEAUTY} ${STIL_TAG[st]}`;
+  const anatomy = exposure !== 'clothed' ? bustAnatomyGuidance(c, shot) : '';
+  const prompt = `${stilLead(st)}${asked.length ? `REQUESTED, must be clearly visible: ${asked.join('; ')}. ` : ''}${stilFrame(st, fr.p)}. ${shot}.${fix ? ` Corrections from the previous attempt: ${fix}.` : ''}${nude}${faceInstruction}${bodyLock}${anatomy} The person, permanent look unless the request above changes something: ${lookText(c, id) || 'as in the reference'}. ${NO_BEAUTY} ${STIL_TAG[st]}`;
   if(useF3()){   // 9.43/9.53: FLUX 3 folosește fața + reperul de corp și prioritizează proporțiile bustului la cereri topless/nud
     const fb = c.photoFull ? await DB.get(c.photoFull).catch(() => null) : null;
     const body = bodyRef || (fb ? await fullBodyRef(fb, c.fullBox) : null);
@@ -1019,16 +1035,17 @@ async function scenePhoto(c, shot, signal, fix, opt = {}){
   if(full && S.imgProv === 'worker' && S.photoEngine !== 'id') return await creatorScene(c, shot, signal, fix, opt, full, id, fr);   // 9.42
   const exposure = exposureMode(shot);
   const nudeNote = exposure === 'explicit' ? ' The fictional character is clearly an adult (18+), fully nude with visible external genital anatomy as requested; anatomically plausible, non-graphic, not a sexual act; do not add clothing or underwear. Only if the selected provider permits it.' : exposure === 'full' ? ' The character is clearly an adult (18+) and this is natural, non-explicit artistic nudity, not a sexual act; do not add clothing or underwear.' : exposure === 'topless' ? ' The character is clearly an adult (18+) and is topless as requested; bare breasts visible, no shirt or bra. Keep lower-body clothing as described; do not turn this into full nudity.' : '';
+  const anatomy = exposure !== 'clothed' ? bustAnatomyGuidance(c, shot) : '';
   if(full && S.imgProv === 'worker'){
     const R = await idRefs(c, shot);
-    const prompt = idPrompt(c, shot + nudeNote, fr, R, fix, true);
-    return {prompt, blob: await genImage(prompt, R.face, signal, R.body, {model: S.wkChat || (S.wkModel === 'eco' ? 'ancorat' : S.wkModel), p1: idPrompt(c, shot + nudeNote, fr, R, fix, false), extra: R.extra, size: opt.size})};
+    const prompt = idPrompt(c, shot + nudeNote + anatomy, fr, R, fix, true);
+    return {prompt, blob: await genImage(prompt, R.face, signal, R.body, {model: S.wkChat || (S.wkModel === 'eco' ? 'ancorat' : S.wkModel), p1: idPrompt(c, shot + nudeNote + anatomy, fr, R, fix, false), extra: R.extra, size: opt.size})};
   }
   if(S.imgProv === 'worker'){
-    const prompt = [c.look || '', fr.p, shot + fixLine + nudeNote, stil].filter(Boolean).join('. ');
+    const prompt = [c.look || '', fr.p, shot + fixLine + nudeNote + anatomy, stil].filter(Boolean).join('. ');
     return {prompt, blob: await genImage(prompt, null, signal)};
   }
-  const prompt = [fr.p, shot + fixLine + nudeNote, full ? 'Same person as in the reference image; take only the face, hair and body type from it, everything else (place, pose, clothing, light) from this description.' + phys : c.look || '', stil].filter(Boolean).join('. ');
+  const prompt = [fr.p, shot + fixLine + nudeNote + anatomy, full ? 'Same person as in the reference image; take only the face, hair and body type from it, everything else (place, pose, clothing, light) from this description.' + phys : c.look || '', stil].filter(Boolean).join('. ');
   return {prompt, blob: await genImage(prompt, full, signal)};
 }
 /* ═════════ 🧩 9.83 fidelitate: fișa de identitate, schițe, proporții, reparare țintită, respingere cu motiv ═════════
@@ -1164,7 +1181,7 @@ const BSHEET_VIEWS = {'34':'from a three-quarter angle, full body from head to f
 const BSHEET_RO = {'34':'¾', side:'profil', sit:'așezată', full:'poza întreagă'};
 const bsheetOf = c => c && c.photoFull && c.bsheet && c.bsheet.k === c.photoFull ? c.bsheet.v || [] : [];
 async function bsheetGen(c, force, onStep){
-  if(!sheetOn(c) || !c.photoFull || sheetBusy || looksYoung(c)) return false;   // 9.94 (D)
+  if(!sheetOn(c) || !c.photoFull || sheetBusy) return false;   // 9.97: fișa corporală non-sexuală nu depinde de estimarea vârstei
   if(!force && (bsheetOf(c).length || (c.bsheetTry && c.bsheetTry.k === c.photoFull && Date.now() - c.bsheetTry.at < 7 * 864e5))) return false;
   const mdl = rwFor('ancorat') ? 'ancorat' : (S.wkChat || 'ancorat');
   if(rwFor(mdl) ? rwCapLeft() < rwPer() * 5 : capLeft() < (neurPerPhoto(mdl) || 5000) * 5) return false;
@@ -1204,7 +1221,7 @@ function bodyPoseOf(shot){
   return 'full';
 }
 async function bodyRefFor(c, shot){
-  if(!c.photoFull || looksYoung(c)) return null;   // 9.94 (D)
+  if(!c.photoFull) return null;   // 9.97: reperul corporal non-sexual poate fi calculat separat
   const want = bodyPoseOf(shot), pick = want === 'full' ? null : bsheetOf(c).find(x => x.pose === want);
   const k = pick ? pick.k : c.photoFull, b = await DB.get(k).catch(() => null); if(!b) return null;
   let full2 = null; if(pick){ const fb = await DB.get(c.photoFull).catch(() => null); if(fb) full2 = (await personCrop(fb, c.photoFull)) || await wholeRef(fb); }   // 9.89 (b): și poza întreagă, pentru proporții
@@ -1526,7 +1543,6 @@ function pfAfterFull(c){
 // „Refă cu alt corp”: editorul de corp → 2 variante noi din portret, cu corpul ales; corpul ales rămâne pentru personaj
 async function pfBodySheet(c){
   if(!c || !c.photo) return;
-  if(looksYoung(c)){ toast('Personajul nu pare clar adult: schimbările de corp sunt oprite pentru el.', 4000); return; }   // 9.94 (D)
   if(S.imgProv === 'none'){ toast('Pornește pozele din Setări → Poze.'); return; }
   const B0 = bodyOf(c), B = {...B0};
   openSheet(`<h4>🧍 Alt corp pentru ${esc(c.name)}</h4><div class="pad"><div id="pfbEd"></div>
@@ -1561,8 +1577,7 @@ function kitState(c){
     const sv = sheetOf(c).length, bv = bsheetOf(c).length, kf = c.photoFull || '';
     const sTried = !sv && c.sheetTry && c.sheetTry.k === c.photo, bTried = !bv && c.bsheetTry && c.bsheetTry.k === kf;
     add('fisa', '🧩 Fișa feței', sv > 0, sv ? sv + ' unghiuri' : sTried ? 'n-a ieșit data trecută (fața nu s-a putut verifica sau serviciul a fost ocupat): apasă „Completează acum”' : 'se face în fundal');
-    if(looksYoung(c)) add('fisaCorp', '🧍 Fișa corpului', false, 'oprită: nu pare clar adult(ă)', false, true); else
-    add('fisaCorp', '🧍 Fișa corpului', !c.photoFull || bv > 0, c.photoFull ? (bv ? bv + ' poziții' : bTried ? 'n-a ieșit data trecută: apasă „Completează acum”' : 'se face în fundal') : 'după poza întreagă', !!c.photoFull);
+        add('fisaCorp', '🧍 Fișa corpului', !c.photoFull || bv > 0, c.photoFull ? (bv ? bv + ' poziții' : bTried ? 'n-a ieșit data trecută: apasă „Completează acum”' : 'se face în fundal') : 'după poza întreagă', !!c.photoFull);
     const measured = c.bodySig && c.bodySig.v3 && c.bodySig.k === kf, sig = measured ? c.bodySig.v : null;
     add('silueta', '📐 Silueta măsurată', !c.photoFull || !!sig, sig ? (bodyRatioRo(sig) || 'măsurată') : measured ? 'nu se poate măsura: în poza întreagă nu se văd clar umerii, șoldurile și genunchii' : c.photoFull ? 'se măsoară în telefon' : '—', !!c.photoFull, measured && !sig);
     const tol = bodyTol(c), calib = c.bodyNoise && c.bodyNoise.k === kf;
@@ -1637,8 +1652,8 @@ const warnLine = m => m.faceWarn != null || m.bodyWarn != null ? `⚠️ seamăn
        silueta se măsoară pe persoana decupată (umerii, șoldurile, genunchii se găsesc mult mai sigur).
    (B) Fața, al doilea reper: poziția feței o dă detectorul din telefon (precis), nu estimarea din text; „Caută din nou” chiar caută.
    (C) Fidelitate: retuș de la 0,36 (nu 0,40); tenul blocat pe tenul din portret (pe telefon); mâinile verificate; corpul mai stabil.
-   (D) Vârsta după aspect: personajele care nu par clar adulte nu primesc funcțiile de corp și nici conținut intim. */
-const AGE_MIN = 21;   // estimarea din telefon greșește cu câțiva ani: pragul e mai sus de 18, intenționat
+   (D) Vârsta după aspect: protecțiile se aplică sub pragul de 18 ani sau când descrierea indică explicit un minor; estimările 18–20 nu sunt blocate doar pentru că sunt sub 21. */
+const AGE_MIN = 18;   // 9.96: prag legal 18; estimările 18–20 nu mai sunt blocate automat doar pentru că sunt sub 21
 async function ageLook(c){
   if(!c || !c.photo) return null;
   if(c.ageLook && c.ageLook.k === c.photo) return c.ageLook;
@@ -1649,7 +1664,7 @@ async function ageLook(c){
       if(!r){ if(!f.nets.ssdMobilenetv1.isLoaded) await f.nets.ssdMobilenetv1.loadFromUri(FA + 'model'); r = await f.detectSingleFace(im, new f.SsdMobilenetv1Options({minConfidence:.35})).withAgeAndGender(); }
       if(r) a = Math.round(r.age); } finally { URL.revokeObjectURL(u); } }catch(e){}
   const ph = String((c.faceBox && c.faceBox.k === c.photo && c.faceBox.phys) || '').toLowerCase();
-  if(/\b(teen|teenage|adolescent|schoolgirl|schoolboy|young girl|young boy|child|kid|minor)\b/.test(ph)) txt = 'tânăr';
+  if(hasMinorCharacterSignal(ph)) txt = 'tânăr';   // 9.97: aceeași regulă contextuală ca în editor, fără blocarea automată a adultului numit „teen”
   const m = ph.match(/\b(?:aged?|around|about|apparent age[: ]*)\s*(\d{1,2})\b|\b(\d{1,2})\s*(?:-|–|to)\s*(\d{1,2})\s*years?\b|\b(\d{2})s\b/);
   const ta = m ? +(m[1] || m[2] || m[4]) : null; if(ta != null && ta < 18) txt = 'tânăr';
   c.ageLook = {k:c.photo, a, ta, young:(a != null && a < AGE_MIN) || txt === 'tânăr'}; saveChars();
@@ -2193,7 +2208,7 @@ async function makeScenePhoto0(c, shot, signal, opt = {}){
   // 9.83 (5): scena e bună și doar fața / părul nu se potrivesc → se repară numai acolo, nu toată poza
   if(a.check && localFixOn(c, opt)){
     const ck = a.check, sceneOk = ck.scene >= 6 && ck.framing >= 5 && (ck.asked == null || ck.asked >= 8);
-    const needF = ck.face < 8, needH = ck.hair != null && ck.hair < 6, needB = a.bd != null && a.bd > bodyMax(c) && framingOf(shot).k !== 'close' && !looksYoung(c);   // 9.85 (5); 9.94 (D)
+    const needF = ck.face < 8, needH = ck.hair != null && ck.hair < 6, needB = a.bd != null && a.bd > bodyMax(c) && framingOf(shot).k !== 'close';   // 9.97: verificarea corporală nu e conținut intim
     if(sceneOk && (needF || needH || needB)){
       let blob = a.blob; const done = [], model = rwFor('ancorat') ? 'ancorat' : 'eco', tX = performance.now();
       try{
@@ -4732,7 +4747,7 @@ function drawSheet(c, box){
   const K = kitState(c), kb = kitBusy.has(c.id);
   box.insertAdjacentHTML('beforeend', `<div class="refbox" id="pfKit"><b>🧬 Pachetul de identitate ${K.ok ? '<span class="kok">✅ complet</span>' : `<span class="kno">${kb ? '⏳ se completează' : '⚠️ ' + K.miss.length + ' de completat'}</span>`}</b><small>Tot ce folosește aplicația ca să-l reproducă la fel în orice poză (chat, grup, stories, avatare). Se reface singur când schimbi o poză.</small>
     <ul class="kitl">${K.items.map(x => `<li class="${x.ok ? 'ok' : x.warn ? 'warn' : 'no'}"><span>${x.ok ? '✅' : x.warn ? '⚠️' : '⏳'} ${esc(x.l)}</span><small>${esc(x.v || '')}</small></li>`).join('')}</ul>
-    ${looksYoung(c) ? '<small style="margin-top:8px;color:#ffb020">🔒 Nu pare clar adult(ă) după poză: fișa corpului, schimbările de corp și conținutul intim sunt oprite pentru acest personaj.</small>' : ''}
+    ${looksYoung(c) ? '<small style="margin-top:8px;color:#ffb020">🔒 Estimarea vizuală a vârstei este sub 18 ani: generarea intimă rămâne blocată până când există o referință vizuală clar adultă. Funcțiile obișnuite de portret și fișă corporală rămân disponibile.</small>' : ''}
     ${!K.ok && S.imgProv !== 'none' ? `<div class="btns"><button class="btn sm pri" id="pfKitGo"${kb ? ' disabled' : ''}>${kb ? '<span class="spin"></span> Se completează…' : '🧬 Completează acum'}</button></div>` : ''}</div>`);
   { const kg = box.querySelector('#pfKitGo'); if(kg) kg.onclick = async () => { kg.disabled = true; kg.innerHTML = '<span class="spin"></span> Se completează…';
       if(kitBusy.has(c.id)) for(let i = 0; i < 240 && kitBusy.has(c.id); i++) await sleep(500);   // 9.93: se completa deja în fundal: îl așteaptă
@@ -9506,7 +9521,44 @@ const CR_FRAMES = {
   '34':{l:'Trei sferturi', size:'832x1248', p:'Three-quarter shot from the top of the head down to just below the knees, both arms and both hands visible, vertical framing'},
   portrait:{l:'Portret', size:'768x1024', p:'Head and shoulders portrait, the face large and sharp, looking at the camera'}};
 const CR_HANDS = 'Natural, anatomically correct hands with exactly five fingers each, relaxed and clearly visible.';
-const CR_MINOR = /\b([1-9]|1[0-7])\s*(de\s*)?ani\b|\b([1-9]|1[0-7])\s*(years?|yo)\b|\b(copil|copilă|copii|fetiț|băiețel|baietel|adolescent|minor[ăa]?\b|elev[ăa]? de liceu|liceană|liceana|școlăriț|scolarit|teen|child|kid\b|underage)/i;
+// 9.97: verificare contextuală pentru minori. Nu tratează automat „teen” ca minor
+// dacă aceeași propoziție declară explicit 18+; nici copilul/fiica menționați ca rude
+// nu fac automat personajul principal minor. Vârstele explicite sub 18 rămân blocate
+// când se referă la personajul descris sau nu pot fi atribuite clar unei rude secundare.
+const CR_MINOR = { test: hasMinorCharacterSignal };
+function hasMinorCharacterSignal(value){
+  const text = String(value || '').normalize('NFC');
+  if(!text.trim()) return false;
+  const sentences = text.split(/[\n.!?;]+/).map(x => x.trim()).filter(Boolean);
+  const adultAge = /\b(?:18|19|[2-9]\d)\s*(?:\+|ani\b|de\s+ani\b|years?\s*old\b|years?\s*of\s*age\b|yo\b)|\b(?:aged?\s*)?(?:18|19|[2-9]\d)[ -]year[ -]old\b|\b(?:aged?\s+)?(?:18|19|[2-9]\d)\b|\b(?:adult[aă]?|adulto)\b/i;
+  const underAge = /\b([1-9]|1[0-7])\s*(?:de\s*)?ani\b|\b([1-9]|1[0-7])\s*(?:years?\s*old|years?\s*of\s*age|yo)\b|\b([1-9]|1[0-7])[- ]year[- ]old\b/i;
+  const relational = /\b(?:fiic\w*|fiul|fiu|copilul|copiii|nepoat[ăa]|nepotul|sor[ăa]|fratele|frate|sister|brother|daughter|son|niece|nephew|grandchild|children|child|kids?)\b/i;
+  const hardMinor = /\b(?:underage|minor[ăa]?|copil(?:ă|ul|a|i)?|child|kids?|fetiț(?:ă|a|e)?|băiețel|baietel|schoolgirl|schoolboy|elev[ăa]? de liceu|licean[ăa]?|școlăriț[ăa]?|scolarit[ăa]?)\b/i;
+  const ambiguousYoung = /\b(?:teen(?:age|ager)?|adolescent(?:ă|ul|a)?|young girl|young boy)\b/i;
+  for(const sentence of sentences){
+    const adult = adultAge.test(sentence);
+    const ageMatches = [...sentence.matchAll(new RegExp(underAge.source, 'ig'))];
+    for(const match of ageMatches){
+      const before = sentence.slice(Math.max(0, match.index - 55), match.index);
+      // Explicit age attached to a clearly secondary relative is not the main character's age.
+      const relationNear = adult && relational.test(before.slice(-35));
+      if(!relationNear) return true;
+    }
+    if(hardMinor.test(sentence)){
+      const m = hardMinor.exec(sentence);
+      const before = sentence.slice(Math.max(0, m.index - 55), m.index);
+      const adultBefore = /\b(?:adult[aă]?|adulto|18\s*\+|(?:18|19|[2-9]\d)\s*(?:ani|years?\s*old))\b/i.test(before);
+      const secondary = adultBefore && /\b(?:are|has|with|whose|al cărei|al cărui|cu|fiica|fiul|copilul|sora|fratele|her|his|their)\b/i.test(before);
+      if(!secondary) return true;
+    }
+    if(ambiguousYoung.test(sentence) && !adult){
+      const y = ambiguousYoung.exec(sentence), before = sentence.slice(Math.max(0, y.index - 60), y.index);
+      const secondaryYoung = /\b(?:mother|father|parent|mum|mom|dad|mama|mamă|tata|tată|părinte|has a|has an|are un|are o|fiic\w*|fiul|daughter|son|sister|brother|sor[ăa]|frate|of a|of her|of his|her|his|their)\b/i.test(before);
+      if(!secondaryYoung) return true;
+    }
+  }
+  return false;
+}
 // zonele descrierii (română); „corp” are și selectorii de mai jos
 const CR_ZONES = [['gen', 'Vârstă și gen', 'ex. femeie, 28 de ani'], ['fata', 'Față', 'formă, ochi, sprâncene, nas, buze, ten, pistrui, alunițe, machiaj'], ['par', 'Păr', 'culoare, lungime, textură, coafură, breton'],
   ['corp', 'Corp: alte detalii', 'orice altceva despre corp'], ['maini', 'Mâini și detalii', 'unghii, inele, brățări, tatuaje și piercinguri (cu locul), ochelari'], ['tinuta', 'Ținută', 'haine, culori, accesorii'],
@@ -10386,7 +10438,7 @@ async function duoSplitDesc(){
     const j = await crAskJSON('Desparți o descriere în două personaje de poveste, distincte. Răspunzi DOAR cu JSON valid, în română.',
 `Descrierea scrisă de utilizator (conține două personaje):
 ${src}
-Despart-o în DOUĂ personaje adulte (21+), fiecare cu: "name" (numele din descriere; dacă lipsește, unul potrivit), "persona" (cine e, ce-i place, cum se poartă, relația cu utilizatorul, 3-6 propoziții, fidel descrierii, completând firesc), "aspect" (cum arată, fără haine trecătoare: vârstă, față, păr, corp, semne; doar ce reiese din descriere, completat discret), "speech" (cum vorbește, 4-10 cuvinte, clar diferit de celălalt). Plus "rel": ce relație au ele două între ele (o propoziție). Nu amesteca trăsăturile unuia cu ale celuilalt.
+Desparte-o în DOUĂ personaje adulte (18+), fiecare cu: "name" (numele din descriere; dacă lipsește, unul potrivit), "persona" (cine e, ce-i place, cum se poartă, relația cu utilizatorul, 3-6 propoziții, fidel descrierii, completând firesc), "aspect" (cum arată, fără haine trecătoare: vârstă, față, păr, corp, semne; doar ce reiese din descriere, completat discret), "speech" (cum vorbește, 4-10 cuvinte, clar diferit de celălalt). Plus "rel": ce relație au ele două între ele (o propoziție). Nu amesteca trăsăturile unuia cu ale celuilalt.
 JSON: {"a":{"name":"","persona":"","aspect":"","speech":""},"b":{"name":"","persona":"","aspect":"","speech":""},"rel":""}`, 1400);
     const A = j.a || {}, B = j.b || {}, cl = v => faraLiniute(String(v || '')).trim();
     if(!cl(A.name) || !cl(B.name)) throw new Error('n-am găsit două personaje în descriere');
