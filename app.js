@@ -1,5 +1,5 @@
 window.__taifas = true;   // 8.20.1: semn pentru index.html că app.js s-a încărcat
-const APP_VER = '9.92';
+const APP_VER = '9.93';
 
 /* ───────── utilitare ───────── */
 const $ = s => document.querySelector(s);
@@ -1546,19 +1546,20 @@ const kitKey = c => [c.photo || '', c.photoFull || ''].join('|');
 function kitState(c){
   if(!c || !c.photo) return {ok:false, items:[], miss:['portretul']};
   const photo = (c.stil || 'photo') === 'photo', fb = c.faceBox && c.faceBox.k === c.photo, items = [], miss = [];
-  const add = (k, l, ok, v, need = true) => { items.push({k, l, ok, v}); if(!ok && need) miss.push(l); };
+  const add = (k, l, ok, v, need = true, warn = false) => { items.push({k, l, ok, v, warn}); if(!ok && need && !warn) miss.push(l); };   // 9.93: warn = încercat, nu se poate (motivul în v)
   add('portret', '👤 Portretul', true, 'poza de profil');
   add('pasaport', '🪪 Trăsăturile citite (față, păr, corp, semne)', !!(fb && c.faceBox.phys !== undefined), fb ? 'citite' : 'se citesc la prima poză');
   add('amprenta', '🧬 Amprenta feței', !!(c.faceEmb && c.faceEmb.d && c.faceEmb.d.length), c.faceEmb && c.faceEmb.d && c.faceEmb.d.length ? c.faceEmb.d.length + ' fețe de referință' : 'se măsoară în telefon');
   if(photo){
     add('intreaga', '🧍 Poza întreagă (modelul de corp)', !!c.photoFull, c.photoFull ? (c.fullOwn ? 'poza ta (exactă)' : 'generată din portret') : 'lipsește: corpul ar fi aproximativ');
-    const sv = sheetOf(c).length, bv = bsheetOf(c).length;
-    add('fisa', '🧩 Fișa feței', sv > 0, sv ? sv + ' unghiuri' : 'se face în fundal');
-    add('fisaCorp', '🧍 Fișa corpului', !c.photoFull || bv > 0, c.photoFull ? (bv ? bv + ' poziții' : 'se face în fundal') : 'după poza întreagă', !!c.photoFull);
-    const sig = c.bodySig && c.bodySig.v2 ? c.bodySig.v : null;
-    add('silueta', '📐 Silueta măsurată', !c.photoFull || !!sig, sig ? (bodyRatioRo(sig) || 'măsurată') : c.photoFull ? 'se măsoară în telefon' : '—', !!c.photoFull);
-    const tol = bodyTol(c);
-    add('prag', '🎚️ Pragul de corp, calibrat', !c.photoFull || tol != null, tol != null ? tol.toFixed(2).replace('.', ',') + (tol < .14 ? ' (mai strict: măsurătoare stabilă)' : '') : c.photoFull ? 'se calibrează' : '—', !!c.photoFull);
+    const sv = sheetOf(c).length, bv = bsheetOf(c).length, kf = c.photoFull || '';
+    const sTried = !sv && c.sheetTry && c.sheetTry.k === c.photo, bTried = !bv && c.bsheetTry && c.bsheetTry.k === kf;
+    add('fisa', '🧩 Fișa feței', sv > 0, sv ? sv + ' unghiuri' : sTried ? 'n-a ieșit data trecută (fața nu s-a putut verifica sau serviciul a fost ocupat): apasă „Completează acum”' : 'se face în fundal');
+    add('fisaCorp', '🧍 Fișa corpului', !c.photoFull || bv > 0, c.photoFull ? (bv ? bv + ' poziții' : bTried ? 'n-a ieșit data trecută: apasă „Completează acum”' : 'se face în fundal') : 'după poza întreagă', !!c.photoFull);
+    const measured = c.bodySig && c.bodySig.v2 && c.bodySig.k === kf, sig = measured ? c.bodySig.v : null;
+    add('silueta', '📐 Silueta măsurată', !c.photoFull || !!sig, sig ? (bodyRatioRo(sig) || 'măsurată') : measured ? 'nu se poate măsura: în poza întreagă nu se văd clar umerii, șoldurile și genunchii' : c.photoFull ? 'se măsoară în telefon' : '—', !!c.photoFull, measured && !sig);
+    const tol = bodyTol(c), calib = c.bodyNoise && c.bodyNoise.k === kf;
+    add('prag', '🎚️ Pragul de corp, calibrat', !c.photoFull || tol != null, tol != null ? tol.toFixed(2).replace('.', ',') + (tol < .14 ? ' (mai strict: măsurătoare stabilă)' : '') : calib ? 'fără siluetă măsurată: se folosește pragul obișnuit (0,14)' : c.photoFull ? 'se calibrează' : '—', !!c.photoFull, calib && tol == null);
   }
   return {ok:!miss.length, items, miss, fresh:!!(c.kit && c.kit.v === KIT_V && c.kit.k === kitKey(c))};
 }
@@ -1573,9 +1574,12 @@ async function kitBuild(c, o = {}){
     step('amprenta'); try{ await refDescs(c); }catch(e){}
     if((c.stil || 'photo') === 'photo'){
       if(o.gen){
-        if(!c.photoFull){ step('intreaga'); await autoFull(c).catch(() => {}); }
-        step('fisa'); const s1 = await sheetGen(c, !!o.force).catch(() => false); if(s1 && o.toast) toast(`🧩 ${c.name}: fișa feței e gata.`, 2500);
-        step('fisaCorp'); const s2 = await bsheetGen(c, !!o.force).catch(() => false); if(s2 && o.toast) toast(`🧍 ${c.name}: fișa corpului e gata.`, 2500);
+        // 9.93: dacă o fișă se face deja în fundal, așteaptă-o (înainte: butonul nu făcea nimic, pentru că locul era ocupat)
+        for(let i = 0; i < 240 && sheetBusy; i++) await sleep(500);
+        if(!c.photoFull){ step('intreaga'); if(o.force) delete c.autoFullTried; await autoFull(c).catch(() => {}); }
+        step('fisa'); const s1 = await sheetGen(c, !!o.force && !sheetOf(c).length).catch(() => false); if(s1 && o.toast) toast(`🧩 ${c.name}: fișa feței e gata.`, 2500);   // forțat doar ce lipsește
+        for(let i = 0; i < 240 && sheetBusy; i++) await sleep(500);
+        step('fisaCorp'); const s2 = await bsheetGen(c, !!o.force && !bsheetOf(c).length).catch(() => false); if(s2 && o.toast) toast(`🧍 ${c.name}: fișa corpului e gata.`, 2500);
       }
       step('silueta'); try{ await refBodySigs(c); }catch(e){}
       step('prag'); try{ await bodyNoise(c); }catch(e){}
@@ -4662,17 +4666,25 @@ function drawSheet(c, box){
   const busyMe = sheetBusy === c.id;
   const K = kitState(c), kb = kitBusy.has(c.id);
   box.insertAdjacentHTML('beforeend', `<div class="refbox" id="pfKit"><b>🧬 Pachetul de identitate ${K.ok ? '<span class="kok">✅ complet</span>' : `<span class="kno">${kb ? '⏳ se completează' : '⚠️ ' + K.miss.length + ' de completat'}</span>`}</b><small>Tot ce folosește aplicația ca să-l reproducă la fel în orice poză (chat, grup, stories, avatare). Se reface singur când schimbi o poză.</small>
-    <ul class="kitl">${K.items.map(x => `<li class="${x.ok ? 'ok' : 'no'}"><span>${x.ok ? '✅' : '⏳'} ${esc(x.l)}</span><small>${esc(x.v || '')}</small></li>`).join('')}</ul>
+    <ul class="kitl">${K.items.map(x => `<li class="${x.ok ? 'ok' : x.warn ? 'warn' : 'no'}"><span>${x.ok ? '✅' : x.warn ? '⚠️' : '⏳'} ${esc(x.l)}</span><small>${esc(x.v || '')}</small></li>`).join('')}</ul>
     ${!K.ok && S.imgProv !== 'none' ? `<div class="btns"><button class="btn sm pri" id="pfKitGo"${kb ? ' disabled' : ''}>${kb ? '<span class="spin"></span> Se completează…' : '🧬 Completează acum'}</button></div>` : ''}</div>`);
   { const kg = box.querySelector('#pfKitGo'); if(kg) kg.onclick = async () => { kg.disabled = true; kg.innerHTML = '<span class="spin"></span> Se completează…';
-      await kitBuild(c, {gen:true, toast:true, onStep:st => { if(kg.isConnected && st) kg.innerHTML = '<span class="spin"></span> ' + esc((K.items.find(x => x.k === st) || {l:st}).l); }}).catch(() => {});
+      if(kitBusy.has(c.id)) for(let i = 0; i < 240 && kitBusy.has(c.id); i++) await sleep(500);   // 9.93: se completa deja în fundal: îl așteaptă
+      await kitBuild(c, {gen:true, force:true, toast:true, onStep:st => { if(kg.isConnected && st) kg.innerHTML = '<span class="spin"></span> ' + esc((K.items.find(x => x.k === st) || {l:st}).l); }}).catch(() => {});
+      { const K2 = kitState(c), left = K2.items.filter(x => !x.ok && !x.warn), warn = K2.items.filter(x => x.warn);
+        toast(left.length ? '⏳ N-au ieșit încă: ' + left.map(x => x.l.replace(/^\S+\s/, '')).join(', ') + '. Încearcă din nou peste câteva minute.' : warn.length ? '✅ Gata. ⚠️ ' + warn.map(x => x.l.replace(/^\S+\s/, '')).join(', ') + ': vezi motivul în listă.' : '✅ Pachetul de identitate e complet.', 5000); }
       const el = $('#pfKit'); if(el){ const sh = $('#pfSheet'); el.remove(); if(sh) sh.remove(); drawSheet(c, box); } }; }
   box.insertAdjacentHTML('beforeend', `<div class="refbox" id="pfSheet"><b>🧩 Fișa de identitate</b><small>4 unghiuri ale aceleiași fețe, făcute o dată din poza de profil și verificate în telefon. La fiecare poză se folosesc cele potrivite scenei (profil, zâmbet, trei-sferturi). ${S.idSheet === 'off' ? 'Oprită din Setări → Poze.' : v.length ? '' : 'Se face singură după prima poză din chat (~4–8 imagini, o dată).'}</small>
-    ${v.length ? `<div class="shgrid">${v.map(x => `<figure><img data-k="${esc(x.k)}" alt=""><figcaption>${esc(SHEET_RO[x.ang] || x.ang)}<br>${x.d != null ? '👤 ' + idPct(x.d) + '%' : '—'}</figcaption></figure>`).join('')}</div>` : ''}
-    ${bv.length ? `<small style="margin-top:6px">🧍 Fișa de corp (din poza întreagă, verificată prin măsurare; se alege după poziția din scenă):</small><div class="shgrid">${bv.map(x => `<figure><img data-k="${esc(x.k)}" alt=""><figcaption>${esc(BSHEET_RO[x.pose] || x.pose)}<br>${x.bd != null ? '🧍 ' + bodyPct(x.bd) + '%' : '—'}</figcaption></figure>`).join('')}</div>` : c.photoFull && S.idSheet !== 'off' ? '<small style="margin-top:6px">🧍 Fișa de corp (¾, profil, așezată) se face singură după fișa feței.</small>' : ''}
+    ${v.length ? `<div class="shgrid">${v.map(x => `<figure><img data-k="${esc(x.k)}" data-sk="${esc(x.k)}" alt=""><figcaption>${esc(SHEET_RO[x.ang] || x.ang)}<br>${x.d != null ? '👤 ' + idPct(x.d) + '%' : '—'}</figcaption></figure>`).join('')}</div>` : ''}
+    ${bv.length ? `<small style="margin-top:6px">🧍 Fișa de corp (din poza întreagă, verificată prin măsurare; se alege după poziția din scenă):</small><div class="shgrid">${bv.map(x => `<figure><img data-k="${esc(x.k)}" data-sk="${esc(x.k)}" alt=""><figcaption>${esc(BSHEET_RO[x.pose] || x.pose)}<br>${x.bd != null ? '🧍 ' + bodyPct(x.bd) + '%' : '—'}</figcaption></figure>`).join('')}</div>` : c.photoFull && S.idSheet !== 'off' ? '<small style="margin-top:6px">🧍 Fișa de corp (¾, profil, așezată) se face singură după fișa feței.</small>' : ''}
+    ${v.length || bv.length ? '<div class="btns" style="margin-top:6px"><button class="btn sm" id="pfSheetSave" type="button">⬇ Salvează toate pozele din fișă</button></div>' : ''}
     ${sheetOn(c) ? `<div class="btns"><button class="btn sm" id="pfSheetGo"${busyMe ? ' disabled' : ''}>${busyMe ? '<span class="spin"></span> Se face…' : v.length ? '↻ Refă fișa' : '🧩 Fă fișa acum'}</button></div>` : ''}
     ${rej.length ? `<small style="margin-top:8px">🎲 Ai respins la poze: ${esc(rej.join(', '))}. Pozele noi pun accent pe asta (scade singur în 2 săptămâni). <button class="btn sm" id="pfPfbX" type="button">Uită</button></small>` : ''}</div>`);
   const el = box.lastElementChild; hydrate(el);
+  // 9.93: pozele din fișă se văd mari (cu ⬇ Salvează) și se pot salva toate
+  const sk = [...v, ...bv].map(x => x.k);
+  el.querySelectorAll('.shgrid img').forEach(im => { im.style.cursor = 'zoom-in'; im.onclick = () => viewImg(im.dataset.k || im.getAttribute('data-k') || im.dataset.sk, sk); });
+  const sa = el.querySelector('#pfSheetSave'); if(sa) sa.onclick = async () => { for(const k of sk){ await saveImage(k); await sleep(400); } };
   const go = el.querySelector('#pfSheetGo'); if(go) go.onclick = async () => {
     if(sheetBusy) return; go.disabled = true; go.innerHTML = '<span class="spin"></span> Se face…';
     let ok = false; try{ ok = await sheetGen(c, true, (a, n) => { go.innerHTML = `<span class="spin"></span> ${SHEET_RO[a]} (${n}/4)`; }); if(c.photoFull){ const okB = await bsheetGen(c, true, (a, n) => { go.innerHTML = `<span class="spin"></span> corp: ${BSHEET_RO[a]} (${n}/3)`; }); ok = ok || okB; } }catch(e){ toast(e.message, 3500); }
